@@ -129,10 +129,6 @@ body {
 
   .features-grid { grid-template-columns: 1fr; gap: 20px; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; margin-bottom: 32px; }
-  
-  .splash-brand-title { font-size: 40px !important; flex-wrap: wrap; justify-content: center; }
-  .splash-stats-bar { flex-wrap: wrap; gap: 16px !important; justify-content: center; }
-  .splash-stat-item { flex: 1 1 40%; }
 }
 `;
 
@@ -557,228 +553,20 @@ function Footer() {
 }
 
 /* ══════════════════════════════════════════════════
-   SPLASH SCREEN — Light Ivory Gold (INTERNAL)
-══════════════════════════════════════════════════ */
-const SPLASH_STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
-
-.splash-root {
-  position: fixed; inset: 0; z-index: 9999;
-  background: linear-gradient(160deg, #faf8f3 0%, #f0ead8 60%, #e8dfc8 100%);
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
-  transition: opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1);
-  font-family: 'DM Sans', system-ui, sans-serif;
-}
-.splash-root.enter { opacity: 0; }
-.splash-root.hold  { opacity: 1; }
-.splash-root.exit  { opacity: 0; transform: scale(1.03); pointer-events: none; }
-
-.splash-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.07) 1px, transparent 1px);
-  background-size: 56px 56px;
-  animation: splashGridDrift 25s linear infinite;
-}
-@keyframes splashGridDrift { to { background-position: 56px 56px; } }
-
-.splash-corner-tl, .splash-corner-br {
-  position: absolute; width: 180px; height: 180px;
-  border: 1.5px solid rgba(184,134,11,0.3);
-}
-.splash-corner-tl { top: 32px; left: 32px; border-right: none; border-bottom: none; animation: splashCornerIn 1s 0.5s both; }
-.splash-corner-br { bottom: 32px; right: 32px; border-left: none; border-top: none; animation: splashCornerIn 1s 0.7s both; }
-@keyframes splashCornerIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-
-.splash-orb-1 {
-  position: absolute; width: 500px; height: 500px; border-radius: 50%;
-  background: rgba(184,134,11,0.1); filter: blur(90px);
-  top: -150px; right: -150px; pointer-events: none;
-  animation: splashOrbPulse 5s ease-in-out infinite alternate;
-}
-.splash-orb-2 {
-  position: absolute; width: 350px; height: 350px; border-radius: 50%;
-  background: rgba(201,150,12,0.08); filter: blur(80px);
-  bottom: -100px; left: -80px; pointer-events: none;
-  animation: splashOrbPulse 4s 1s ease-in-out infinite alternate;
-}
-@keyframes splashOrbPulse { from { opacity: 0.5; transform: scale(0.95); } to { opacity: 1; transform: scale(1.05); } }
-
-.splash-scanline {
-  position: absolute; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(184,134,11,0.5), transparent);
-  top: -2px; opacity: 0;
-}
-.splash-scanline.active { animation: splashScan 3.5s 0.5s ease-in-out forwards; }
-@keyframes splashScan { 0%{top:0;opacity:0} 8%{opacity:1} 92%{opacity:1} 100%{top:100%;opacity:0} }
-
-.splash-content {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 28px; position: relative; z-index: 2; text-align: center;
-}
-
-.splash-logo-ring {
-  position: relative; width: 120px; height: 120px;
-  display: flex; align-items: center; justify-content: center;
-  animation: splashLogoAppear 0.8s 0.2s both;
-}
-@keyframes splashLogoAppear { from{opacity:0;transform:scale(0.6) rotate(-15deg)} to{opacity:1;transform:scale(1) rotate(0)} }
-
-.splash-logo-inner {
-  width: 78px; height: 78px; border-radius: 22px;
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 32px rgba(184,134,11,0.4), 0 0 0 1px rgba(184,134,11,0.2);
-}
-.splash-logo-ring.pulse .splash-logo-inner {
-  box-shadow: 0 12px 48px rgba(184,134,11,0.55), 0 0 0 1px rgba(184,134,11,0.3);
-}
-.splash-logo-icon { color: #fff; }
-
-.splash-logo-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-.splash-logo-track { fill: none; stroke: rgba(184,134,11,0.15); stroke-width: 2; }
-.splash-logo-arc {
-  fill: none; stroke: #b8860b; stroke-width: 2;
-  stroke-dasharray: 340; stroke-dashoffset: 340; stroke-linecap: round;
-  transition: stroke-dashoffset 2s cubic-bezier(.4,0,.2,1) 0.4s;
-}
-.splash-logo-arc.drawn { stroke-dashoffset: 0; }
-
-.splash-brand-block { opacity: 0; transform: translateY(18px); transition: all 0.7s 0.6s; }
-.splash-brand-block.visible { opacity: 1; transform: translateY(0); }
-.splash-brand-tag { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: rgba(184,134,11,0.7); margin-bottom: 8px; }
-.splash-brand-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 52px; font-weight: 900; line-height: 1; color: #1a1612;
-  display: flex; align-items: center; gap: 16px; letter-spacing: -1px; justify-content: center;
-}
-.splash-brand-fs { color: #b8860b; }
-.splash-brand-divider { width: 1px; height: 42px; background: rgba(184,134,11,0.25); }
-.splash-brand-wms { color: #3d3529; font-size: 38px; font-family: 'DM Mono', monospace; font-weight: 500; }
-
-.splash-welcome-block { opacity: 0; transform: translateY(16px); transition: all 0.7s 1s; }
-.splash-welcome-block.visible { opacity: 1; transform: translateY(0); }
-.splash-welcome-line { font-size: 13px; color: #a89f92; font-weight: 300; font-family: 'DM Sans', sans-serif; }
-.splash-welcome-main { font-size: 22px; font-weight: 600; color: #1a1612; margin: 5px 0; font-family: 'Playfair Display', serif; }
-.splash-welcome-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(184,134,11,0.7); letter-spacing: 0.1em; }
-
-.splash-stats-bar {
-  display: flex; gap: 32px; opacity: 0; transform: translateY(12px);
-  transition: all 0.7s 1.4s;
-  padding: 16px 32px;
-  border: 1px solid rgba(184,134,11,0.2);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(100,80,30,0.1);
-}
-.splash-stats-bar.visible { opacity: 1; transform: translateY(0); }
-.splash-stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.splash-stat-num { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 800; color: #b8860b; }
-.splash-stat-label { font-family: 'DM Mono', monospace; font-size: 10px; color: #a89f92; text-transform: uppercase; letter-spacing: 0.1em; }
-
-.splash-progress-track {
-  width: 220px; height: 3px; background: rgba(184,134,11,0.15); border-radius: 99px; overflow: hidden;
-}
-.splash-progress-fill {
-  height: 100%; width: 0;
-  background: linear-gradient(90deg, #b8860b, #e8b923);
-  border-radius: 99px;
-  transition: width 8.4s cubic-bezier(.4,0,.2,1) 0.8s;
-  box-shadow: 0 0 8px rgba(184,134,11,0.5);
-}
-.splash-progress-fill.filling { width: 100%; }
-.splash-progress-label { font-family: 'DM Mono', monospace; font-size: 10px; color: #c9b99a; letter-spacing: 0.15em; }
-`;
-
-function SplashScreen({ onDone }) {
-    const [phase, setPhase] = useState('enter');
-
-    useEffect(() => {
-        const t1 = setTimeout(() => setPhase('hold'), 400);
-        const t2 = setTimeout(() => setPhase('exit'), 8800);
-        const t3 = setTimeout(onDone, 7200);
-        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }, []);
-
-    return (
-        <div className={`splash-root ${phase}`}>
-            <style>{SPLASH_STYLES}</style>
-            <div className="splash-grid" />
-            <div className="splash-corner-tl" />
-            <div className="splash-corner-br" />
-            <div className="splash-orb-1" />
-            <div className="splash-orb-2" />
-            <div className={`splash-scanline ${phase === 'hold' ? 'active' : ''}`} />
-
-            <div className="splash-content">
-                <div className={`splash-logo-ring ${phase === 'hold' ? 'pulse' : ''}`}>
-                    <div className="splash-logo-inner">
-                        <Boxes size={36} strokeWidth={1.8} className="splash-logo-icon" />
-                    </div>
-                    <svg className="splash-logo-svg" viewBox="0 0 120 120">
-                        <circle className="splash-logo-track" cx="60" cy="60" r="54" />
-                        <circle className={`splash-logo-arc ${phase === 'hold' ? 'drawn' : ''}`} cx="60" cy="60" r="54" />
-                    </svg>
-                </div>
-
-                <div className={`splash-brand-block ${phase === 'hold' ? 'visible' : ''}`}>
-                    <div className="splash-brand-tag">INTERNAL MANAGEMENT SYSTEM</div>
-                    <h1 className="splash-brand-title">
-                        <span className="splash-brand-fs">FS</span>
-                        <span className="splash-brand-divider" />
-                        <span className="splash-brand-wms">WMS</span>
-                    </h1>
-                </div>
-
-                <div className={`splash-welcome-block ${phase === 'hold' ? 'visible' : ''}`}>
-                    <p className="splash-welcome-line">Hệ thống quản lý chuỗi cung ứng nội bộ</p>
-                    <p className="splash-welcome-main">FS - Fashion Solution</p>
-                    <p className="splash-welcome-sub">Secure Network Access · v2.0</p>
-                </div>
-
-                <div className={`splash-stats-bar ${phase === 'hold' ? 'visible' : ''}`}>
-                    {[{ n: 'SECURE', l: 'Connection' }, { n: '256-BIT', l: 'Encryption' }, { n: 'SYNC', l: 'Database' }].map(({ n, l }) => (
-                        <div key={l} className="splash-stat-item">
-                            <span className="splash-stat-num">{n}</span>
-                            <span className="splash-stat-label">{l}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="splash-progress-track">
-                    <div className={`splash-progress-fill ${phase === 'hold' ? 'filling' : ''}`} />
-                </div>
-                <p className="splash-progress-label">Establishing secure connection…</p>
-            </div>
-        </div>
-    );
-}
-
-/* ══════════════════════════════════════════════════
    ROOT
 ══════════════════════════════════════════════════ */
 export default function FashionFlowHomepage() {
     const navigate = useNavigate?.() || (() => { });
-    const [showHome, setShowHome] = useState(false);
 
     return (
         <>
             <style>{GLOBAL_CSS}</style>
-            {!showHome && <SplashScreen onDone={() => setShowHome(true)} />}
-            {showHome && (
-                <div style={{ animation: 'fadeInHome 0.8s ease both' }}>
-                    <style>{`@keyframes fadeInHome { from { opacity: 0; } to { opacity: 1; } }`}</style>
-                    <Nav navigate={navigate} />
-                    <Hero navigate={navigate} />
-                    <StatsStrip />
-                    <FeaturesSection />
-                    <CTASection navigate={navigate} />
-                    <Footer />
-                </div>
-            )}
+            <Nav navigate={navigate} />
+            <Hero navigate={navigate} />
+            <StatsStrip />
+            <FeaturesSection />
+            <CTASection navigate={navigate} />
+            <Footer />
         </>
     );
 }
