@@ -47,7 +47,7 @@ export default function StoreNavbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-20">
                     {/* Logo */}
-                    <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
+                    <Link to="/login" className="flex items-center space-x-2 flex-shrink-0">
                         <div className="bg-black p-2 rounded-xl">
                             <ShoppingBag className="w-6 h-6 text-white" />
                         </div>

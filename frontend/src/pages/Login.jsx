@@ -489,7 +489,7 @@ export default function AuthPage() {
                         console.warn("API lấy kho bị chặn (403), nhưng đã có kho từ Token.");
                     }
                     navigate('/dashboard');
-                } else navigate('/');
+                } else navigate('/login');
             } else setErrors({ general: response.message || 'Đăng nhập thất bại' });
         } catch (error) {
             setErrors({ general: error.response?.data?.message || 'Có lỗi xảy ra khi đăng nhập' });
