@@ -595,3 +595,52 @@
 	color: #a89f92 !important;
 }
 
+/* ============================================================
+   AUTH PAGES — scoped under [data-auth-page] only.
+   Do NOT move above .lux-sync / .warehouse-unified blocks.
+   ============================================================ */
+
+/* Entrance animation (stagger qua .delay-1..6) */
+[data-auth-page] .fade-in-up {
+	opacity: 0;
+	animation: authFadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes authFadeInUp {
+	from { opacity: 0; transform: translateY(30px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+[data-auth-page] .delay-1 { animation-delay: 0.05s; }
+[data-auth-page] .delay-2 { animation-delay: 0.1s; }
+[data-auth-page] .delay-3 { animation-delay: 0.15s; }
+[data-auth-page] .delay-4 { animation-delay: 0.2s; }
+[data-auth-page] .delay-5 { animation-delay: 0.25s; }
+[data-auth-page] .delay-6 { animation-delay: 0.3s; }
+
+/* Slider crossfade */
+[data-auth-page] .slide-enter {
+	animation: authSlideIn 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+[data-auth-page] .slide-exit {
+	animation: authSlideExit 1.2s ease-in-out forwards;
+}
+@keyframes authSlideIn {
+	from { opacity: 0; transform: scale(1.05); }
+	to   { opacity: 1; transform: scale(1); }
+}
+@keyframes authSlideExit {
+	from { opacity: 1; }
+	to   { opacity: 0; }
+}
+
+/* Reduced motion: tắt toàn bộ animation của trang auth */
+@media (prefers-reduced-motion: reduce) {
+	[data-auth-page] .fade-in-up,
+	[data-auth-page] .slide-enter,
+	[data-auth-page] .slide-exit {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}
+
