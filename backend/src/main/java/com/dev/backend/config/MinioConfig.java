@@ -41,6 +41,14 @@ public class MinioConfig {
                     .credentials(accessKey, secretKey)
                     .httpClient(getUnsafeOkHttpClient()) // Tắt SSL verification
                     .build();
+                    
+            // OPTION 2: DÀNH CHO SERVER / REMOTE (Bỏ qua chứng chỉ SSL nếu có lỗi HTTPS)
+            // ==============================================================
+            // MinioClient minioClient = MinioClient.builder()
+            //         .endpoint(endpoint)
+            //         .credentials(accessKey, secretKey)
+            //         .httpClient(getUnsafeOkHttpClient())
+            //         .build();
 
             // Check if bucket exists
             boolean bucketExists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());

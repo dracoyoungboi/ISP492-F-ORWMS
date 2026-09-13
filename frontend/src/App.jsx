@@ -1,7 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import Login from "./pages/Login";
-import HomePage from "./pages/HomePage";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -65,7 +64,6 @@ import NhatKyNhapXuat from "./pages/bao-cao/NhatKyNhapXuat";
 import PhieuNhapKhoPrint from "./pages/receipt/PhieuNhapKhoPrint";
 import PhieuXuatKhoPrint from "./pages/issue/PhieuXuatKhoPrint";
 import Dashboard from "@/pages/dashboard/Dashboard";
-import FashionFlowHomepage from "./pages/HomePageInternal";
 import NotFound404 from "./pages/page-error/NotFound404";
 import TonKhoTongQuan from "./pages/bao-cao/TonKhoTongQuan";
 import ApplicationRequestManagement from "./pages/purchase-oder-create-req/ApplicationRequestManagement";
@@ -89,8 +87,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
-        {/* <Route path="/" element={<HomePage />} /> */}
-        <Route path="/" element={<FashionFlowHomepage />} />
+        <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
