@@ -1,196 +1,37 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { toast } from "sonner";
-import { 
-    Loader2, ArrowLeft, Printer, Check, X, 
-    ClipboardList, Package, Warehouse, Truck, 
-    Calendar, User, AlertCircle, Info as InfoIcon
+import {
+    AlertCircle,
+    ArrowLeft,
+    Calendar,
+    Check,
+    ClipboardList,
+    Info as InfoIcon,
+    Loader2,
+    Package,
+    Printer,
+    Truck,
+    User,
+    Warehouse,
+    X,
 } from "lucide-react";
 
-/* ══════════════════════════════════════════════════════
-   STYLES — Light Ivory / Gold Luxury
-   (Sync with Warehouse / Homepage / Login)
-══════════════════════════════════════════════════════ */
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+import PageContainer from "@/components/backoffice/PageContainer";
+import LoadingState from "@/components/shared/LoadingState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
+import { Button } from "@/components/ui/button";
 
-.wh-root {
-  min-height: 100vh;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 55%, #ede9de 100%);
-  padding: 28px 28px 56px;
-  position: relative;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  overflow-x: hidden;
-}
-
-.wh-grid {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.05) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-
-.wh-orb-1 {
-  position: fixed; width: 500px; height: 500px; border-radius: 50%;
-  background: rgba(184,134,11,0.07); filter: blur(100px);
-  top: -180px; right: -120px; pointer-events: none; z-index: 0;
-}
-
-.wh-inner {
-  position: relative; z-index: 1;
-  max-width: 1400px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 24px;
-}
-
-/* ── Header ── */
-.wh-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding-bottom: 20px;
-  border-bottom: 1.5px solid rgba(184,134,11,0.15);
-}
-.wh-title-wrap { display: flex; flex-direction: column; gap: 3px; }
-.wh-eyebrow {
-  font-family: 'DM Mono', monospace; font-size: 10px;
-  letter-spacing: 0.2em; color: rgba(184,134,11,0.65);
-  text-transform: uppercase;
-}
-.wh-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 26px; font-weight: 900; color: #1a1612;
-  letter-spacing: -0.5px; line-height: 1;
-}
-.wh-title span { color: #b8860b; }
-
-.wh-header-actions { display: flex; align-items: center; gap: 12px; }
-
-/* ── Buttons ── */
-.btn-gold {
-  height: 42px; padding: 0 20px; border-radius: 11px;
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  border: none; color: #fff;
-  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 18px rgba(184,134,11,0.35);
-}
-.btn-gold:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(184,134,11,0.48); }
-.btn-gold:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-
-.btn-white {
-  height: 42px; padding: 0 20px; border-radius: 11px;
-  background: #fff;
-  border: 1.5px solid rgba(184,134,11,0.2);
-  color: #7a6e5f; font-size: 13px; font-weight: 600;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-white:hover:not(:disabled) { border-color: #b8860b; color: #b8860b; background: rgba(184,134,11,0.05); }
-
-.btn-danger {
-  height: 42px; padding: 0 20px; border-radius: 11px;
-  background: rgba(220,38,38,0.05);
-  border: 1.5px solid rgba(220,38,38,0.2);
-  color: #dc2626; font-size: 13px; font-weight: 600;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.1); border-color: #dc2626; }
-
-/* ── Info Cards ── */
-.info-card {
-  background: #fff;
-  border: 1px solid rgba(184,134,11,0.15);
-  border-radius: 18px; padding: 24px;
-  box-shadow: 0 2px 12px rgba(100,80,30,0.07);
-  position: relative; overflow: hidden;
-}
-.info-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px;
-}
-
-.info-item { display: flex; flex-direction: column; gap: 6px; }
-.info-lbl {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
-  letter-spacing: 0.15em; text-transform: uppercase; color: rgba(184,134,11,0.6);
-}
-.info-val {
-  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #1a1612;
-}
-.info-val.highlight { color: #b8860b; }
-
-/* ── Table ── */
-.wh-tbl-card {
-  background: #fff;
-  border: 1px solid rgba(184,134,11,0.15);
-  border-radius: 18px; overflow: hidden;
-  box-shadow: 0 2px 12px rgba(100,80,30,0.07);
-}
-.wh-tbl-card::before {
-  content: ''; display: block; height: 2px;
-  background: linear-gradient(90deg, transparent, #b8860b, transparent);
-}
-.wh-tbl { width: 100%; border-collapse: collapse; text-align: left; }
-.wh-thead tr { background: #faf8f3; border-bottom: 1px solid rgba(184,134,11,0.12); }
-.wh-th {
-  height: 48px; padding: 0 20px;
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600;
-  letter-spacing: 0.12em; text-transform: uppercase; color: rgba(184,134,11,0.6);
-}
-.wh-tbody tr { border-bottom: 1px solid rgba(184,134,11,0.07); transition: all 0.2s; }
-.wh-tbody tr:hover { background: rgba(184,134,11,0.04); }
-.wh-td { padding: 16px 20px; font-size: 14px; color: #3d3529; }
-
-.sku-code {
-  font-family: 'DM Mono', monospace; font-size: 12px; color: #b8860b; font-weight: 600;
-  background: rgba(184,134,11,0.08); padding: 2px 8px; border-radius: 6px;
-}
-
-/* ── Badges ── */
-.badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
-}
-.badge-status { text-transform: uppercase; letter-spacing: 0.05em; }
-.badge.green { background: rgba(34,197,94,0.1); color: #16a34a; border: 1px solid rgba(34,197,94,0.2); }
-.badge.amber { background: rgba(184,134,11,0.1); color: #b8860b; border: 1px solid rgba(184,134,11,0.2); }
-.badge.blue  { background: rgba(37,99,235,0.08); color: #2563eb; border: 1px solid rgba(37,99,235,0.2); }
-.badge.red   { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
-
-.dot { width: 6px; height: 6px; border-radius: 50%; }
-.badge.green .dot { background: #16a34a; }
-.badge.amber .dot { background: #b8860b; }
-.badge.blue  .dot { background: #2563eb; }
-.badge.red   .dot { background: #dc2626; }
-
-/* ── Modal ── */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(26, 22, 18, 0.45);
-  backdrop-filter: blur(4px); z-index: 1000;
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
-.modal-card {
-  background: #fff; border-radius: 24px; width: 100%; max-width: 480px;
-  border: 1px solid rgba(184,134,11,0.25);
-  box-shadow: 0 25px 60px rgba(100,80,30,0.2);
-  overflow: hidden; animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: none; } }
-.modal-head { padding: 24px 28px 12px; }
-.modal-ttl { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 800; color: #1a1612; }
-.modal-body { padding: 0 28px 28px; color: #7a6e5f; font-size: 14px; line-height: 1.6; }
-.modal-foot { padding: 20px 28px; background: #faf8f3; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid rgba(184,134,11,0.1); }
-`;
-
-// Map trạng thái đồng bộ với phong cách Luxury
+// Map trạng thái sang tông màu backoffice
 const STATUS_UI = {
-    0: { label: "Đang xử lý", cls: "amber" },
-    1: { label: "Đang xử lý", cls: "amber" },
-    2: { label: "Chờ nhận hàng", cls: "blue" },
-    3: { label: "Đã nhập kho", cls: "green" },
-    4: { label: "Đã huỷ", cls: "red" },
+    0: { label: "Đang xử lý", tone: "warning" },
+    1: { label: "Đang xử lý", tone: "warning" },
+    2: { label: "Chờ nhận hàng", tone: "info" },
+    3: { label: "Đã nhập kho", tone: "success" },
+    4: { label: "Đã huỷ", tone: "danger" },
 };
 
 export default function PhieuNhapKhoDetail() {
@@ -204,11 +45,7 @@ export default function PhieuNhapKhoDetail() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
-    useEffect(() => {
-        fetchDetail();
-    }, [id]);
-
-    async function fetchDetail() {
+    const fetchDetail = useCallback(async () => {
         setLoading(true);
         try {
             const res = await phieuNhapKhoService.getDetail(id);
@@ -219,16 +56,19 @@ export default function PhieuNhapKhoDetail() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [id]);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); chi tiết vẫn tải ngay khi mount.
+    useEffect(() => {
+        queueMicrotask(() => fetchDetail());
+    }, [fetchDetail]);
 
     if (loading || !data) {
         return (
-            <div className="min-h-screen bg-[#faf8f3] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-8 h-8 animate-spin text-[#b8860b]" />
-                    <p className="text-[#a89f92] font-mono text-xs uppercase tracking-widest">Đang tải dữ liệu...</p>
-                </div>
-            </div>
+            <PageContainer>
+                <LoadingState rows={4} label="Đang tải chi tiết phiếu nhập" />
+            </PageContainer>
         );
     }
 
@@ -241,9 +81,9 @@ export default function PhieuNhapKhoDetail() {
 
     const isInternalTransfer = isTransfer;
     const isReturn = isSalesReturn || (data.loaiNhap || "").toLowerCase().includes("hoàn trả") || (data.soPhieuNhap || "").includes("-RET-");
-    
+
     const isAllDuLo = (data.items || []).every(item => item.daDuLo === true);
-    
+
     // Phiếu luân chuyển hoặc phiếu trả hàng (kế thừa) thì pass qua check lô
     const canComplete = isInternalTransfer || isSalesReturn || isAllDuLo;
 
@@ -289,226 +129,263 @@ export default function PhieuNhapKhoDetail() {
         return data.items.reduce((acc, item) => acc + (item.soLuongDaKhaiBao || item.soLuongCanNhap || 0), 0);
     };
 
-    const statusInfo = STATUS_UI[data.trangThai] || { label: "Không xác định", cls: "blue" };
+    const statusInfo = STATUS_UI[data.trangThai] || { label: "Không xác định", tone: "info" };
 
     return (
-        <>
-            <style>{STYLES}</style>
-            <div className="wh-root">
-                <div className="wh-grid" />
-                <div className="wh-orb-1" />
+        <PageContainer className="space-y-5">
+            {/* ── Header ── */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                    type="button"
+                    onClick={() => navigate("/goods-receipts")}
+                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
+                >
+                    <ArrowLeft className="size-4" />
+                    Quay lại danh sách
+                </button>
 
-                <div className="wh-inner">
-                    <div className="wh-header" style={{ justifyContent: "space-between" }}>
-                        <button
-                            type="button"
-                            onClick={() => navigate("/goods-receipts")}
-                            className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors duration-150"
+                <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge label={statusInfo.label} tone={statusInfo.tone} className="uppercase" />
+
+                    {data.trangThai !== 4 && (
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate(`/goods-receipts/${id}/print`)}
+                            className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            <ArrowLeft className="h-4 w-4" />
-                            Quay lại danh sách
-                        </button>
+                            <Printer className="size-4" /> In phiếu
+                        </Button>
+                    )}
 
-                        <div className="wh-header-actions">
-                            <span className={`badge badge-status ${statusInfo.cls}`}>
-                                <span className="dot" />
-                                {statusInfo.label}
+                    {/* Không cho phép hủy đối với phiếu Hoàn trả Sales Return */}
+                    {!isReturn && data.trangThai === 0 && (
+                        <Button
+                            variant="outline"
+                            disabled={isProcessing}
+                            onClick={() => setShowCancelConfirm(true)}
+                            className="gap-2 border-red-200 bg-white text-bo-danger hover:bg-bo-danger-soft disabled:opacity-50"
+                        >
+                            <X className="size-4" /> Huỷ phiếu
+                        </Button>
+                    )}
+
+                    {data.trangThai === 0 && (
+                        <Button
+                            disabled={!canComplete || isProcessing}
+                            onClick={() => setShowCompleteConfirm(true)}
+                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                        >
+                            {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                            {isInternalTransfer ? "Nhận hàng" : (isSalesReturn ? "Xác nhận Nhập trả" : "Xác nhận Nhập kho")}
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Info Section ── */}
+            <SurfaceCard className="relative">
+                {isReturn && (
+                    <div className="absolute right-0 top-0 rounded-bl-lg bg-bo-danger px-3 py-1.5 text-[9px] font-bold tracking-widest text-white">
+                        RETURN·PHIẾU HOÀN TRẢ
+                    </div>
+                )}
+
+                <div className="mb-5 flex items-center gap-2">
+                    <ClipboardList className="size-4 text-bo-primary" />
+                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">Thông tin nghiệp vụ</h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <InfoItem icon={<Package className="size-3.5" />} label="Số phiếu nhập" value={data.soPhieuNhap} highlight />
+
+                    {isInternalTransfer ? (
+                        <InfoItem icon={<Warehouse className="size-3.5" />} label="Kho đích" value={data.tenKho} />
+                    ) : (
+                        <>
+                            <InfoItem icon={<Warehouse className="size-3.5" />} label="Kho nhập hàng" value={data.tenKho} />
+                            {!isSalesReturn && <InfoItem icon={<Truck className="size-3.5" />} label="Nhà cung cấp" value={data.tenNhaCungCap} />}
+                        </>
+                    )}
+
+                    <InfoItem icon={<InfoIcon className="size-3.5" />} label="Loại nghiệp vụ" value={displayLoaiNhap} />
+
+                    {/* Nguồn gốc chứng từ dựa trên loại luồng */}
+                    {isPO && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Đơn mua (PO)" value={data.soDonMua} />}
+                    {isInternalTransfer && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Phiếu xuất gốc" value={data.soPhieuXuatGoc || (data.phieuXuatGocId ? `#${data.phieuXuatGocId}` : "Tự động")} />}
+                    {isSalesReturn && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Ghi chú" value="Tự động kế thừa lô" />}
+
+                    <InfoItem icon={<Calendar className="size-3.5" />} label="Ngày nhập" value={data.ngayNhap ? new Date(data.ngayNhap).toLocaleDateString("vi-VN") : "---"} />
+                    <InfoItem icon={<User className="size-3.5" />} label="Người nhập" value={data.tenNguoiNhap || "---"} />
+                </div>
+
+                {!canComplete && data.trangThai === 0 && (
+                    <div className="mt-5 flex items-start gap-3 rounded-lg border border-bo-warning/20 bg-bo-warning-soft p-3">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0 text-bo-warning" />
+                        <p className="text-xs font-medium leading-5 text-bo-warning">
+                            Hệ thống yêu cầu khai báo đầy đủ thông tin lô hàng (số lượng, hạn dùng...) cho tất cả sản phẩm trước khi hoàn tất nhập kho thực tế.
+                        </p>
+                    </div>
+                )}
+            </SurfaceCard>
+
+            {/* ── Product List ── */}
+            <TableShell
+                title="Danh sách hàng hóa"
+                toolbar={
+                    (isInternalTransfer || isSalesReturn) ? (
+                        <div className="flex items-center justify-end border-b border-bo-border px-4 py-2.5 sm:px-5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Tự động kế thừa lô
                             </span>
-
-                            {data.trangThai !== 4 && (
-                                <button
-                                    onClick={() => navigate(`/goods-receipts/${id}/print`)}
-                                    className="btn-white"
-                                >
-                                    <Printer size={15} /> In phiếu
-                                </button>
-                            )}
-
-                            {/* Không cho phép hủy đối với phiếu Hoàn trả Sales Return */}
-                            {!isReturn && data.trangThai === 0 && (
-                                <button
-                                    disabled={isProcessing}
-                                    className="btn-danger"
-                                    onClick={() => setShowCancelConfirm(true)}
-                                >
-                                    <X size={15} /> Huỷ phiếu
-                                </button>
-                            )}
-
-                            {data.trangThai === 0 && (
-                                <button
-                                    disabled={!canComplete || isProcessing}
-                                    onClick={() => setShowCompleteConfirm(true)}
-                                    className="btn-gold"
-                                >
-                                    {isProcessing ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                                    {isInternalTransfer ? "Nhận hàng" : (isSalesReturn ? "Xác nhận Nhập trả" : "Xác nhận Nhập kho")}
-                                </button>
-                            )}
                         </div>
-                    </div>
-
-                    {/* ── Info Section ── */}
-                    <div className="info-card">
-                        {isReturn && (
-                            <div className="absolute top-0 right-0 bg-[#dc2626] text-white text-[9px] font-black px-4 py-1.5 rounded-bl-xl shadow-sm tracking-widest">
-                                RETURN·PHIẾU HOÀN TRẢ
-                            </div>
+                    ) : null
+                }
+            >
+                <table className="w-full min-w-[760px] text-sm">
+                    <thead>
+                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                            <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm / Biến thể</th>
+                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Cần nhập</th>
+                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Thực tế</th>
+                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                            <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bo-border">
+                        {(data.items || []).map((item) => (
+                            <tr key={item.bienTheSanPhamId || Math.random()} className="transition-colors hover:bg-bo-surface-subtle">
+                                <td className="px-4 py-3">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="w-fit rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
+                                            {item.sku}
+                                        </span>
+                                        <span className="line-clamp-1 font-semibold text-bo-foreground">{item.tenBienThe}</span>
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-center font-semibold text-bo-foreground">
+                                    {item.soLuongCanNhap || 0}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                    <span className={`font-mono text-sm font-semibold ${(item.daDuLo || isInternalTransfer || isSalesReturn) ? "text-bo-success" : "text-bo-warning"}`}>
+                                        {(isInternalTransfer || isSalesReturn) ? (item.soLuongCanNhap || 0) : (item.soLuongDaKhaiBao || 0)}
+                                        <span className="mx-1 font-normal text-bo-muted">/</span>
+                                        {item.soLuongCanNhap || 0}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                    {(item.daDuLo || isInternalTransfer || isSalesReturn) ? (
+                                        <StatusBadge label="Đủ hàng" tone="success" />
+                                    ) : (
+                                        <StatusBadge label="Thiếu lô" tone="warning" />
+                                    )}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => navigate(`/goods-receipts/${data.id}/lot-input/${item.bienTheSanPhamId}`)}
+                                        className="h-8 border-bo-border bg-white px-3 text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                                    >
+                                        {(isInternalTransfer || isSalesReturn) ? "Lô tự động" : (data.trangThai === 0 ? "Khai báo lô →" : "Xem lô")}
+                                    </Button>
+                                </td>
+                            </tr>
+                        ))}
+                        {(data.items || []).length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="px-4 py-10 text-center text-sm text-bo-muted">
+                                    Chưa có hàng hóa trong phiếu nhập
+                                </td>
+                            </tr>
                         )}
-                        
-                        <div className="flex items-center gap-2 mb-6">
-                            <ClipboardList size={16} className="text-[#b8860b]" />
-                            <h2 className="wh-eyebrow font-bold text-[#1a1612]">Thông tin nghiệp vụ</h2>
+                    </tbody>
+                </table>
+            </TableShell>
+
+            {/* ── Modals ── */}
+            {showCompleteConfirm && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-bo-foreground/40 p-4 backdrop-blur-sm"
+                >
+                    <div className="w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white shadow-lg">
+                        <div className="px-5 pt-5 sm:px-6">
+                            <h2 className="text-base font-semibold text-bo-foreground">
+                                {isInternalTransfer ? "Nhận hàng luân chuyển" : (isSalesReturn ? "Xác nhận nhập trả kho" : "Xác nhận nhập kho")}
+                            </h2>
                         </div>
-
-                        <div className="info-grid">
-                            <InfoItem icon={Package} label="Số phiếu nhập" value={data.soPhieuNhap} highlight />
-                            
-                            {isInternalTransfer ? (
-                                <InfoItem icon={Warehouse} label="Kho đích" value={data.tenKho} />
-                            ) : (
-                                <>
-                                    <InfoItem icon={Warehouse} label="Kho nhập hàng" value={data.tenKho} />
-                                    {!isSalesReturn && <InfoItem icon={Truck} label="Nhà cung cấp" value={data.tenNhaCungCap} />}
-                                </>
-                            )}
-
-                            <InfoItem icon={InfoIcon} label="Loại nghiệp vụ" value={displayLoaiNhap} />
-                            
-                            {/* Nguồn gốc chứng từ dựa trên loại luồng */}
-                            {isPO && <InfoItem icon={ClipboardList} label="Đơn mua (PO)" value={data.soDonMua} />}
-                            {isInternalTransfer && <InfoItem icon={ClipboardList} label="Phiếu xuất gốc" value={data.soPhieuXuatGoc || (data.phieuXuatGocId ? `#${data.phieuXuatGocId}` : "Tự động")} />}
-                            {isSalesReturn && <InfoItem icon={ClipboardList} label="Ghi chú" value="Tự động kế thừa lô" />}
-
-                            <InfoItem icon={Calendar} label="Ngày nhập" value={data.ngayNhap ? new Date(data.ngayNhap).toLocaleDateString("vi-VN") : "---"} />
-                            <InfoItem icon={User} label="Người nhập" value={data.tenNguoiNhap || "---"} />
+                        <div className="px-5 py-4 text-sm leading-6 text-bo-muted sm:px-6">
+                            {isInternalTransfer
+                                ? `Xác nhận hàng đã về kho an toàn. Tồn kho sẽ được cộng vào kho (${data.tenKho}) dựa trên dữ liệu lô đã xuất.`
+                                : `Hệ thống sẽ ghi nhận nhập thực tế ${calculateTotalImport()} sản phẩm vào kho hàng. Dữ liệu này sẽ được dùng để cập nhật giá vốn và tồn kho.`}
                         </div>
-
-                        {!canComplete && data.trangThai === 0 && (
-                            <div className="mt-6 p-3 bg-[#fffbeb] border border-[#fef3c7] rounded-xl flex items-center gap-3">
-                                <AlertCircle size={16} className="text-[#b8860b]" />
-                                <p className="text-[#92400e] text-xs font-medium">
-                                    Hệ thống yêu cầu khai báo đầy đủ thông tin lô hàng (số lượng, hạn dùng...) cho tất cả sản phẩm trước khi hoàn tất nhập kho thực tế.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── Product List ── */}
-                    <div className="wh-tbl-card">
-                        <div className="p-5 border-b border-[#faf8f3] bg-[#faf8f3]/50 flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <Package size={14} className="text-[#b8860b]" />
-                                <span className="wh-eyebrow font-bold text-[#1a1612]">Danh sách hàng hóa</span>
-                            </div>
-                            {(isInternalTransfer || isSalesReturn) && (
-                                <span className="text-[10px] uppercase font-bold tracking-widest text-[#a89f92]">Tự động kế thừa lô</span>
-                            )}
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="wh-tbl">
-                                <thead className="wh-thead">
-                                    <tr>
-                                        <th className="wh-th">Sản phẩm / Biến thể</th>
-                                        <th className="wh-th text-center">SL Cần nhập</th>
-                                        <th className="wh-th text-center">SL Thực tế</th>
-                                        <th className="wh-th text-center">Trạng thái</th>
-                                        <th className="wh-th text-right">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="wh-tbody">
-                                    {(data.items || []).map((item) => (
-                                        <tr key={item.bienTheSanPhamId || Math.random()}>
-                                            <td className="wh-td">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="sku-code w-fit">{item.sku}</span>
-                                                    <span className="font-semibold text-[#1a1612] line-clamp-1">{item.tenBienThe}</span>
-                                                </div>
-                                            </td>
-                                            <td className="wh-td text-center font-bold">
-                                                {item.soLuongCanNhap || 0}
-                                            </td>
-                                            <td className="wh-td text-center">
-                                                <span className={`font-mono font-bold ${(item.daDuLo || isInternalTransfer || isSalesReturn) ? "text-[#16a34a]" : "text-[#b8860b]"}`}>
-                                                    {(isInternalTransfer || isSalesReturn) ? (item.soLuongCanNhap || 0) : (item.soLuongDaKhaiBao || 0)}
-                                                    <span className="text-[#a89f92] font-normal mx-1">/</span>
-                                                    {item.soLuongCanNhap || 0}
-                                                </span>
-                                            </td>
-                                            <td className="wh-td text-center">
-                                                {(item.daDuLo || isInternalTransfer || isSalesReturn) ? (
-                                                    <span className="badge green"><span className="dot" /> Đủ hàng</span>
-                                                ) : (
-                                                    <span className="badge amber"><span className="dot" /> Thiếu lô</span>
-                                                )}
-                                            </td>
-                                            <td className="wh-td text-right">
-                                                <button
-                                                    onClick={() => navigate(`/goods-receipts/${data.id}/lot-input/${item.bienTheSanPhamId}`)}
-                                                    className="btn-white h-8 px-4 text-xs"
-                                                >
-                                                    {(isInternalTransfer || isSalesReturn) ? "Lô tự động" : (data.trangThai === 0 ? "Khai báo lô →" : "Xem lô")}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3.5 sm:px-6">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowCompleteConfirm(false)}
+                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                Đóng
+                            </Button>
+                            <Button
+                                onClick={handleConfirmImport}
+                                disabled={isProcessing}
+                                className="bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                            >
+                                Xác nhận
+                            </Button>
                         </div>
                     </div>
                 </div>
+            )}
 
-                {/* ── Modals ── */}
-                {showCompleteConfirm && (
-                    <div className="modal-overlay">
-                        <div className="modal-card">
-                            <div className="modal-head">
-                                <h2 className="modal-ttl">
-                                    {isInternalTransfer ? "Nhận hàng luân chuyển" : (isSalesReturn ? "Xác nhận nhập trả kho" : "Xác nhận nhập kho")}
-                                </h2>
-                            </div>
-                            <div className="modal-body">
-                                {isInternalTransfer
-                                    ? `Xác nhận hàng đã về kho an toàn. Tồn kho sẽ được cộng vào kho (${data.tenKho}) dựa trên dữ liệu lô đã xuất.`
-                                    : `Hệ thống sẽ ghi nhận nhập thực tế ${calculateTotalImport()} sản phẩm vào kho hàng. Dữ liệu này sẽ được dùng để cập nhật giá vốn và tồn kho.`}
-                            </div>
-                            <div className="modal-foot">
-                                <button className="btn-white" onClick={() => setShowCompleteConfirm(false)}>Đóng</button>
-                                <button className="btn-gold" onClick={handleConfirmImport}>Xác nhận</button>
-                            </div>
+            {showCancelConfirm && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-bo-foreground/40 p-4 backdrop-blur-sm"
+                >
+                    <div className="w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white shadow-lg">
+                        <div className="px-5 pt-5 sm:px-6">
+                            <h2 className="text-base font-semibold text-bo-foreground">Hủy phiếu nhập kho</h2>
+                        </div>
+                        <div className="px-5 py-4 text-sm leading-6 text-bo-muted sm:px-6">
+                            Thao tác này sẽ hủy phiếu hiện tại và không thể hoàn tác. Bạn có chắc chắn muốn thực hiện?
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3.5 sm:px-6">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowCancelConfirm(false)}
+                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                Quay lại
+                            </Button>
+                            <Button
+                                onClick={handleCancelImport}
+                                disabled={isProcessing}
+                                className="bg-bo-danger text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                                Xác nhận hủy
+                            </Button>
                         </div>
                     </div>
-                )}
-
-                {showCancelConfirm && (
-                    <div className="modal-overlay">
-                        <div className="modal-card">
-                            <div className="modal-head">
-                                <h2 className="modal-ttl">Hủy phiếu nhập kho</h2>
-                            </div>
-                            <div className="modal-body">
-                                Thao tác này sẽ hủy phiếu hiện tại và không thể hoàn tác. Bạn có chắc chắn muốn thực hiện?
-                            </div>
-                            <div className="modal-foot">
-                                <button className="btn-white" onClick={() => setShowCancelConfirm(false)}>Quay lại</button>
-                                <button className="btn-danger" onClick={handleCancelImport}>Xác nhận hủy</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </>
+                </div>
+            )}
+        </PageContainer>
     );
 }
 
-function InfoItem({ icon: Icon, label, value, highlight }) {
+function InfoItem({ icon, label, value, highlight }) {
     return (
-        <div className="info-item">
-            <div className="flex items-center gap-1.5 mb-1 opacity-80">
-                <Icon size={12} className="text-[#b8860b]" />
-                <span className="info-lbl">{label}</span>
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
+                <span className="text-bo-primary">{icon}</span>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-bo-muted">{label}</span>
             </div>
-            <div className={`info-val ${highlight ? 'highlight' : ''}`}>{value || "---"}</div>
+            <span className={highlight ? "break-words text-base font-bold text-bo-primary" : "break-words text-sm font-semibold text-bo-foreground"}>
+                {value || "---"}
+            </span>
         </div>
     );
 }

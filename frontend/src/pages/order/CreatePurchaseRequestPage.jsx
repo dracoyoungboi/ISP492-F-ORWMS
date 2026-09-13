@@ -1,105 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom'; // Thêm useSearchParams
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
-    ArrowLeft, Search, Package, Send, Loader2,
-    X, Check, Warehouse, FileText, ShoppingBag, Layers,
-    ChevronRight, Calendar, Minus, Plus, Trash2
+    ArrowLeft, Package, Send, Loader2,
+    X, Check, ShoppingBag, Layers,
+    ChevronRight, Minus, Plus, Trash2,
 } from 'lucide-react';
+
+import PageContainer from '@/components/backoffice/PageContainer';
+import PageHeader from '@/components/backoffice/PageHeader';
+import EmptyState from '@/components/shared/EmptyState';
+import FormActions from '@/components/shared/FormActions';
+import LoadingState from '@/components/shared/LoadingState';
+import SearchInput from '@/components/shared/SearchInput';
+import SurfaceCard from '@/components/shared/SurfaceCard';
+
 import apiClient from '@/services/apiClient';
 import { productService } from '@/services/productService';
 import purchaseRequestService from '@/services/purchaseRequestService';
 
 const PRODUCT_PAGE_SIZE = 8;
 
-/* ══════════════════════════════════════════════════════
-   STYLES — Light Ivory / Gold Luxury
-══════════════════════════════════════════════════════ */
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
-.wh-root {
-  min-height: 100vh;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 55%, #ede9de 100%);
-  padding: 28px 28px 56px;
-  position: relative;
-  font-family: 'DM Sans', system-ui, sans-serif;
-}
-
-.wh-grid {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.05) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-
-.wh-orb-1 {
-  position: fixed; width: 600px; height: 600px; border-radius: 50%;
-  background: rgba(184,134,11,0.06); filter: blur(120px);
-  top: -200px; right: -150px; pointer-events: none; z-index: 0;
-}
-
-.wh-inner {
-  position: relative; z-index: 1;
-  max-width: 1400px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 24px;
-}
-
-/* ── Cards ── */
-.sec-card {
-  background: #fff; border-radius: 20px; border: 1px solid rgba(184,134,11,0.15);
-  overflow: hidden; box-shadow: 0 4px 20px rgba(100,80,30,0.06);
-  display: flex; flex-direction: column;
-}
-.sec-head {
-  padding: 18px 24px; background: #faf8f3;
-  border-bottom: 1px solid rgba(184,134,11,0.12);
-  display: flex; align-items: center; gap: 12px;
-}
-.sec-icon-wrap {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(184,134,11,0.1); color: #b8860b;
-}
-.sec-title {
-  font-family: 'DM Mono', monospace; font-size: 12px;
-  letter-spacing: 0.05em; font-weight: 700; color: #1a1612; text-transform: uppercase;
-}
-.sec-body { padding: 24px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
-
-/* ── Controls ── */
-.inp-group { display: flex; flex-direction: column; gap: 8px; }
-.inp-label {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  text-transform: uppercase; color: #b8860b; letter-spacing: 0.05em;
-}
-.inp-select, .inp-text, .inp-area {
-  width: 100%; height: 44px; padding: 0 16px; border-radius: 12px;
-  background: #faf8f3; border: 1.5px solid rgba(184,134,11,0.1);
-  font-size: 14px; color: #1a1612; transition: all 0.2s;
-}
-.inp-select:focus, .inp-text:focus, .inp-area:focus {
-  outline: none; border-color: #b8860b; background: #fff; box-shadow: 0 0 0 4px rgba(184,134,11,0.08);
-}
-.inp-area { height: auto; padding: 14px 16px; min-height: 100px; resize: none; }
-
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(184,134,11,0.2); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(184,134,11,0.4); }
-
-.badge-tag {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  padding: 3px 10px; border-radius: 6px; text-transform: uppercase;
-}
-.badge-tag.gold { background: rgba(184,134,11,0.1); color: #b8860b; }
-`;
+const CONTROL_CLASS =
+    'h-11 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground shadow-none placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatDate = (d) => {
@@ -107,63 +34,47 @@ const formatDate = (d) => {
     return new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
-// ─── SectionCard layout ───────────────────────────────────────────────────────
-function SectionCard({ icon: Icon, title, children, rightElement }) {
-    return (
-        <div className="sec-card h-full">
-            <div className="sec-head justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="sec-icon-wrap"><Icon size={16} /></div>
-                    <span className="sec-title">{title}</span>
-                </div>
-                {rightElement}
-            </div>
-            <div className="sec-body">{children}</div>
-        </div>
-    );
-}
-
 // ─── VariantRow ───────────────────────────────────────────────────────────────
 function VariantRow({ variant, selectedEntry, onToggle, onQtyChange }) {
     const img = variant.anhBienThe?.tepTin?.duongDan;
     const isSelected = !!selectedEntry;
 
     return (
-        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${isSelected ? 'bg-white border-[#b8860b]/40 shadow-sm' : 'bg-[#faf8f3] border-transparent hover:bg-black/5'}`}>
+        <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${isSelected ? 'border-bo-primary/50 bg-bo-primary-soft/50' : 'border-transparent bg-bo-surface-subtle hover:bg-slate-100'}`}>
             <button type="button" onClick={() => onToggle(variant)} className="shrink-0">
-                <div className={`h-4 w-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-[#b8860b] border-[#b8860b]' : 'border-slate-300 bg-white'}`}>
-                    {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                <div className={`flex size-4 items-center justify-center rounded border transition-colors ${isSelected ? 'border-bo-primary bg-bo-primary' : 'border-slate-300 bg-white'}`}>
+                    {isSelected && <Check className="size-3 text-white" strokeWidth={3} />}
                 </div>
             </button>
 
             {img
-                ? <img src={img} alt="" className="h-9 w-9 rounded-lg object-cover border border-[#b8860b]/20 shrink-0" />
-                : <div className="h-9 w-9 rounded-lg bg-white border border-[#b8860b]/10 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#b8860b]/50" /></div>
+                ? <img src={img} alt="" className="size-9 shrink-0 rounded-md border border-bo-border object-cover" />
+                : <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-bo-border bg-white"><Package className="size-4 text-slate-400" /></div>
             }
 
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onToggle(variant)}>
-                <p className={`text-[13px] leading-tight truncate ${isSelected ? 'font-bold text-[#1a1612]' : 'font-semibold text-slate-700'}`}>
+            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onToggle(variant)}>
+                <p className={`truncate text-[13px] leading-tight ${isSelected ? 'font-semibold text-bo-foreground' : 'font-medium text-slate-700'}`}>
                     {[variant.mauSac?.tenMau, variant.size?.maSize, variant.chatLieu?.tenChatLieu].filter(Boolean).join(' / ') || variant.maSku}
                 </p>
-                <p className="font-mono text-[10px] text-[#b8860b] mt-0.5">{variant.maSku}</p>
+                <p className="mt-0.5 font-mono text-[10px] text-bo-muted">{variant.maSku}</p>
             </div>
 
             {isSelected && (
-                <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
                     <button type="button" onClick={() => onQtyChange(variant.id, Math.max(1, (selectedEntry.soLuong || 1) - 1))}
-                        className="h-7 w-7 rounded-md bg-[#b8860b]/10 hover:bg-[#b8860b]/20 flex items-center justify-center transition-colors">
-                        <Minus className="h-3 w-3 text-[#b8860b]" />
+                        className="flex size-7 items-center justify-center rounded-md bg-bo-primary-soft text-bo-primary transition-colors hover:bg-bo-primary/15">
+                        <Minus className="size-3" />
                     </button>
                     <input
                         type="number"
                         min={1}
                         value={selectedEntry.soLuong || 1}
                         onChange={e => onQtyChange(variant.id, Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-12 text-center h-7 rounded-md border border-[#b8860b]/30 bg-white text-[13px] font-bold text-[#1a1612] focus:outline-none focus:ring-1 focus:ring-[#b8860b]"
+                        className="h-7 w-12 rounded-md border border-bo-border bg-white text-center text-[13px] font-semibold text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-1 focus:ring-bo-primary/30"
                     />
                     <button type="button" onClick={() => onQtyChange(variant.id, (selectedEntry.soLuong || 1) + 1)}
-                        className="h-7 w-7 rounded-md bg-[#b8860b]/10 hover:bg-[#b8860b]/20 flex items-center justify-center transition-colors">
-                        <Plus className="h-3 w-3 text-[#b8860b]" />
+                        className="flex size-7 items-center justify-center rounded-md bg-bo-primary-soft text-bo-primary transition-colors hover:bg-bo-primary/15">
+                        <Plus className="size-3" />
                     </button>
                 </div>
             )}
@@ -189,36 +100,36 @@ function ProductCard({ product, selectedMap, onToggle, onQtyChange }) {
     };
 
     return (
-        <div className={`rounded-2xl border overflow-hidden transition-all ${selectedCount > 0 ? 'border-[#b8860b]/40 shadow-[0_0_0_3px_rgba(184,134,11,0.08)] bg-white' : 'border-[#b8860b]/10 bg-white'}`}>
+        <div className={`overflow-hidden rounded-lg border bg-white transition-colors ${selectedCount > 0 ? 'border-bo-primary/50 shadow-sm' : 'border-bo-border'}`}>
             <button type="button" onClick={() => setExpanded(p => !p)}
-                className="w-full flex items-center gap-3 p-3.5 hover:bg-[#faf8f3] transition-colors text-left">
+                className="flex w-full items-center gap-3 p-3.5 text-left transition-colors hover:bg-bo-surface-subtle">
                 {mainImg
-                    ? <img src={mainImg} alt="" className="h-12 w-12 rounded-xl object-cover border border-[#b8860b]/20 shrink-0" />
-                    : <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#faf8f3] to-white border border-[#b8860b]/20 flex items-center justify-center shrink-0"><ShoppingBag className="h-5 w-5 text-[#b8860b]/50" /></div>
+                    ? <img src={mainImg} alt="" className="size-12 shrink-0 rounded-md border border-bo-border object-cover" />
+                    : <div className="flex size-12 shrink-0 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle"><ShoppingBag className="size-5 text-slate-400" /></div>
                 }
-                <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[14px] text-[#1a1612] truncate">{product.tenSanPham}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {product.danhMuc?.tenDanhMuc && <span className="text-[10px] bg-[#b8860b]/10 text-[#b8860b] px-1.5 py-0.5 rounded-md font-bold uppercase">{product.danhMuc.tenDanhMuc}</span>}
-                        <span className="font-mono text-[10px] text-[#8b6a21] font-bold">{product.maSanPham}</span>
-                        <span className="flex items-center gap-0.5 text-[10px] text-slate-400 font-medium"><Layers className="h-3 w-3" />{variants.length} biến thể</span>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-bo-foreground">{product.tenSanPham}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {product.danhMuc?.tenDanhMuc && <span className="rounded bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bo-primary">{product.danhMuc.tenDanhMuc}</span>}
+                        <span className="font-mono text-[10px] font-semibold text-bo-muted">{product.maSanPham}</span>
+                        <span className="flex items-center gap-0.5 text-[10px] font-medium text-slate-400"><Layers className="size-3" />{variants.length} biến thể</span>
                     </div>
                 </div>
                 {selectedCount > 0 && (
-                    <span className="shrink-0 h-6 min-w-[24px] px-2 rounded-full bg-[#b8860b] text-white text-[11px] font-bold flex items-center justify-center">{selectedCount}</span>
+                    <span className="flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-full bg-bo-primary px-2 text-[11px] font-bold text-white">{selectedCount}</span>
                 )}
-                <ChevronRight className={`h-4 w-4 text-[#b8860b] shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`size-4 shrink-0 text-bo-muted transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
             </button>
 
             {expanded && (
-                <div className="border-t border-[#b8860b]/10 bg-[#faf8f3]/50 px-3.5 py-3 space-y-2">
+                <div className="space-y-2 border-t border-bo-border bg-bo-surface-subtle/60 px-3.5 py-3">
                     {variants.length === 0
-                        ? <p className="text-center text-[13px] text-slate-400 py-5 italic">Sản phẩm này chưa có biến thể</p>
+                        ? <p className="py-5 text-center text-[13px] italic text-slate-400">Sản phẩm này chưa có biến thể</p>
                         : (
                             <>
                                 <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-bold text-[#b8860b] uppercase tracking-widest">{variants.length} biến thể</p>
-                                    <button type="button" onClick={handleSelectAll} className="text-[11px] font-bold text-[#b8860b] hover:text-[#8b6a21]">
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-bo-muted">{variants.length} biến thể</p>
+                                    <button type="button" onClick={handleSelectAll} className="text-[11px] font-semibold text-bo-primary transition-colors hover:text-bo-primary-hover">
                                         {allSelected ? '− Bỏ chọn tất cả' : '+ Chọn tất cả'}
                                     </button>
                                 </div>
@@ -272,21 +183,8 @@ export default function CreatePurchaseRequestPage() {
     const [submitting, setSubmitting] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-    //Xử lý đọc Params từ URL
-    useEffect(() => {
-        const urlKhoId = searchParams.get('khoId');
-        const urlBienTheId = searchParams.get('bienTheId');
-
-        if (urlKhoId) {
-            setKhoId(urlKhoId); // Tự động chọn kho trên form
-        }
-        if (urlKhoId && urlBienTheId) {
-            findVariantInWarehouse(urlKhoId, urlBienTheId);
-        }
-    }, []);
-
-    // Hàm  tìm biến thể bằng API lấy toàn bộ sản phẩm theo kho
-    const findVariantInWarehouse = async (warehouseId, variantIdToFind) => {
+    // Hàm tìm biến thể bằng API lấy toàn bộ sản phẩm theo kho
+    const findVariantInWarehouse = useCallback(async (warehouseId, variantIdToFind) => {
         try {
             const res = await apiClient.get(`/api/v1/san-pham-quan-ao/theo-kho/${warehouseId}`);
             const productsInWarehouse = res.data?.data || res.data || [];
@@ -311,10 +209,10 @@ export default function CreatePurchaseRequestPage() {
                 setSelected(prev => {
                     const next = new Map(prev);
                     if (!next.has(foundVariant.id)) {
-                        next.set(foundVariant.id, { 
-                            variant: foundVariant, 
-                            productName: parentProductName, 
-                            soLuong: 1 
+                        next.set(foundVariant.id, {
+                            variant: foundVariant,
+                            productName: parentProductName,
+                            soLuong: 1
                         });
                     }
                     return next;
@@ -327,25 +225,42 @@ export default function CreatePurchaseRequestPage() {
             console.error('Lỗi khi lục tìm biến thể theo kho:', error);
             toast.error('Không thể tải tự động sản phẩm từ link');
         }
-    };
+    }, []);
+
+    //Xử lý đọc Params từ URL
+    const applyUrlParams = useCallback(() => {
+        const urlKhoId = searchParams.get('khoId');
+        const urlBienTheId = searchParams.get('bienTheId');
+
+        if (urlKhoId) {
+            setKhoId(urlKhoId); // Tự động chọn kho trên form
+        }
+        if (urlKhoId && urlBienTheId) {
+            findVariantInWarehouse(urlKhoId, urlBienTheId);
+        }
+    }, [searchParams, findVariantInWarehouse]);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); vẫn chạy ngay khi mount.
+    useEffect(() => { queueMicrotask(() => applyUrlParams()); }, [applyUrlParams]);
 
     // ── Load warehouses ──
-    useEffect(() => {
-        const load = async () => {
-            setLoadingWarehouses(true);
-            try {
-                const res = await apiClient.post('/api/v1/kho/filter', {
-                    filters: [], sorts: [{ fieldName: 'tenKho', direction: 'ASC' }], page: 0, size: 100,
-                });
-                setWarehouses(res.data?.data?.content || res.data?.content || []);
-            } catch {
-                toast.error('Không thể tải danh sách kho');
-            } finally {
-                setLoadingWarehouses(false);
-            }
-        };
-        load();
+    const loadWarehouses = useCallback(async () => {
+        setLoadingWarehouses(true);
+        try {
+            const res = await apiClient.post('/api/v1/kho/filter', {
+                filters: [], sorts: [{ fieldName: 'tenKho', direction: 'ASC' }], page: 0, size: 100,
+            });
+            setWarehouses(res.data?.data?.content || res.data?.content || []);
+        } catch {
+            toast.error('Không thể tải danh sách kho');
+        } finally {
+            setLoadingWarehouses(false);
+        }
     }, []);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect; vẫn chạy khi mount.
+    useEffect(() => { queueMicrotask(() => loadWarehouses()); }, [loadWarehouses]);
 
     // ── Fetch products ──
     const fetchProducts = useCallback(async (pg = 0, term = '') => {
@@ -369,7 +284,8 @@ export default function CreatePurchaseRequestPage() {
         }
     }, []);
 
-    useEffect(() => { fetchProducts(0, ''); }, [fetchProducts]);
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect; vẫn chạy khi mount.
+    useEffect(() => { queueMicrotask(() => fetchProducts(0, '')); }, [fetchProducts]);
 
     useEffect(() => {
         const t = setTimeout(() => fetchProducts(0, searchTerm), 350);
@@ -436,254 +352,257 @@ export default function CreatePurchaseRequestPage() {
     const totalItems = Array.from(selected.values()).reduce((s, e) => s + (e.soLuong || 1), 0);
 
     return (
-        <>
-            <style>{STYLES}</style>
-            <div className="wh-root">
-                <div className="wh-grid" />
-                <div className="wh-orb-1" />
-
-                <div className="wh-inner">
-                    {/* ── Header ── */}
-                    <button type="button" onClick={() => navigate('/purchase-requests')}
-                        className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-[#b8860b] transition-colors duration-150 mb-2">
-                        <ArrowLeft size={16} />
+        <PageContainer className="space-y-5">
+            {/* ── Header ── */}
+            <PageHeader
+                title="Tạo yêu cầu mua hàng"
+                description="Điền thông tin và chọn sản phẩm cần nhập · Quản lý sẽ xét duyệt trước khi gửi báo giá"
+                actions={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate('/purchase-requests')}
+                        className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                    >
+                        <ArrowLeft className="size-4" />
                         Quay lại danh sách yêu cầu
-                    </button>
+                    </Button>
+                }
+            />
 
-                    <div>
-                        <h1 className="text-3xl font-bold text-[#1a1612] font-['Playfair_Display'] tracking-tight">Tạo yêu cầu mua hàng</h1>
-                        <p className="text-sm text-slate-500 mt-1">Điền thông tin và chọn sản phẩm cần nhập · Quản lý sẽ xét duyệt trước khi gửi báo giá</p>
-                    </div>
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-2">
+                {/* ── Card trái: Thông tin yêu cầu ── */}
+                <aside className="flex flex-col gap-5 lg:col-span-5">
+                    <SurfaceCard title="Thông tin yêu cầu">
 
-                        {/* ── Card trái: Thông tin yêu cầu ── */}
-                        <aside className="lg:col-span-5 flex flex-col gap-6">
-                            <SectionCard title="Thông tin yêu cầu" icon={FileText}>
-                                
-                                {/* Kho nhập */}
-                                <div className="inp-group">
-                                    <label className="inp-label">Kho nhập <span className="text-rose-500">*</span></label>
-                                    <select 
-                                        className="inp-select font-semibold"
-                                        value={khoId}
-                                        onChange={e => setKhoId(e.target.value)}
-                                        disabled={loadingWarehouses}
-                                    >
-                                        <option value="">-- Chọn kho nhập --</option>
-                                        {warehouses.map(kho => (
-                                            <option key={kho.id} value={kho.id}>
-                                                {kho.tenKho} {kho.maKho ? `(${kho.maKho})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Ngày giao dự kiến */}
-                                <div className="inp-group">
-                                    <label className="inp-label">Ngày giao dự kiến <span className="text-rose-500">*</span></label>
-                                    <input
-                                        type="date"
-                                        value={ngayGiaoDuKien}
-                                        onChange={e => setNgayGiaoDuKien(e.target.value)}
-                                        min={new Date().toISOString().split('T')[0]}
-                                        className="inp-text font-semibold"
-                                    />
-                                </div>
-
-                                {/* Ghi chú */}
-                                <div className="inp-group">
-                                    <label className="inp-label">Ghi chú</label>
-                                    <textarea
-                                        placeholder="Lý do yêu cầu, ghi chú cho quản lý..."
-                                        value={ghiChu}
-                                        onChange={e => setGhiChu(e.target.value)}
-                                        rows={3}
-                                        className="inp-area font-medium"
-                                    />
-                                </div>
-
-                                {/* Summary đã chọn */}
-                                {selected.size > 0 && (
-                                    <div className="rounded-xl border border-[#b8860b]/20 bg-[#faf8f3] px-4 py-4 space-y-3 shadow-sm">
-                                        <div className="flex items-center justify-between border-b border-[#b8860b]/10 pb-2">
-                                            <span className="text-[11px] font-bold text-[#b8860b] uppercase tracking-wide flex items-center gap-1.5">
-                                                <Check className="h-4 w-4" /> Đã chọn {selected.size} biến thể
-                                            </span>
-                                            <button type="button" onClick={() => setSelected(new Map())}
-                                                className="text-[11px] font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors">
-                                                <Trash2 className="h-3.5 w-3.5" /> Xóa tất cả
-                                            </button>
-                                        </div>
-                                        <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                                            {Array.from(selected.entries()).map(([id, { variant, productName, soLuong }]) => {
-                                                const img = variant.anhBienThe?.tepTin?.duongDan;
-                                                return (
-                                                    <div key={id} className="flex items-center gap-2.5 bg-white rounded-lg border border-[#b8860b]/10 p-2 shadow-sm">
-                                                        {img
-                                                            ? <img src={img} alt="" className="h-8 w-8 rounded-md object-cover border border-[#b8860b]/20 shrink-0" />
-                                                            : <div className="h-8 w-8 rounded-md bg-[#faf8f3] flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#b8860b]/40" /></div>
-                                                        }
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-[12px] font-bold text-[#1a1612] truncate">{productName}</p>
-                                                            <p className="font-mono text-[10px] text-[#8b6a21] mt-0.5">{variant.maSku}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 shrink-0 bg-[#faf8f3] p-0.5 rounded-md border border-[#b8860b]/10">
-                                                            <button type="button" onClick={() => handleQtyChange(id, Math.max(1, soLuong - 1))}
-                                                                className="h-6 w-6 rounded bg-white hover:bg-[#b8860b]/10 flex items-center justify-center shadow-sm">
-                                                                <Minus className="h-3 w-3 text-[#b8860b]" />
-                                                            </button>
-                                                            <span className="text-[12px] font-black text-[#1a1612] w-6 text-center">{soLuong}</span>
-                                                            <button type="button" onClick={() => handleQtyChange(id, soLuong + 1)}
-                                                                className="h-6 w-6 rounded bg-white hover:bg-[#b8860b]/10 flex items-center justify-center shadow-sm">
-                                                                <Plus className="h-3 w-3 text-[#b8860b]" />
-                                                            </button>
-                                                        </div>
-                                                        <button type="button" onClick={() => { setSelected(prev => { const n = new Map(prev); n.delete(id); return n; }); }}
-                                                            className="h-6 w-6 ml-1 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
-                                                            <X className="h-3 w-3 text-rose-500" />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </SectionCard>
-                        </aside>
-
-                        {/* ── Card phải: Chọn sản phẩm ── */}
-                        <div className="lg:col-span-7 flex flex-col gap-6">
-                            <SectionCard title="Chọn sản phẩm & biến thể" icon={ShoppingBag}
-                                rightElement={
-                                    <div className="relative w-64 hidden sm:block">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#b8860b]/50" />
-                                        <input
-                                            type="text"
-                                            placeholder="Tìm tên sản phẩm..."
-                                            value={searchTerm}
-                                            onChange={e => setSearchTerm(e.target.value)}
-                                            className="inp-text h-9 pl-9 text-[13px] !bg-white"
-                                        />
-                                    </div>
-                                }
+                        {/* Kho nhập */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-bo-foreground">
+                                Kho nhập <span className="text-bo-danger">*</span>
+                            </label>
+                            <select
+                                className={`${CONTROL_CLASS} font-semibold`}
+                                value={khoId}
+                                onChange={e => setKhoId(e.target.value)}
+                                disabled={loadingWarehouses}
                             >
-                                {/* Mobile Search */}
-                                <div className="relative sm:hidden mb-2">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#b8860b]/50" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm tên sản phẩm..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="inp-text pl-9 text-[13px] !bg-white"
-                                    />
-                                </div>
-
-                                {/* Product list */}
-                                <div className="space-y-3 max-h-[580px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {loadingProducts ? (
-                                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-[#b8860b]">
-                                            <Loader2 className="h-8 w-8 animate-spin" />
-                                            <p className="text-sm font-medium">Đang tải sản phẩm...</p>
-                                        </div>
-                                    ) : products.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-16 gap-3 border-2 border-dashed border-[#b8860b]/20 rounded-2xl bg-[#faf8f3] text-slate-500">
-                                            <ShoppingBag className="h-10 w-10 opacity-30 text-[#b8860b]" />
-                                            <p className="text-sm font-bold uppercase tracking-widest">Không tìm thấy sản phẩm</p>
-                                        </div>
-                                    ) : products.map(product => (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={product}
-                                            selectedMap={selected}
-                                            onToggle={handleToggle}
-                                            onQtyChange={handleQtyChange}
-                                        />
-                                    ))}
-                                </div>
-
-                                {/* Pagination */}
-                                {productTotalPages > 1 && (
-                                    <div className="flex items-center justify-center gap-3 pt-3 border-t border-[#b8860b]/10 mt-2">
-                                        <Button type="button" variant="outline" size="sm"
-                                            disabled={productPage === 0 || loadingProducts}
-                                            onClick={() => fetchProducts(productPage - 1, searchTerm)}
-                                            className="h-9 px-4 rounded-xl text-xs font-bold border-[#b8860b]/20 text-[#b8860b] hover:bg-[#b8860b]/10">← Trước</Button>
-                                        <span className="text-xs text-[#1a1612] font-black px-4 py-1.5 bg-[#faf8f3] rounded-xl border border-[#b8860b]/20 shadow-sm">
-                                            {productPage + 1} / {productTotalPages}
-                                        </span>
-                                        <Button type="button" variant="outline" size="sm"
-                                            disabled={productPage >= productTotalPages - 1 || loadingProducts}
-                                            onClick={() => fetchProducts(productPage + 1, searchTerm)}
-                                            className="h-9 px-4 rounded-xl text-xs font-bold border-[#b8860b]/20 text-[#b8860b] hover:bg-[#b8860b]/10">Sau →</Button>
-                                    </div>
-                                )}
-                            </SectionCard>
+                                <option value="">-- Chọn kho nhập --</option>
+                                {warehouses.map(kho => (
+                                    <option key={kho.id} value={kho.id}>
+                                        {kho.tenKho} {kho.maKho ? `(${kho.maKho})` : ''}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
 
-                    {/* ── Action Buttons ── */}
-                    <div className="flex justify-end gap-3 mt-4">
-                        <Button 
-                            onClick={handleSubmit} 
-                            disabled={submitting || selected.size === 0} 
-                            className="flex items-center justify-center h-12 rounded-xl px-8 gap-2 bg-gradient-to-r from-[#b8860b] to-[#d4af37] hover:from-[#a07409] hover:to-[#b8860b] text-white font-bold shadow-[0_4px_14px_rgba(184,134,11,0.25)] border-0 transition-all duration-300"
-                        >
-                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                            Gửi yêu cầu mua hàng
-                        </Button>
-                    </div>
+                        {/* Ngày giao dự kiến */}
+                        <div className="mt-5 flex flex-col gap-2">
+                            <label className="text-sm font-medium text-bo-foreground">
+                                Ngày giao dự kiến <span className="text-bo-danger">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={ngayGiaoDuKien}
+                                onChange={e => setNgayGiaoDuKien(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                className={`${CONTROL_CLASS} font-semibold`}
+                            />
+                        </div>
 
-                    {/* ── Confirm Dialog ── */}
-                    <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                        <DialogContent className="rounded-2xl sm:max-w-md p-0 overflow-hidden border border-[#b8860b]/20 shadow-2xl bg-white">
-                            <div className="bg-gradient-to-r from-[#b8860b] to-[#d4af37] p-6 flex items-center gap-3">
-                                <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center shrink-0 shadow-inner">
-                                    <Send className="h-5 w-5 text-white" />
+                        {/* Ghi chú */}
+                        <div className="mt-5 flex flex-col gap-2">
+                            <label className="text-sm font-medium text-bo-foreground">Ghi chú</label>
+                            <textarea
+                                placeholder="Lý do yêu cầu, ghi chú cho quản lý..."
+                                value={ghiChu}
+                                onChange={e => setGhiChu(e.target.value)}
+                                rows={3}
+                                className="min-h-[100px] w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2.5 text-sm font-medium text-bo-foreground shadow-none placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
+                            />
+                        </div>
+
+                        {/* Summary đã chọn */}
+                        {selected.size > 0 && (
+                            <div className="mt-5 space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-4">
+                                <div className="flex items-center justify-between border-b border-bo-border pb-2">
+                                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-primary">
+                                        <Check className="size-4" /> Đã chọn {selected.size} biến thể
+                                    </span>
+                                    <button type="button" onClick={() => setSelected(new Map())}
+                                        className="flex items-center gap-1 text-[11px] font-semibold text-bo-danger transition-colors hover:text-bo-danger/80">
+                                        <Trash2 className="size-3.5" /> Xóa tất cả
+                                    </button>
                                 </div>
-                                <DialogTitle className="text-xl font-bold text-white m-0 tracking-wide font-['Playfair_Display']">
-                                    Xác nhận tạo yêu cầu
-                                </DialogTitle>
-                            </div>
-                            <div className="p-6 bg-[#faf8f3]">
-                                <DialogDescription className="text-[15px] text-slate-700 mb-6 leading-relaxed">
-                                    Yêu cầu sẽ được gửi đến quản lý để xét duyệt. Sau khi duyệt, hệ thống sẽ tạo đơn báo giá gửi đến nhà cung cấp.
-                                </DialogDescription>
-                                
-                                <div className="bg-white border border-[#b8860b]/20 shadow-sm rounded-xl p-4 space-y-3 mb-6 text-[14px]">
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                        <span className="text-slate-500 font-medium">Kho nhập:</span>
-                                        <span className="font-bold text-[#1a1612] text-[15px]">{selectedWarehouse?.tenKho || '—'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                        <span className="text-slate-500 font-medium">Ngày giao:</span>
-                                        <span className="font-bold text-[#1a1612] text-[15px]">{formatDate(ngayGiaoDuKien)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-1">
-                                        <span className="text-slate-500 font-medium flex items-center gap-1.5"><Layers className="h-4 w-4"/> Tổng sản phẩm:</span>
-                                        <span className="font-black text-[#b8860b] bg-[#b8860b]/10 px-2 py-0.5 rounded-lg text-[16px]">{totalItems} SP ({selected.size} biến thể)</span>
-                                    </div>
+                                <div className="max-h-[200px] space-y-2 overflow-y-auto pr-1">
+                                    {Array.from(selected.entries()).map(([id, { variant, productName, soLuong }]) => {
+                                        const img = variant.anhBienThe?.tepTin?.duongDan;
+                                        return (
+                                            <div key={id} className="flex items-center gap-2.5 rounded-md border border-bo-border bg-white p-2">
+                                                {img
+                                                    ? <img src={img} alt="" className="size-8 shrink-0 rounded-md border border-bo-border object-cover" />
+                                                    : <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-bo-surface-subtle"><Package className="size-4 text-slate-400" /></div>
+                                                }
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-[12px] font-semibold text-bo-foreground">{productName}</p>
+                                                    <p className="mt-0.5 font-mono text-[10px] text-bo-muted">{variant.maSku}</p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-1 rounded-md border border-bo-border bg-bo-surface-subtle p-0.5">
+                                                    <button type="button" onClick={() => handleQtyChange(id, Math.max(1, soLuong - 1))}
+                                                        className="flex size-6 items-center justify-center rounded bg-white text-bo-primary shadow-sm hover:bg-bo-primary-soft">
+                                                        <Minus className="size-3" />
+                                                    </button>
+                                                    <span className="w-6 text-center text-[12px] font-bold text-bo-foreground">{soLuong}</span>
+                                                    <button type="button" onClick={() => handleQtyChange(id, soLuong + 1)}
+                                                        className="flex size-6 items-center justify-center rounded bg-white text-bo-primary shadow-sm hover:bg-bo-primary-soft">
+                                                        <Plus className="size-3" />
+                                                    </button>
+                                                </div>
+                                                <button type="button" onClick={() => { setSelected(prev => { const n = new Map(prev); n.delete(id); return n; }); }}
+                                                    className="ml-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-bo-danger-soft text-bo-danger transition-colors hover:bg-bo-danger/15">
+                                                    <X className="size-3" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-
-                                <DialogFooter className="gap-2">
-                                    <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={submitting}
-                                        className="h-11 rounded-xl font-semibold w-full sm:w-auto border-slate-300 text-slate-600 hover:bg-slate-100 bg-white">
-                                        Hủy bỏ
-                                    </Button>
-                                    <Button onClick={confirmCreate} disabled={submitting}
-                                        className="h-11 rounded-xl font-bold bg-gradient-to-r from-[#b8860b] to-[#d4af37] hover:from-[#a07409] hover:to-[#b8860b] text-white shadow-md border-0 w-full sm:w-auto transition-all">
-                                        {submitting
-                                            ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />Đang tạo...</>
-                                            : <><Check className="h-4 w-4 mr-2" />Xác nhận tạo</>
-                                        }
-                                    </Button>
-                                </DialogFooter>
                             </div>
-                        </DialogContent>
-                    </Dialog>
+                        )}
+                    </SurfaceCard>
+                </aside>
+
+                {/* ── Card phải: Chọn sản phẩm ── */}
+                <div className="flex flex-col gap-5 lg:col-span-7">
+                    <SurfaceCard
+                        title="Chọn sản phẩm & biến thể"
+                        action={
+                            <div className="hidden w-64 sm:block">
+                                <SearchInput
+                                    placeholder="Tìm tên sản phẩm..."
+                                    label="Tìm sản phẩm"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    onClear={() => setSearchTerm('')}
+                                    className="sm:max-w-none"
+                                />
+                            </div>
+                        }
+                    >
+                        {/* Mobile Search */}
+                        <div className="mb-3 sm:hidden">
+                            <SearchInput
+                                placeholder="Tìm tên sản phẩm..."
+                                label="Tìm sản phẩm"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                onClear={() => setSearchTerm('')}
+                            />
+                        </div>
+
+                        {/* Product list */}
+                        <div className="max-h-[580px] space-y-3 overflow-y-auto pr-2">
+                            {loadingProducts ? (
+                                <LoadingState rows={5} label="Đang tải sản phẩm" />
+                            ) : products.length === 0 ? (
+                                <EmptyState
+                                    icon={ShoppingBag}
+                                    title="Không tìm thấy sản phẩm"
+                                    description="Thử từ khóa khác hoặc chọn kho nhập khác để xem biến thể."
+                                />
+                            ) : products.map(product => (
+                                <ProductCard
+                                    key={product.id}
+                                    product={product}
+                                    selectedMap={selected}
+                                    onToggle={handleToggle}
+                                    onQtyChange={handleQtyChange}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Pagination */}
+                        {productTotalPages > 1 && (
+                            <div className="mt-4 flex items-center justify-center gap-3 border-t border-bo-border pt-4">
+                                <Button type="button" variant="outline" size="sm"
+                                    disabled={productPage === 0 || loadingProducts}
+                                    onClick={() => fetchProducts(productPage - 1, searchTerm)}
+                                    className="h-9 gap-1 border-bo-border bg-white text-xs font-semibold text-bo-foreground hover:bg-bo-surface-subtle">← Trước</Button>
+                                <span className="rounded-md border border-bo-border bg-bo-surface-subtle px-4 py-1.5 text-xs font-semibold text-bo-foreground">
+                                    {productPage + 1} / {productTotalPages}
+                                </span>
+                                <Button type="button" variant="outline" size="sm"
+                                    disabled={productPage >= productTotalPages - 1 || loadingProducts}
+                                    onClick={() => fetchProducts(productPage + 1, searchTerm)}
+                                    className="h-9 gap-1 border-bo-border bg-white text-xs font-semibold text-bo-foreground hover:bg-bo-surface-subtle">Sau →</Button>
+                            </div>
+                        )}
+                    </SurfaceCard>
                 </div>
             </div>
-        </>
+
+            {/* ── Action Buttons ── */}
+            <FormActions className="rounded-lg border border-bo-border shadow-sm">
+                <span className="mr-auto text-xs text-bo-muted">
+                    Đã chọn <span className="font-semibold text-bo-foreground">{selected.size}</span> biến thể ·{' '}
+                    <span className="font-semibold text-bo-foreground">{totalItems}</span> sản phẩm
+                </span>
+                <Button
+                    onClick={handleSubmit}
+                    disabled={submitting || selected.size === 0}
+                    className="flex h-11 items-center justify-center gap-2 rounded-md bg-bo-primary px-8 font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                >
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    Gửi yêu cầu mua hàng
+                </Button>
+            </FormActions>
+
+            {/* ── Confirm Dialog ── */}
+            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
+                    <div className="flex items-center gap-3 border-b border-bo-border bg-bo-primary-soft px-5 py-4">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-primary">
+                            <Send className="size-5" />
+                        </div>
+                        <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">
+                            Xác nhận tạo yêu cầu
+                        </DialogTitle>
+                    </div>
+                    <div className="bg-white p-5">
+                        <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
+                            Yêu cầu sẽ được gửi đến quản lý để xét duyệt. Sau khi duyệt, hệ thống sẽ tạo đơn báo giá gửi đến nhà cung cấp.
+                        </DialogDescription>
+
+                        <div className="mb-5 space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
+                            <div className="flex items-center justify-between border-b border-bo-border pb-2">
+                                <span className="font-medium text-bo-muted">Kho nhập:</span>
+                                <span className="text-[15px] font-semibold text-bo-foreground">{selectedWarehouse?.tenKho || '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-bo-border pb-2">
+                                <span className="font-medium text-bo-muted">Ngày giao:</span>
+                                <span className="text-[15px] font-semibold text-bo-foreground">{formatDate(ngayGiaoDuKien)}</span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                                <span className="flex items-center gap-1.5 font-medium text-bo-muted"><Layers className="size-4" /> Tổng sản phẩm:</span>
+                                <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 text-[16px] font-bold text-bo-primary">{totalItems} SP ({selected.size} biến thể)</span>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-2">
+                            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={submitting}
+                                className="h-11 w-full rounded-md border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto">
+                                Hủy bỏ
+                            </Button>
+                            <Button onClick={confirmCreate} disabled={submitting}
+                                className="h-11 w-full rounded-md bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover sm:w-auto">
+                                {submitting
+                                    ? <><Loader2 className="mr-2 size-5 animate-spin" />Đang tạo...</>
+                                    : <><Check className="mr-2 size-4" />Xác nhận tạo</>
+                                }
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </PageContainer>
     );
 }

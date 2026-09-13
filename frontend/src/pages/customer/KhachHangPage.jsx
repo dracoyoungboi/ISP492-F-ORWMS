@@ -1,24 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectTrigger,
-    SelectValue,
-    SelectContent,
-    SelectItem
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-} from "@/components/ui/table";
 import {
     Dialog,
     DialogContent,
@@ -26,21 +10,13 @@ import {
     DialogTitle,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import PaginationComponent from "../product/components/product/ProductComponent";
 import apiClient from "@/services/apiClient";
 import {
-    Search,
     Plus,
     Eye,
-    Edit,
     Trash2,
     User,
-    UserCheck,
-    UserX,
     Filter,
-    X,
     Mail,
     Phone,
     MapPin,
@@ -63,6 +39,37 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import EmptyState from "@/components/shared/EmptyState";
+import FilterBar from "@/components/shared/FilterBar";
+import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import TableShell from "@/components/shared/TableShell";
+
+// Bản đồ nhãn + tông màu loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ)
+const LOAI_KHACH_HANG_MAP = {
+    le: { label: "Khách lẻ", tone: "info" },
+    doanh_nghiep: { label: "Doanh nghiệp", tone: "warning" },
+    si: { label: "Khách sỉ", tone: "success" }
+};
+
+// Thứ tự lựa chọn lọc loại khách hàng (giữ nguyên như bản cũ)
+const LOAI_FILTER_OPTIONS = [
+    { value: "all", label: "Tất cả loại" },
+    { value: "le", label: "Khách lẻ" },
+    { value: "si", label: "Khách sỉ" },
+    { value: "doanh_nghiep", label: "Doanh nghiệp" }
+];
+
+const TRANG_THAI_FILTER_OPTIONS = [
+    { value: "all", label: "Tất cả trạng thái" },
+    { value: "1", label: "Hoạt động" },
+    { value: "0", label: "Ngưng hoạt động" }
+];
 
 // Service xử lý API calls
 const khachHangService = {
@@ -104,7 +111,6 @@ export default function KhachHangPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [loaiKhachHang, setLoaiKhachHang] = useState("all");
     const [trangThai, setTrangThai] = useState("all");
-    const [showFilterPanel, setShowFilterPanel] = useState(false);
 
     // Dialog states
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -127,6 +133,12 @@ export default function KhachHangPage() {
 
     // Alert state
     const [alert, setAlert] = useState({ show: false, message: "", type: "success" });
+
+    // Alert helper
+    const showAlert = useCallback((message, type = "success") => {
+        setAlert({ show: true, message, type });
+        setTimeout(() => setAlert({ show: false, message: "", type: "success" }), 3000);
+    }, []);
 
     // Load data
     const loadKhachHangs = useCallback(async () => {
@@ -202,17 +214,13 @@ export default function KhachHangPage() {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, searchQuery, loaiKhachHang, trangThai]);
+    }, [currentPage, pageSize, searchQuery, loaiKhachHang, trangThai, showAlert]);
 
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
     useEffect(() => {
-        loadKhachHangs();
+        queueMicrotask(() => loadKhachHangs());
     }, [loadKhachHangs]);
-
-    // Alert helper
-    const showAlert = (message, type = "success") => {
-        setAlert({ show: true, message, type });
-        setTimeout(() => setAlert({ show: false, message: "", type: "success" }), 3000);
-    };
 
     // Handlers
     const handleSearch = () => {
@@ -309,46 +317,10 @@ export default function KhachHangPage() {
     };
 
     // Render helpers
-    const getTrangThaiBadge = (trangThai) => {
-        const statusMap = {
-            1: { label: "Hoạt động", variant: "success", icon: UserCheck },
-            0: { label: "Ngưng hoạt động", variant: "red", icon: UserX }
-        };
+    const getLoaiKhachHangBadge = (loai) => {
+        const item = LOAI_KHACH_HANG_MAP[loai] || { label: loai, tone: "neutral" };
 
-        const status = statusMap[trangThai] || statusMap[0];
-        const Icon = status.icon;
-
-        return (
-            <Badge variant={status.variant} className="flex items-center gap-1">
-                <Icon className="w-3 h-3" />
-                {status.label}
-            </Badge>
-        );
-    };
-
-    const getLoaiKhachHangLabel = (loaiKhachHang) => {
-        const loaiMap = {
-            "le": "Khách lẻ",
-            "doanh_nghiep": "Doanh nghiệp",
-            "si": "Khách sỉ"
-        };
-        return loaiMap[loaiKhachHang] || loaiKhachHang;
-    };
-
-    const getLoaiKhachHangBadge = (loaiKhachHang) => {
-        const loaiMap = {
-            "le": { label: "Khách lẻ", className: "bg-blue-100 text-blue-700 border-blue-200" },
-            "doanh_nghiep": { label: "Doanh nghiệp", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-            "si": { label: "Khách sỉ", className: "bg-green-100 text-green-700 border-green-200" }
-        };
-
-        const loai = loaiMap[loaiKhachHang] || { label: loaiKhachHang, className: "bg-gray-100 text-gray-700" };
-
-        return (
-            <Badge variant="outline" className={loai.className}>
-                {loai.label}
-            </Badge>
-        );
+        return <StatusBadge label={item.label} tone={item.tone} dot={false} />;
     };
 
     const stats = {
@@ -369,310 +341,212 @@ export default function KhachHangPage() {
         setCurrentPage(0);
     };
 
+    const loaiKhachHangLabel = LOAI_FILTER_OPTIONS.find(o => o.value === loaiKhachHang)?.label;
+
+    const trangThaiLabel = TRANG_THAI_FILTER_OPTIONS.find(o => o.value === trangThai)?.label;
+
     return (
-        <div className="lux-sync warehouse-unified p-6 space-y-6 min-h-screen" style={{background: "linear-gradient(135deg, #ca8a04 0%, #b45309 100%)"}}>
-            <div className="space-y-6 w-full">
-                {/* Stats Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/95 ring-1 ring-white/60">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Tổng khách hàng</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
-                                </div>
-                                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <Users className="h-6 w-6 text-blue-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/95 ring-1 ring-white/60">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Khách lẻ</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats.le}</p>
-                                </div>
-                                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                                    <User className="h-6 w-6 text-green-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/95 ring-1 ring-white/60">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Khách sỉ</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats.si}</p>
-                                </div>
-                                <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
-                                    <Store className="h-6 w-6 text-orange-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/95 ring-1 ring-white/60">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Doanh nghiệp</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats.doanh_nghiep}</p>
-                                </div>
-                                <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                                    <Building2 className="h-6 w-6 text-yellow-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Filters Section */}
-                <Card className="border-0 shadow-lg bg-white/95 ring-1 ring-white/60">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <Filter className="h-5 w-5 text-yellow-600" />
-                            Bộ lọc tìm kiếm
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Search bar */}
-                            <div className="space-y-2 md:col-span-2">
-                                <Label className="text-gray-700 font-medium">Tìm kiếm</Label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Tìm theo tên, mã, SĐT, email..."
-                                        className="pl-9 border-gray-200 focus:border-yellow-500 focus:ring-yellow-500"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Loại khách hàng */}
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Loại khách hàng</Label>
-                                <DropdownMenu modal={false}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
-                                            <span className="truncate">
-                                                {loaiKhachHang === "all" && "Tất cả loại"}
-                                                {loaiKhachHang === "le" && "Khách lẻ"}
-                                                {loaiKhachHang === "si" && "Khách sỉ"}
-                                                {loaiKhachHang === "doanh_nghiep" && "Doanh nghiệp"}
-                                            </span>
-                                            <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
-                                        <DropdownMenuItem onClick={() => setLoaiKhachHang("all")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Tất cả loại {loaiKhachHang === "all" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setLoaiKhachHang("le")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Khách lẻ {loaiKhachHang === "le" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setLoaiKhachHang("si")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Khách sỉ {loaiKhachHang === "si" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setLoaiKhachHang("doanh_nghiep")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Doanh nghiệp {loaiKhachHang === "doanh_nghiep" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Trạng thái */}
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Trạng thái</Label>
-                                <DropdownMenu modal={false}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
-                                            <span className="truncate">
-                                                {trangThai === "all" && "Tất cả trạng thái"}
-                                                {trangThai === "1" && "Hoạt động"}
-                                                {trangThai === "0" && "Ngưng hoạt động"}
-                                            </span>
-                                            <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
-                                        <DropdownMenuItem onClick={() => setTrangThai("all")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Tất cả trạng thái {trangThai === "all" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setTrangThai("1")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Hoạt động {trangThai === "1" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setTrangThai("0")} className="flex items-center justify-between cursor-pointer hover:bg-yellow-50">
-                                            Ngưng hoạt động {trangThai === "0" && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Reset Button */}
-                            <div className="flex items-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleResetFilters}
-                                    className="bg-white text-gray-700 border-gray-200 hover:bg-gray-50 h-10 px-4 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 w-full justify-center"
-                                >
-                                    <RefreshCcw className="h-4 w-4" />
-                                    Đặt lại
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Add Button */}
-                <div className="flex justify-end">
+        <PageContainer className="space-y-5">
+            {/* ── Page header ── */}
+            <PageHeader
+                title="Quản lý khách hàng"
+                description="Danh sách khách hàng, loại khách hàng và trạng thái hoạt động"
+                actions={
                     <Button
                         onClick={handleOpenCreateDialog}
-                        className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm gap-2 transition-all duration-200"
+                        className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="size-4" />
                         Thêm khách hàng
                     </Button>
+                }
+            />
+
+            {/* ── Alert ── */}
+            {alert.show && (
+                <div
+                    role="status"
+                    className={`flex items-start gap-3 rounded-lg border p-3 ${alert.type === "error"
+                        ? "border-bo-danger/20 bg-bo-danger-soft"
+                        : "border-bo-success/20 bg-bo-success-soft"}`}
+                >
+                    <span
+                        className={`flex size-8 shrink-0 items-center justify-center rounded-md text-white ${alert.type === "error" ? "bg-bo-danger" : "bg-bo-success"}`}
+                    >
+                        {alert.type === "error" ? (
+                            <AlertCircle className="size-4" />
+                        ) : (
+                            <CheckCircle2 className="size-4" />
+                        )}
+                    </span>
+                    <p
+                        className={`pt-1 text-sm font-medium ${alert.type === "error" ? "text-bo-danger" : "text-bo-success"}`}
+                    >
+                        {alert.message}
+                    </p>
                 </div>
+            )}
 
-                {/* Alert */}
-                {alert.show && (
-                    <Alert className={alert.type === "error" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}>
-                        <div className="flex items-center gap-2">
-                            {alert.type === "error" ? (
-                                <AlertCircle className="w-4 h-4 text-red-600" />
-                            ) : (
-                                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            )}
-                            <AlertDescription className={alert.type === "error" ? "text-red-800" : "text-green-800"}>
-                                {alert.message}
-                            </AlertDescription>
-                        </div>
-                    </Alert>
-                )}
-
-                {/* Table Section */}
-                <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-200 bg-slate-50">
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase w-14">STT</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Mã KH</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Khách hàng</th>
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Loại KH</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Liên hệ</th>
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Trạng thái</th>
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={7} className="text-center py-12 text-gray-500">
-                                            <div className="flex items-center justify-center">
-                                                <Loader2 className="h-6 w-6 animate-spin text-yellow-500 mr-2" />
-                                                Đang tải dữ liệu...
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : khachHangs.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="text-center py-12 text-gray-500">
-                                            Không có dữ liệu
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    khachHangs.map((khachHang, index) => (
-                                        <tr key={khachHang.id} className="transition-colors duration-150 hover:bg-yellow-50/50">
-                                            <td className="px-4 py-3.5 align-middle text-center text-slate-500 text-xs">
-                                                {currentPage * pageSize + index + 1}
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <span className="font-bold text-yellow-600 tracking-wide">{khachHang.maKhachHang}</span>
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <div className="font-semibold text-slate-900">{khachHang.tenKhachHang}</div>
-                                                {khachHang.nguoiLienHe && (
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1">
-                                                        <User className="w-3 h-3" /> {khachHang.nguoiLienHe}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle text-center">
-                                                {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <div className="flex flex-col gap-1 text-xs text-slate-600">
-                                                    <div className="flex items-center gap-1"><Phone className="w-3 h-3" /> {khachHang.soDienThoai || "-"}</div>
-                                                    <div className="flex items-center gap-1"><Mail className="w-3 h-3" /> {khachHang.email || "-"}</div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle text-center">
-                                                {khachHang.trangThai === 1 ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                                        Hoạt động
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                                                        Ngừng
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <button
-                                                        onClick={() => navigate(`/customers/${khachHang.id}`)}
-                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-yellow-600 hover:bg-yellow-50 hover:border-yellow-200"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteClick(khachHang)}
-                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-red-500 hover:bg-red-50 hover:border-red-200"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+            {/* ── Stats ── */}
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                    <div>
+                        <p className="text-xs font-medium text-bo-muted">Tổng khách hàng</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
                     </div>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
+                        <Users className="size-5" />
+                    </span>
                 </div>
 
-                {/* Pagination Section */}
-                <Card className="border-0 shadow-md bg-white">
-                    <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                    <div>
+                        <p className="text-xs font-medium text-bo-muted">Khách lẻ</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.le}</p>
+                    </div>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <User className="size-5" />
+                    </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                    <div>
+                        <p className="text-xs font-medium text-bo-muted">Khách sỉ</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.si}</p>
+                    </div>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
+                        <Store className="size-5" />
+                    </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                    <div>
+                        <p className="text-xs font-medium text-bo-muted">Doanh nghiệp</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.doanh_nghiep}</p>
+                    </div>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
+                        <Building2 className="size-5" />
+                    </span>
+                </div>
+            </section>
+
+            {/* ── Filters ── */}
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+                    <Filter className="size-4 text-bo-primary" />
+                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+                        Bộ lọc tìm kiếm
+                    </h2>
+                </div>
+                <FilterBar
+                    primary={
+                        <SearchInput
+                            placeholder="Tìm theo tên, mã, SĐT, email..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onClear={() => setSearchQuery("")}
+                            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        />
+                    }
+                    filters={
+                        <>
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[180px]"
+                                    >
+                                        <span className="truncate">{loaiKhachHangLabel}</span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                >
+                                    {LOAI_FILTER_OPTIONS.map((opt) => (
+                                        <DropdownMenuItem
+                                            key={opt.value}
+                                            onClick={() => setLoaiKhachHang(opt.value)}
+                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            {opt.label}
+                                            {loaiKhachHang === opt.value && <Check className="size-4" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[180px]"
+                                    >
+                                        <span className="truncate">{trangThaiLabel}</span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                >
+                                    {TRANG_THAI_FILTER_OPTIONS.map((opt) => (
+                                        <DropdownMenuItem
+                                            key={opt.value}
+                                            onClick={() => setTrangThai(opt.value)}
+                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            {opt.label}
+                                            {trangThai === opt.value && <Check className="size-4" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </>
+                    }
+                    actions={
+                        <Button
+                            variant="outline"
+                            onClick={handleResetFilters}
+                            className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <RefreshCcw className="size-4" />
+                            Đặt lại
+                        </Button>
+                    }
+                />
+            </div>
+
+            {/* ── Table ── */}
+            <TableShell
+                title="Danh sách khách hàng"
+                description="Nhấn vào thao tác để xem chi tiết hoặc xóa khách hàng"
+                footer={
+                    totalItems > 0 ? (
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            {/* Page size */}
                             <div className="flex items-center gap-2">
-                                <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
+                                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">
+                                        <Button
+                                            variant="outline"
+                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                                        >
                                             {pageSize} dòng
-                                            <ChevronDown className="h-4 w-4 opacity-50" />
+                                            <ChevronDown className="size-3.5 opacity-60" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
+                                    <DropdownMenuContent
+                                        align="start"
+                                        className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                    >
                                         {[20, 50, 100].map(size => (
                                             <DropdownMenuItem
                                                 key={size}
                                                 onClick={() => handlePageSizeChange(size)}
-                                                className="cursor-pointer"
+                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                             >
                                                 {size} dòng
                                             </DropdownMenuItem>
@@ -681,42 +555,44 @@ export default function KhachHangPage() {
                                 </DropdownMenu>
                             </div>
 
-                            <div className="text-sm text-gray-600">
-                                Hiển thị{' '}
-                                <span className="font-semibold text-gray-900">
+                            {/* Page info */}
+                            <p className="text-xs text-bo-muted">
+                                Hiển thị{" "}
+                                <span className="font-semibold text-bo-foreground">
                                     {currentPage * pageSize + 1}
                                 </span>
-                                {' '}-{' '}
-                                <span className="font-semibold text-gray-900">
+                                {" – "}
+                                <span className="font-semibold text-bo-foreground">
                                     {Math.min((currentPage + 1) * pageSize, totalItems)}
                                 </span>
-                                {' '}trong tổng số{' '}
-                                <span className="font-semibold text-yellow-600">{totalItems}</span> kết quả
-                            </div>
+                                {" trong tổng số "}
+                                <span className="font-semibold text-bo-primary">{totalItems}</span> kết quả
+                            </p>
 
+                            {/* Navigation */}
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage === 0}
-                                    className="gap-1 disabled:opacity-50"
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                 >
-                                    <ChevronLeft className="h-4 w-4" />
+                                    <ChevronLeft className="size-3.5" />
                                     Trước
                                 </Button>
 
-                                <div className="hidden sm:flex gap-1">
+                                <div className="hidden items-center gap-1 sm:flex">
                                     {[...Array(Math.min(5, Math.ceil(totalItems / pageSize)))].map((_, idx) => (
                                         <Button
                                             key={idx}
-                                            variant={currentPage === idx ? "default" : "outline"}
+                                            variant="outline"
                                             size="sm"
                                             onClick={() => handlePageChange(idx)}
                                             className={
                                                 currentPage === idx
-                                                    ? "bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm"
-                                                    : "border-gray-200"
+                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
                                             }
                                         >
                                             {idx + 1}
@@ -729,310 +605,398 @@ export default function KhachHangPage() {
                                     size="sm"
                                     onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage >= Math.ceil(totalItems / pageSize) - 1}
-                                    className="gap-1 disabled:opacity-50"
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                 >
                                     Sau
-                                    <ChevronRight className="h-4 w-4" />
+                                    <ChevronRight className="size-3.5" />
                                 </Button>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Create Dialog */}
-<Dialog open={showCreateDialog} onOpenChange={(open) => { if (!open) setShowCreateDialog(false); }}>
-    <DialogContent
-        className="w-[95vw] max-w-2xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden"
-        style={{ background: "#faf7f0", color: "#0f172a", outline: "none" }}
-    >
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4" style={{ background: "#faf7f0" }}>
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-semibold" style={{ color: "#0f172a" }}>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0" style={{ background: "#fef9c3" }}>
-                        <UserPlus className="w-4 h-4" style={{ color: "#ca8a04" }} />
-                    </div>
-                    Thêm khách hàng mới
-                </DialogTitle>
-                <p className="text-sm mt-1 ml-10" style={{ color: "#64748b" }}>
-                    Điền thông tin để tạo khách hàng mới
-                </p>
-            </DialogHeader>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 pb-2 overflow-y-auto max-h-[65vh]" style={{ background: "#faf7f0" }}>
-            <div className="space-y-5">
-
-                {/* Thông tin cơ bản */}
-                <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ca8a04" }}>
-                        Thông tin cơ bản
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Mã khách hàng */}
-                        <div className="space-y-1.5">
-                            <Label htmlFor="maKhachHang" className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#64748b" }}>
-                                Mã khách hàng *
-                            </Label>
-                            <Input
-                                id="maKhachHang"
-                                placeholder="VD: KH001"
-                                value={formData.maKhachHang}
-                                onChange={(e) => handleFormChange("maKhachHang", e.target.value)}
-                                style={{ background: "#ffffff", borderColor: formErrors.maKhachHang ? "#ef4444" : "#e5e7eb", color: "#0f172a" }}
-                                className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                            />
-                            {formErrors.maKhachHang && (
-                                <p className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
-                                    <AlertCircle className="w-3 h-3" />{formErrors.maKhachHang}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Tên khách hàng */}
-                        <div className="space-y-1.5">
-                            <Label htmlFor="tenKhachHang" className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#64748b" }}>
-                                Tên khách hàng *
-                            </Label>
-                            <Input
-                                id="tenKhachHang"
-                                placeholder="VD: Nguyễn Văn A"
-                                value={formData.tenKhachHang}
-                                onChange={(e) => handleFormChange("tenKhachHang", e.target.value)}
-                                style={{ background: "#ffffff", borderColor: formErrors.tenKhachHang ? "#ef4444" : "#e5e7eb", color: "#0f172a" }}
-                                className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                            />
-                            {formErrors.tenKhachHang && (
-                                <p className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
-                                    <AlertCircle className="w-3 h-3" />{formErrors.tenKhachHang}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Người liên hệ */}
-                        <div className="space-y-1.5">
-                            <Label htmlFor="nguoiLienHe" className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#64748b" }}>
-                                Người liên hệ
-                            </Label>
-                            <Input
-                                id="nguoiLienHe"
-                                placeholder="VD: Trần Thị B"
-                                value={formData.nguoiLienHe}
-                                onChange={(e) => handleFormChange("nguoiLienHe", e.target.value)}
-                                style={{ background: "#ffffff", borderColor: "#e5e7eb", color: "#0f172a" }}
-                                className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                            />
-                        </div>
-
-                        {/* Loại khách hàng */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#64748b" }}>
-                                Loại khách hàng
-                            </Label>
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <button
-                                        type="button"
-                                        className="h-10 w-full rounded-md px-3 text-left text-sm flex items-center justify-between transition-colors duration-150"
-                                        style={{ background: "#ffffff", border: "1px solid #e5e7eb", color: "#0f172a" }}
-                                        onMouseEnter={e => e.currentTarget.style.background = "#faf7f0"}
-                                        onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-                                    >
-                                        <span>
-                                            {formData.loaiKhachHang === "le" && "Khách lẻ"}
-                                            {formData.loaiKhachHang === "si" && "Khách sỉ"}
-                                            {formData.loaiKhachHang === "doanh_nghiep" && "Doanh nghiệp"}
-                                        </span>
-                                        <ChevronDown className="h-4 w-4" style={{ color: "#9ca3af" }} />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="w-[--radix-dropdown-menu-trigger-width] rounded-xl shadow-xl border"
-                                    style={{ background: "#ffffff", borderColor: "#e5e7eb" }}
-                                >
-                                    {[
-                                        { value: "le", label: "Khách lẻ" },
-                                        { value: "si", label: "Khách sỉ" },
-                                        { value: "doanh_nghiep", label: "Doanh nghiệp" },
-                                    ].map(opt => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => handleFormChange("loaiKhachHang", opt.value)}
-                                            className="flex items-center justify-between cursor-pointer"
-                                            style={{ color: "#0f172a" }}
-                                            onMouseEnter={e => e.currentTarget.style.background = "#fef9c3"}
-                                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                                        >
-                                            {opt.label}
-                                            {formData.loaiKhachHang === opt.value && <Check className="h-4 w-4" style={{ color: "#ca8a04" }} />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Divider */}
-                <div style={{ borderTop: "1px solid #ede8db" }} />
-
-                {/* Thông tin liên hệ */}
-                <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ca8a04" }}>
-                        Thông tin liên hệ
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Số điện thoại */}
-                        <div className="space-y-1.5">
-                            <Label htmlFor="soDienThoai" className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "#64748b" }}>
-                                <Phone className="w-3.5 h-3.5" /> Số điện thoại
-                            </Label>
-                            <Input
-                                id="soDienThoai"
-                                placeholder="VD: 0123456789"
-                                value={formData.soDienThoai}
-                                onChange={(e) => handleFormChange("soDienThoai", e.target.value)}
-                                style={{ background: "#ffffff", borderColor: formErrors.soDienThoai ? "#ef4444" : "#e5e7eb", color: "#0f172a" }}
-                                className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                            />
-                            {formErrors.soDienThoai && (
-                                <p className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
-                                    <AlertCircle className="w-3 h-3" />{formErrors.soDienThoai}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Email */}
-                        <div className="space-y-1.5">
-                            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "#64748b" }}>
-                                <Mail className="w-3.5 h-3.5" /> Email
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="VD: example@email.com"
-                                value={formData.email}
-                                onChange={(e) => handleFormChange("email", e.target.value)}
-                                style={{ background: "#ffffff", borderColor: formErrors.email ? "#ef4444" : "#e5e7eb", color: "#0f172a" }}
-                                className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                            />
-                            {formErrors.email && (
-                                <p className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
-                                    <AlertCircle className="w-3 h-3" />{formErrors.email}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Địa chỉ */}
-                    <div className="space-y-1.5">
-                        <Label htmlFor="diaChi" className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "#64748b" }}>
-                            <MapPin className="w-3.5 h-3.5" /> Địa chỉ
-                        </Label>
-                        <Input
-                            id="diaChi"
-                            placeholder="VD: 123 Đường ABC, Quận XYZ, TP. HCM"
-                            value={formData.diaChi}
-                            onChange={(e) => handleFormChange("diaChi", e.target.value)}
-                            style={{ background: "#ffffff", borderColor: "#e5e7eb", color: "#0f172a" }}
-                            className="h-10 focus:border-yellow-500 focus:ring-yellow-500"
-                        />
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4" style={{ background: "#f5efe0", borderTop: "1px solid #ede8db" }}>
-            <button
-                type="button"
-                disabled={isSubmitting}
-                className="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-all duration-150"
-                style={{ background: "#ffffff", color: "#374151", border: "1px solid #d1d5db" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#faf7f0"}
-                onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-                onClick={() => setShowCreateDialog(false)}
+                    ) : null
+                }
             >
-                Hủy
-            </button>
-            <button
-                type="button"
-                disabled={isSubmitting}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold transition-all duration-150 disabled:opacity-50"
-                style={{ background: "#eab308", color: "#ffffff", border: "none" }}
-                onMouseEnter={e => { if (!isSubmitting) e.currentTarget.style.background = "#ca8a04"; }}
-                onMouseLeave={e => e.currentTarget.style.background = "#eab308"}
-                onClick={handleCreateSubmit}
-            >
-                {isSubmitting ? (
-                    <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang xử lý...
-                    </>
+                {loading ? (
+                    <LoadingState rows={6} />
+                ) : khachHangs.length === 0 ? (
+                    <EmptyState
+                        icon={Users}
+                        title="Không có khách hàng"
+                        description="Chưa có khách hàng nào khớp với bộ lọc hiện tại."
+                    />
                 ) : (
-                    <>
-                        <UserPlus className="w-4 h-4" />
-                        Thêm khách hàng
-                    </>
+                    <div className="max-h-[520px] overflow-y-auto">
+                        <table className="w-full min-w-[900px] text-sm">
+                            <thead>
+                                <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                    <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        STT
+                                    </th>
+                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Mã KH
+                                    </th>
+                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Khách hàng
+                                    </th>
+                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Loại KH
+                                    </th>
+                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Liên hệ
+                                    </th>
+                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Trạng thái
+                                    </th>
+                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                        Thao tác
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-bo-border">
+                                {khachHangs.map((khachHang, index) => (
+                                    <tr
+                                        key={khachHang.id}
+                                        className="transition-colors hover:bg-bo-surface-subtle"
+                                    >
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                            {currentPage * pageSize + index + 1}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <span className="font-semibold tracking-wide text-bo-primary">
+                                                {khachHang.maKhachHang}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <div className="font-semibold text-bo-foreground">
+                                                {khachHang.tenKhachHang}
+                                            </div>
+                                            {khachHang.nguoiLienHe && (
+                                                <div className="mt-0.5 flex items-center gap-1 text-xs text-bo-muted">
+                                                    <User className="size-3 shrink-0" /> {khachHang.nguoiLienHe}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <div className="flex flex-col gap-1 text-xs text-bo-muted">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Phone className="size-3 shrink-0" /> {khachHang.soDienThoai || "-"}
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Mail className="size-3 shrink-0" /> {khachHang.email || "-"}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <StatusBadge
+                                                label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng"}
+                                                tone={khachHang.trangThai === 1 ? "success" : "neutral"}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/customers/${khachHang.id}`)}
+                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                                                    title="Xem chi tiết"
+                                                >
+                                                    <Eye className="size-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteClick(khachHang)}
+                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
-            </button>
-        </div>
-    </DialogContent>
-</Dialog>
+            </TableShell>
 
-            {/* Delete Dialog */}
-            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <DialogContent className="sm:max-w-[900px]
-    max-h-[90vh]
-    bg-white text-gray-900
-    border border-gray-200
-    rounded-xl shadow-sm
-    dark:bg-white dark:text-gray-900">
-                    <DialogHeader>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-red-100 rounded-lg">
-                                <AlertCircle className="w-5 h-5 text-red-600" />
-                            </div>
-                            <DialogTitle className="text-xl text-gray-900">Xác nhận xóa</DialogTitle>
-                        </div>
-                    </DialogHeader>
-
-                    <div className="py-4">
-                        <p className="text-gray-700">
-                            Bạn có chắc chắn muốn xóa khách hàng{" "}
-                            <span className="font-semibold text-gray-900">{selectedKhachHang?.tenKhachHang}</span>?
-                        </p>
-                        <p className="text-sm text-gray-500 mt-2">
-                            Khách hàng sẽ được chuyển sang trạng thái "Ngưng hoạt động".
+            {/* ── Create Dialog ── */}
+            <Dialog
+                open={showCreateDialog}
+                onOpenChange={(open) => { if (!open) setShowCreateDialog(false); }}
+            >
+                <DialogContent className="max-h-[90vh] w-[95vw] overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-2xl">
+                    <div className="border-b border-bo-border px-5 py-4">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-bo-primary-soft">
+                                    <UserPlus className="size-4 text-bo-primary" />
+                                </span>
+                                Thêm khách hàng mới
+                            </DialogTitle>
+                        </DialogHeader>
+                        <p className="mt-1 text-sm text-bo-muted">
+                            Điền thông tin để tạo khách hàng mới
                         </p>
                     </div>
 
-                    <DialogFooter className="gap-2">
+                    <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
+                        <div className="space-y-5">
+                            {/* Thông tin cơ bản */}
+                            <div className="space-y-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-bo-primary">
+                                    Thông tin cơ bản
+                                </p>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    {/* Mã khách hàng */}
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="maKhachHang"
+                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                        >
+                                            Mã khách hàng *
+                                        </Label>
+                                        <Input
+                                            id="maKhachHang"
+                                            placeholder="VD: KH001"
+                                            value={formData.maKhachHang}
+                                            onChange={(e) => handleFormChange("maKhachHang", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.maKhachHang)}
+                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.maKhachHang
+                                                ? "border-bo-danger focus-visible:border-bo-danger"
+                                                : "border-bo-border focus-visible:border-bo-primary"}`}
+                                        />
+                                        {formErrors.maKhachHang && (
+                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
+                                                <AlertCircle className="size-3" />{formErrors.maKhachHang}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Tên khách hàng */}
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="tenKhachHang"
+                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                        >
+                                            Tên khách hàng *
+                                        </Label>
+                                        <Input
+                                            id="tenKhachHang"
+                                            placeholder="VD: Nguyễn Văn A"
+                                            value={formData.tenKhachHang}
+                                            onChange={(e) => handleFormChange("tenKhachHang", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.tenKhachHang)}
+                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.tenKhachHang
+                                                ? "border-bo-danger focus-visible:border-bo-danger"
+                                                : "border-bo-border focus-visible:border-bo-primary"}`}
+                                        />
+                                        {formErrors.tenKhachHang && (
+                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
+                                                <AlertCircle className="size-3" />{formErrors.tenKhachHang}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    {/* Người liên hệ */}
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="nguoiLienHe"
+                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                        >
+                                            Người liên hệ
+                                        </Label>
+                                        <Input
+                                            id="nguoiLienHe"
+                                            placeholder="VD: Trần Thị B"
+                                            value={formData.nguoiLienHe}
+                                            onChange={(e) => handleFormChange("nguoiLienHe", e.target.value)}
+                                            className="h-10 border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                                        />
+                                    </div>
+
+                                    {/* Loại khách hàng */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
+                                            Loại khách hàng
+                                        </Label>
+                                        <DropdownMenu modal={false}>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-white px-3 text-left text-sm text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
+                                                >
+                                                    <span>
+                                                        {formData.loaiKhachHang === "le" && "Khách lẻ"}
+                                                        {formData.loaiKhachHang === "si" && "Khách sỉ"}
+                                                        {formData.loaiKhachHang === "doanh_nghiep" && "Doanh nghiệp"}
+                                                    </span>
+                                                    <ChevronDown className="size-4 shrink-0 text-bo-muted" />
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent
+                                                align="start"
+                                                className="backoffice-user-menu z-50 w-[--radix-dropdown-menu-trigger-width] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                            >
+                                                {[
+                                                    { value: "le", label: "Khách lẻ" },
+                                                    { value: "si", label: "Khách sỉ" },
+                                                    { value: "doanh_nghiep", label: "Doanh nghiệp" },
+                                                ].map(opt => (
+                                                    <DropdownMenuItem
+                                                        key={opt.value}
+                                                        onClick={() => handleFormChange("loaiKhachHang", opt.value)}
+                                                        className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                                    >
+                                                        {opt.label}
+                                                        {formData.loaiKhachHang === opt.value && (
+                                                            <Check className="size-4 text-bo-primary" />
+                                                        )}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-bo-border" />
+
+                            {/* Thông tin liên hệ */}
+                            <div className="space-y-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-bo-primary">
+                                    Thông tin liên hệ
+                                </p>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    {/* Số điện thoại */}
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="soDienThoai"
+                                            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                        >
+                                            <Phone className="size-3.5" /> Số điện thoại
+                                        </Label>
+                                        <Input
+                                            id="soDienThoai"
+                                            placeholder="VD: 0123456789"
+                                            value={formData.soDienThoai}
+                                            onChange={(e) => handleFormChange("soDienThoai", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.soDienThoai)}
+                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.soDienThoai
+                                                ? "border-bo-danger focus-visible:border-bo-danger"
+                                                : "border-bo-border focus-visible:border-bo-primary"}`}
+                                        />
+                                        {formErrors.soDienThoai && (
+                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
+                                                <AlertCircle className="size-3" />{formErrors.soDienThoai}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Email */}
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="email"
+                                            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                        >
+                                            <Mail className="size-3.5" /> Email
+                                        </Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="VD: example@email.com"
+                                            value={formData.email}
+                                            onChange={(e) => handleFormChange("email", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.email)}
+                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.email
+                                                ? "border-bo-danger focus-visible:border-bo-danger"
+                                                : "border-bo-border focus-visible:border-bo-primary"}`}
+                                        />
+                                        {formErrors.email && (
+                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
+                                                <AlertCircle className="size-3" />{formErrors.email}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Địa chỉ */}
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="diaChi"
+                                        className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
+                                    >
+                                        <MapPin className="size-3.5" /> Địa chỉ
+                                    </Label>
+                                    <Input
+                                        id="diaChi"
+                                        placeholder="VD: 123 Đường ABC, Quận XYZ, TP. HCM"
+                                        value={formData.diaChi}
+                                        onChange={(e) => handleFormChange("diaChi", e.target.value)}
+                                        className="h-10 border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-row justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
                         <Button
+                            type="button"
                             variant="outline"
-                            onClick={() => setShowDeleteDialog(false)}
-                            className="flex-1"
+                            disabled={isSubmitting}
+                            onClick={() => setShowCreateDialog(false)}
+                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             Hủy
                         </Button>
                         <Button
-                            variant="destructive"
-                            onClick={handleDeleteConfirm}
-                            className="flex-1 bg-red-600 hover:bg-red-700"
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={handleCreateSubmit}
+                            className="min-w-[160px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                         >
-                            Xóa
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus className="size-4" />
+                                    Thêm khách hàng
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+
+            {/* ── Delete Dialog ── */}
+            <ConfirmModal
+                isOpen={showDeleteDialog}
+                onClose={() => setShowDeleteDialog(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Xác nhận xóa"
+                description={
+                    <>
+                        Bạn có chắc chắn muốn xóa khách hàng{" "}
+                        <span className="font-semibold text-bo-foreground">
+                            {selectedKhachHang?.tenKhachHang}
+                        </span>
+                        ? Khách hàng sẽ được chuyển sang trạng thái &quot;Ngưng hoạt động&quot;.
+                    </>
+                }
+                confirmText="Xóa"
+                cancelText="Hủy"
+                variant="danger"
+            />
+        </PageContainer>
     );
 }

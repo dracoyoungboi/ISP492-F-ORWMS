@@ -1,24 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
     ArrowLeft, Warehouse, Calendar, User, FileText, Package,
-    CheckCircle, XCircle, Download, Printer, AlertCircle,
-    MapPin, ShoppingCart, Clock, ClipboardList, Send
+    CheckCircle, XCircle, Printer, AlertCircle,
+    MapPin, Clock, Send,
 } from "lucide-react";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
 
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
@@ -48,30 +50,16 @@ function parseRoles(vaiTro) {
 }
 
 // ── Shared components ──────────────────────────────────────────────────────────
-function SectionCard({ icon: Icon, iconBg, iconColor, title, children }) {
+function InfoField({ label, value, mono = false, icon, children }) {
     return (
-        <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full items-stretch">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconBg}`}>
-                    <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-                <p className="font-bold text-slate-800 text-[14px]">{title}</p>
-            </div>
-            <div className="p-5 flex-1 flex flex-col gap-5 justify-start">{children}</div>
-        </div>
-    );
-}
-
-function InfoField({ label, value, mono = false, icon: Icon, children }) {
-    return (
-        <div className="space-y-1.5 flex flex-col">
-            <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-500 uppercase tracking-widest">
-                {Icon && <Icon className="h-3.5 w-3.5 opacity-70" />}
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                {icon}
                 {label}
             </div>
-            <div className="flex-1 flex items-start mt-0.5">
+            <div className="flex flex-1 items-start">
                 {children ?? (
-                    <p className={`text-[14px] font-semibold text-slate-800 ${mono ? "font-mono font-bold tracking-tight" : ""}`}>
+                    <p className={`text-sm font-semibold text-bo-foreground ${mono ? "font-mono tracking-tight" : ""}`}>
                         {value || "—"}
                     </p>
                 )}
@@ -97,32 +85,32 @@ export default function PurchaseRequestDetail() {
     const statusConfig = {
         1: {
             label: 'Chờ duyệt',
-            bannerBg: 'bg-amber-50', bannerBorder: 'border-amber-200',
-            iconBg: 'bg-amber-100', iconColor: 'text-amber-600', textColor: 'text-amber-800',
+            bannerBg: 'bg-bo-warning-soft', bannerBorder: 'border-bo-warning/30',
+            iconBg: 'bg-white', iconColor: 'text-bo-warning', textColor: 'text-bo-foreground',
             icon: Clock, description: 'Yêu cầu đang chờ quản lý kho phê duyệt'
         },
         2: {
             label: 'Đã duyệt',
-            bannerBg: 'bg-green-50', bannerBorder: 'border-green-200',
-            iconBg: 'bg-green-100', iconColor: 'text-green-600', textColor: 'text-green-800',
+            bannerBg: 'bg-bo-success-soft', bannerBorder: 'border-bo-success/30',
+            iconBg: 'bg-white', iconColor: 'text-bo-success', textColor: 'text-bo-foreground',
             icon: CheckCircle, description: 'Yêu cầu đã được duyệt — có thể gửi yêu cầu báo giá'
         },
         3: {
             label: 'Đã chuyển thành báo giá',
-            bannerBg: 'bg-blue-50', bannerBorder: 'border-blue-200',
-            iconBg: 'bg-blue-100', iconColor: 'text-blue-600', textColor: 'text-blue-800',
+            bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
+            iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
             icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
         },
         4: {
             label: 'Từ chối',
-            bannerBg: 'bg-rose-50', bannerBorder: 'border-rose-200',
-            iconBg: 'bg-rose-100', iconColor: 'text-rose-600', textColor: 'text-rose-800',
+            bannerBg: 'bg-bo-danger-soft', bannerBorder: 'border-bo-danger/30',
+            iconBg: 'bg-white', iconColor: 'text-bo-danger', textColor: 'text-bo-foreground',
             icon: XCircle, description: 'Yêu cầu nhập hàng đã bị từ chối'
         },
         5: {
             label: 'Đã chuyển thành báo giá',
-            bannerBg: 'bg-blue-50', bannerBorder: 'border-blue-200',
-            iconBg: 'bg-blue-100', iconColor: 'text-blue-600', textColor: 'text-blue-800',
+            bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
+            iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
             icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
         }
     };
@@ -137,7 +125,7 @@ export default function PurchaseRequestDetail() {
         return new Date(dateString).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-    const fetchRequestDetail = async () => {
+    const fetchRequestDetail = useCallback(async () => {
         setLoading(true);
         try {
             const result = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
@@ -150,31 +138,32 @@ export default function PurchaseRequestDetail() {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        if (id) fetchRequestDetail();
     }, [id]);
 
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            try {
-                setLoadingAuth(true);
-                const token = localStorage.getItem('access_token');
-                if (!token) return;
-                const payload = parseJwt(token);
-                if (!payload || !payload.id) return;
-                const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
-                const userData = userResponse.data?.data;
-                if (userData?.vaiTro) setUserRoles(parseRoles(userData.vaiTro));
-            } catch (error) {
-                console.error('Error fetching user info:', error);
-            } finally {
-                setLoadingAuth(false);
-            }
-        };
-        fetchUserInfo();
+    const fetchUserInfo = useCallback(async () => {
+        try {
+            setLoadingAuth(true);
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            const payload = parseJwt(token);
+            if (!payload || !payload.id) return;
+            const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
+            const userData = userResponse.data?.data;
+            if (userData?.vaiTro) setUserRoles(parseRoles(userData.vaiTro));
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+        } finally {
+            setLoadingAuth(false);
+        }
     }, []);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); vẫn fetch ngay khi mount / khi id đổi.
+    useEffect(() => {
+        if (id) queueMicrotask(() => fetchRequestDetail());
+    }, [id, fetchRequestDetail]);
+
+    useEffect(() => { queueMicrotask(() => fetchUserInfo()); }, [fetchUserInfo]);
 
     const handleAction = async (trangThai) => {
         setActionLoading(true);
@@ -200,27 +189,33 @@ export default function PurchaseRequestDetail() {
 
     if (loading) {
         return (
-            <div className="p-6 md:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-[calc(100vh-64px)] lux-sync flex flex-col items-center justify-center">
-                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 shadow-sm w-full max-w-sm">
-                    <Package className="h-8 w-8 animate-bounce text-violet-600" />
-                    <span className="text-[15px] font-medium text-slate-600">Đang tải dữ liệu yêu cầu...</span>
+            <PageContainer>
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <LoadingState rows={5} label="Đang tải dữ liệu yêu cầu" />
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
     if (!requestData) {
         return (
-            <div className="p-6 md:p-8 flex items-center justify-center min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 lux-sync">
-                <div className="text-center bg-white p-10 rounded-3xl shadow-sm border border-slate-200/60 w-full max-w-md">
-                    <AlertCircle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-                    <p className="text-slate-600 mb-6">Không tìm thấy yêu cầu nhập hàng</p>
-                    <Button onClick={() => navigate('/purchase-requests')}
-                        className="w-full bg-slate-900 border border-slate-900 text-white hover:bg-white hover:text-slate-900 shadow-md rounded-xl h-12">
-                        Quay lại danh sách
-                    </Button>
+            <PageContainer>
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <EmptyState
+                        icon={AlertCircle}
+                        title="Không tìm thấy yêu cầu nhập hàng"
+                        description="Yêu cầu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+                        action={
+                            <Button
+                                onClick={() => navigate('/purchase-requests')}
+                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            >
+                                Quay lại danh sách
+                            </Button>
+                        }
+                    />
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
@@ -232,19 +227,23 @@ export default function PurchaseRequestDetail() {
     const canCreateQuotation = QUOTATION_ROLES.some(role => userRoles.includes(role));
 
     return (
-        <div className="p-6 md:p-8 pb-24 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 min-h-[calc(100vh-64px)] lux-sync">
+        <PageContainer className="space-y-5 pb-24">
 
             {/* ── Header ── */}
-            <div className="flex flex-col gap-4 mb-2">
-
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <button type="button" onClick={() => navigate("/purchase-requests")}
-                        className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 hover:text-violet-600 transition-colors duration-200 w-fit">
-                        <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
-                    </button>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Button variant="outline" className="h-11 px-5 rounded-xl bg-white border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-sm" onClick={handlePrint}>
-                            <Printer className="mr-2 h-4 w-4 text-slate-500" /> In yêu cầu
+            <PageHeader
+                title="Chi tiết yêu cầu nhập hàng"
+                description="Thông tin yêu cầu, kho nhập và danh sách biến thể cần mua"
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            className="h-10 gap-1.5 border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle"
+                            onClick={() => navigate("/purchase-requests")}
+                        >
+                            <ArrowLeft className="size-4" /> Quay lại danh sách
+                        </Button>
+                        <Button variant="outline" className="h-10 gap-1.5 border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle" onClick={handlePrint}>
+                            <Printer className="size-4 text-bo-muted" /> In yêu cầu
                         </Button>
 
                         {/* ── Action Buttons ── */}
@@ -256,27 +255,27 @@ export default function PurchaseRequestDetail() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span>
-                                                    <Button variant="outline" className="h-11 px-5 rounded-xl border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold shadow-sm disabled:opacity-50"
+                                                    <Button variant="outline" className="h-10 gap-1.5 border-bo-danger/30 bg-bo-danger-soft font-semibold text-bo-danger hover:bg-bo-danger/15 disabled:opacity-50"
                                                         disabled={!canApprove || loadingAuth}
                                                         onClick={() => canApprove && !loadingAuth && setRejectDialog(true)}>
-                                                        <XCircle className="mr-2 h-4 w-4" /> Từ chối
+                                                        <XCircle className="size-4" /> Từ chối
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>{!canApprove ? "Bạn không có quyền thao tác" : "Từ chối yêu cầu nhập hàng"}</p></TooltipContent>
+                                            <TooltipContent className="border-bo-border bg-white text-bo-foreground shadow-lg"><p>{!canApprove ? "Bạn không có quyền thao tác" : "Từ chối yêu cầu nhập hàng"}</p></TooltipContent>
                                         </Tooltip>
 
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span>
-                                                    <Button className="h-11 px-6 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-md disabled:opacity-50"
+                                                    <Button className="h-10 gap-1.5 bg-bo-success font-semibold text-white hover:bg-bo-success/90 disabled:opacity-50"
                                                         disabled={!canApprove || loadingAuth}
                                                         onClick={() => canApprove && !loadingAuth && setApproveDialog(true)}>
-                                                        <CheckCircle className="mr-2 h-4 w-4" /> Phê duyệt
+                                                        <CheckCircle className="size-4" /> Phê duyệt
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>{!canApprove ? "Bạn không có quyền duyệt" : "Duyệt yêu cầu nhập hàng"}</p></TooltipContent>
+                                            <TooltipContent className="border-bo-border bg-white text-bo-foreground shadow-lg"><p>{!canApprove ? "Bạn không có quyền duyệt" : "Duyệt yêu cầu nhập hàng"}</p></TooltipContent>
                                         </Tooltip>
                                     </>
                                 )}
@@ -286,204 +285,199 @@ export default function PurchaseRequestDetail() {
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <span>
-                                                <Button className="h-11 px-6 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md disabled:opacity-50"
+                                                <Button className="h-10 gap-1.5 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
                                                     disabled={loadingAuth || !canCreateQuotation}
                                                     onClick={() => !loadingAuth && canCreateQuotation && handleSendQuotationRequest()}>
-                                                    <Send className="mr-2 h-4 w-4" /> Gửi báo giá
+                                                    <Send className="size-4" /> Gửi báo giá
                                                 </Button>
                                             </span>
                                         </TooltipTrigger>
-                                        <TooltipContent><p>{!canCreateQuotation ? "Chỉ nhân viên mua hàng có quyền thao tác" : "Tạo đơn báo giá từ yêu cầu này"}</p></TooltipContent>
+                                        <TooltipContent className="border-bo-border bg-white text-bo-foreground shadow-lg"><p>{!canCreateQuotation ? "Chỉ nhân viên mua hàng có quyền thao tác" : "Tạo đơn báo giá từ yêu cầu này"}</p></TooltipContent>
                                     </Tooltip>
                                 )}
                             </div>
                         </TooltipProvider>
-                    </div>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             {/* ── Status Banner ── */}
-            <div className={`rounded-2xl p-6 md:p-8 shadow-sm border ${currentStatus.bannerBg} ${currentStatus.bannerBorder} flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden`}>
-                <div className={`absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 rounded-full ${currentStatus.iconBg} blur-3xl opacity-50 pointer-events-none`} />
-                <div className="flex items-center gap-5 relative z-10">
-                    <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${currentStatus.iconBg} shadow-inner border border-white/40 shrink-0`}>
-                        <StatusIcon className={`h-8 w-8 ${currentStatus.iconColor}`} />
+            <div className={`flex flex-col items-start justify-between gap-5 rounded-lg border p-5 sm:flex-row sm:items-center sm:p-6 ${currentStatus.bannerBg} ${currentStatus.bannerBorder}`}>
+                <div className="flex items-center gap-4">
+                    <div className={`flex size-14 shrink-0 items-center justify-center rounded-lg border border-bo-border ${currentStatus.iconBg}`}>
+                        <StatusIcon className={`size-7 ${currentStatus.iconColor}`} />
                     </div>
                     <div>
-                        <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${currentStatus.textColor}`}>{currentStatus.label}</h2>
-                        <p className={`mt-1.5 text-[15px] font-medium opacity-80 ${currentStatus.textColor}`}>{currentStatus.description}</p>
+                        <h2 className={`text-lg font-semibold tracking-tight sm:text-xl ${currentStatus.textColor}`}>{currentStatus.label}</h2>
+                        <p className={`mt-1 text-sm font-medium opacity-80 ${currentStatus.textColor}`}>{currentStatus.description}</p>
                     </div>
                 </div>
             </div>
 
             {/* ── Info Cards Grid ── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-                <SectionCard title="Thông tin yêu cầu" icon={FileText} iconBg="bg-violet-100" iconColor="text-violet-600">
-                    <InfoField label="Ngày tạo yêu cầu" icon={Calendar}>
-                        <span className="font-semibold text-slate-800">{formatDateTime(requestData.ngayTao)}</span>
+            <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
+                <SurfaceCard
+                    title={<span className="flex items-center gap-2"><FileText className="size-4 text-bo-primary" />Thông tin yêu cầu</span>}
+                >
+                    <InfoField label="Ngày tạo yêu cầu" icon={<Calendar className="size-3.5 opacity-70" />}>
+                        <span className="text-sm font-semibold text-bo-foreground">{formatDateTime(requestData.ngayTao)}</span>
                     </InfoField>
-                    <InfoField label="Ngày giao dự kiến" icon={Clock}>
-                        <span className="font-semibold text-slate-800">{formatDate(requestData.ngayGiaoDuKien)}</span>
+                    <InfoField label="Ngày giao dự kiến" icon={<Clock className="size-3.5 opacity-70" />}>
+                        <span className="text-sm font-semibold text-bo-foreground">{formatDate(requestData.ngayGiaoDuKien)}</span>
                     </InfoField>
-                    <Separator className="bg-slate-100" />
+                    <Separator className="my-4 bg-bo-border" />
                     <InfoField label="Ghi chú">
-                        <span className="text-[14px] text-slate-600 leading-relaxed block bg-slate-50 p-3 rounded-xl border border-slate-100 mt-1">
-                            {requestData.ghiChu || <span className="italic text-slate-400">Không có ghi chú</span>}
+                        <span className="mt-1 block rounded-md border border-bo-border bg-bo-surface-subtle p-3 text-sm leading-relaxed text-slate-600">
+                            {requestData.ghiChu || <span className="italic text-bo-muted">Không có ghi chú</span>}
                         </span>
                     </InfoField>
-                </SectionCard>
+                </SurfaceCard>
 
-                <SectionCard title="Kho nhập hàng" icon={Warehouse} iconBg="bg-amber-100" iconColor="text-amber-600">
+                <SurfaceCard
+                    title={<span className="flex items-center gap-2"><Warehouse className="size-4 text-bo-primary" />Kho nhập hàng</span>}
+                >
                     <InfoField label="Tên kho">
-                        <div className="font-bold text-slate-900">{requestData.khoNhap?.tenKho || '—'}</div>
+                        <div className="text-sm font-semibold text-bo-foreground">{requestData.khoNhap?.tenKho || '—'}</div>
                         {requestData.khoNhap?.maKho && (
                             <div className="mt-1">
-                                <span className="inline-flex font-mono text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                                <span className="inline-flex rounded border border-bo-border bg-bo-surface-subtle px-2 py-0.5 font-mono text-xs font-semibold text-bo-foreground">
                                     {requestData.khoNhap.maKho}
                                 </span>
                             </div>
                         )}
                     </InfoField>
-                    <Separator className="bg-slate-100" />
-                    <InfoField label="Người quản lý kho" icon={User} value={requestData.khoNhap?.quanLy?.hoTen || '—'} />
-                    <InfoField label="Địa chỉ" icon={MapPin}>
-                        <span className="text-[14px] text-slate-700 leading-snug block line-clamp-2">{requestData.khoNhap?.diaChi || "—"}</span>
+                    <Separator className="my-4 bg-bo-border" />
+                    <InfoField label="Người quản lý kho" icon={<User className="size-3.5 opacity-70" />} value={requestData.khoNhap?.quanLy?.hoTen || '—'} />
+                    <InfoField label="Địa chỉ" icon={<MapPin className="size-3.5 opacity-70" />}>
+                        <span className="line-clamp-2 block text-sm leading-snug text-slate-600">{requestData.khoNhap?.diaChi || "—"}</span>
                     </InfoField>
-                </SectionCard>
+                </SurfaceCard>
 
-                <SectionCard title="Thông tin người dùng" icon={User} iconBg="bg-emerald-100" iconColor="text-emerald-600">
-                    <InfoField label="Người tạo" icon={CheckCircle}>
-                        <div className="font-semibold text-slate-900">{requestData.nguoiTao?.hoTen || '—'}</div>
-                        <div className="text-[13px] text-slate-500 mt-0.5">{requestData.nguoiTao?.email}</div>
+                <SurfaceCard
+                    title={<span className="flex items-center gap-2"><User className="size-4 text-bo-primary" />Thông tin người dùng</span>}
+                >
+                    <InfoField label="Người tạo" icon={<CheckCircle className="size-3.5 opacity-70" />}>
+                        <div className="text-sm font-semibold text-bo-foreground">{requestData.nguoiTao?.hoTen || '—'}</div>
+                        <div className="mt-0.5 text-[13px] text-bo-muted">{requestData.nguoiTao?.email}</div>
                     </InfoField>
                     {requestData.nguoiDuyet && (
                         <>
-                            <Separator className="bg-slate-100" />
-                            <InfoField label="Người duyệt" icon={CheckCircle}>
-                                <div className="font-semibold text-slate-900">{requestData.nguoiDuyet?.hoTen}</div>
-                                <div className="text-[13px] text-slate-500 mt-0.5">{requestData.nguoiDuyet?.email}</div>
+                            <Separator className="my-4 bg-bo-border" />
+                            <InfoField label="Người duyệt" icon={<CheckCircle className="size-3.5 opacity-70" />}>
+                                <div className="text-sm font-semibold text-bo-foreground">{requestData.nguoiDuyet?.hoTen}</div>
+                                <div className="mt-0.5 text-[13px] text-bo-muted">{requestData.nguoiDuyet?.email}</div>
                             </InfoField>
                         </>
                     )}
-                </SectionCard>
+                </SurfaceCard>
             </div>
 
             {/* ── Product Table ── */}
-            <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col">
-                <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-                        <ShoppingCart className="h-5 w-5" />
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-800">Danh sách sản phẩm</h2>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-200">
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 h-12 w-[350px]">Sản phẩm</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">Màu sắc</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">Size</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">Chất liệu</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12 pr-6">SL Yêu cầu</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {requestData.chiTietYeuCauMuaHangs?.length > 0 ? (
-                                requestData.chiTietYeuCauMuaHangs.map((item, index) => (
-                                    <TableRow key={item.id || index} className="hover:bg-slate-50 border-b border-slate-100 group">
-                                        <TableCell className="py-4">
-                                            <div className="flex items-center gap-4">
-                                                {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
-                                                    <div className="h-14 w-14 rounded-xl bg-slate-100 border border-slate-200/60 overflow-hidden shadow-sm shrink-0">
-                                                        <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product"
-                                                            className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-14 w-14 rounded-xl bg-slate-100 border border-slate-200/60 flex items-center justify-center shrink-0">
-                                                        <Package className="h-6 w-6 text-slate-300" />
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <p className="font-bold text-[15px] text-slate-900 leading-tight">{item.bienTheSanPham?.tenSanPham || item.bienTheSanPham?.maSku}</p>
-                                                    <p className="text-[13px] text-slate-500 font-medium mt-1 uppercase tracking-wider flex items-center gap-1">
-                                                        Mã: <span className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded">{item.bienTheSanPham?.maSku}</span>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center py-4">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="h-5 w-5 rounded-full border border-slate-200 shadow-sm"
-                                                    style={{ backgroundColor: item.bienTheSanPham?.mauSac?.maMauHex }}
-                                                    title={item.bienTheSanPham?.mauSac?.tenMau} />
-                                                <span className="text-[14px] font-semibold text-slate-700">{item.bienTheSanPham?.mauSac?.tenMau}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center py-4">
-                                            <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-slate-100 text-slate-800 font-bold text-[13px] border border-slate-200">
-                                                {item.bienTheSanPham?.size?.maSize}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-center py-4 text-[14px] font-medium text-slate-600">
-                                            {item.bienTheSanPham?.chatLieu?.tenChatLieu}
-                                        </TableCell>
-                                        <TableCell className="text-center py-4 pr-6">
-                                            <span className="inline-flex h-8 min-w-[2.5rem] px-3 items-center justify-center rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/50">
-                                                {item.soLuongDat}
-                                            </span>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-16">
-                                        <div className="flex flex-col items-center justify-center gap-3">
-                                            <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
-                                                <Package className="h-8 w-8 text-slate-300" />
-                                            </div>
-                                            <p className="font-semibold text-slate-500">Chưa có sản phẩm nào</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <div className="bg-slate-50 p-6 sm:p-8 border-t border-slate-100">
+            <TableShell
+                title="Danh sách sản phẩm"
+                footer={
                     <div className="flex justify-end">
-                        <div className="w-full sm:w-80 space-y-4">
-                            <div className="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-slate-200/60 shadow-sm">
-                                <span className="text-[13px] text-slate-500 font-bold uppercase tracking-wide">Tổng số lượng SP:</span>
-                                <span className="font-black text-slate-800 text-[16px]">
-                                    {requestData.chiTietYeuCauMuaHangs?.reduce((sum, item) => sum + item.soLuongDat, 0) || 0}
-                                </span>
-                            </div>
+                        <div className="flex w-full items-center justify-between rounded-md border border-bo-border bg-white px-4 py-3 sm:w-80">
+                            <span className="text-[13px] font-semibold uppercase tracking-wide text-bo-muted">Tổng số lượng SP:</span>
+                            <span className="text-base font-bold text-bo-foreground">
+                                {requestData.chiTietYeuCauMuaHangs?.reduce((sum, item) => sum + item.soLuongDat, 0) || 0}
+                            </span>
                         </div>
                     </div>
-                </div>
-            </div>
+                }
+            >
+                <table className="w-full min-w-[900px] text-sm">
+                    <thead>
+                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                            <th className="h-11 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
+                            <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
+                            <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                            <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Chất liệu</th>
+                            <th className="h-11 px-3 pr-6 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Yêu cầu</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bo-border">
+                        {requestData.chiTietYeuCauMuaHangs?.length > 0 ? (
+                            requestData.chiTietYeuCauMuaHangs.map((item, index) => (
+                                <tr key={item.id || index} className="transition-colors hover:bg-bo-surface-subtle">
+                                    <td className="px-3 py-4">
+                                        <div className="flex items-center gap-4">
+                                            {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
+                                                <div className="size-14 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle">
+                                                    <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product"
+                                                        className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" />
+                                                </div>
+                                            ) : (
+                                                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-bo-surface-subtle">
+                                                    <Package className="size-6 text-slate-300" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="text-[15px] font-semibold leading-tight text-bo-foreground">{item.bienTheSanPham?.tenSanPham || item.bienTheSanPham?.maSku}</p>
+                                                <p className="mt-1 flex items-center gap-1 text-[13px] font-medium uppercase tracking-wide text-bo-muted">
+                                                    Mã: <span className="rounded bg-bo-surface-subtle px-1 py-0.5 font-mono text-slate-700">{item.bienTheSanPham?.maSku}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-4 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <div className="size-5 rounded-full border border-bo-border"
+                                                style={{ backgroundColor: item.bienTheSanPham?.mauSac?.maMauHex }}
+                                                title={item.bienTheSanPham?.mauSac?.tenMau} />
+                                            <span className="text-sm font-medium text-slate-700">{item.bienTheSanPham?.mauSac?.tenMau}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-4 text-center">
+                                        <span className="inline-flex h-7 min-w-[2rem] items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle px-2 text-[13px] font-semibold text-bo-foreground">
+                                            {item.bienTheSanPham?.size?.maSize}
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-4 text-center text-sm font-medium text-slate-600">
+                                        {item.bienTheSanPham?.chatLieu?.tenChatLieu}
+                                    </td>
+                                    <td className="px-3 py-4 pr-6 text-center">
+                                        <span className="inline-flex h-8 min-w-[2.5rem] items-center justify-center rounded-md border border-bo-primary/30 bg-bo-primary-soft px-3 font-semibold text-bo-primary">
+                                            {item.soLuongDat}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan={5} className="px-4 py-14 text-center">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <div className="flex size-16 items-center justify-center rounded-full border border-bo-border bg-bo-surface-subtle">
+                                            <Package className="size-8 text-slate-300" />
+                                        </div>
+                                        <p className="font-medium text-bo-muted">Chưa có sản phẩm nào</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </TableShell>
 
             {/* ── Approve Dialog ── */}
             <Dialog open={approveDialog} onOpenChange={setApproveDialog}>
-                <DialogContent className="rounded-2xl sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl">
-                    <div className="bg-emerald-600 p-6 flex items-center gap-3">
-                        <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                            <CheckCircle className="h-5 w-5 text-white" />
+                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
+                    <div className="flex items-center gap-3 border-b border-bo-border bg-bo-success-soft px-5 py-4">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-success">
+                            <CheckCircle className="size-5" />
                         </div>
-                        <DialogTitle className="text-xl font-bold text-white m-0">Xác nhận phê duyệt</DialogTitle>
+                        <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">Xác nhận phê duyệt</DialogTitle>
                     </div>
-                    <div className="p-6">
-                        <DialogDescription className="text-[15px] text-slate-600 leading-relaxed mb-6">
-                            Bạn có chắc chắn muốn phê duyệt yêu cầu nhập hàng <span className="font-bold text-slate-900 border-b border-slate-300 pb-0.5">#{requestData.id}</span>?
+                    <div className="p-5">
+                        <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
+                            Bạn có chắc chắn muốn phê duyệt yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">#{requestData.id}</span>?
                             Sau khi duyệt, nhân viên mua hàng có thể tạo đơn báo giá.
                         </DialogDescription>
                         <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => setApproveDialog(false)} disabled={actionLoading}
-                                className="h-11 rounded-xl font-semibold border-slate-200">Hủy bỏ</Button>
+                                className="h-11 rounded-md border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle">Hủy bỏ</Button>
                             <Button onClick={() => handleAction(2)} disabled={actionLoading}
-                                className="h-11 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
+                                className="h-11 rounded-md bg-bo-success font-semibold text-white hover:bg-bo-success/90">
                                 {actionLoading ? 'Đang xử lý...' : 'Xác nhận phê duyệt'}
                             </Button>
                         </DialogFooter>
@@ -493,28 +487,28 @@ export default function PurchaseRequestDetail() {
 
             {/* ── Reject Dialog ── */}
             <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
-                <DialogContent className="rounded-2xl sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl">
-                    <div className="bg-rose-600 p-6 flex items-center gap-3">
-                        <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                            <XCircle className="h-5 w-5 text-white" />
+                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
+                    <div className="flex items-center gap-3 border-b border-bo-border bg-bo-danger-soft px-5 py-4">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-danger">
+                            <XCircle className="size-5" />
                         </div>
-                        <DialogTitle className="text-xl font-bold text-white m-0">Từ chối yêu cầu</DialogTitle>
+                        <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">Từ chối yêu cầu</DialogTitle>
                     </div>
-                    <div className="p-6">
-                        <DialogDescription className="text-[15px] text-slate-600 leading-relaxed mb-6">
-                            Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng <span className="font-bold text-slate-900 border-b border-slate-300 pb-0.5">#{requestData.id}</span>? Hành động này không thể hoàn tác.
+                    <div className="p-5">
+                        <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
+                            Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">#{requestData.id}</span>? Hành động này không thể hoàn tác.
                         </DialogDescription>
                         <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => setRejectDialog(false)} disabled={actionLoading}
-                                className="h-11 rounded-xl font-semibold border-slate-200">Hủy bỏ</Button>
+                                className="h-11 rounded-md border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle">Hủy bỏ</Button>
                             <Button onClick={() => handleAction(4)} disabled={actionLoading}
-                                className="h-11 rounded-xl font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-md">
+                                className="h-11 rounded-md bg-bo-danger font-semibold text-white hover:bg-bo-danger/90">
                                 {actionLoading ? 'Đang xử lý...' : 'Xác nhận từ chối'}
                             </Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </PageContainer>
     );
 }

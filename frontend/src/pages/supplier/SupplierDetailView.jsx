@@ -1,57 +1,30 @@
 // src/pages/supplier/SupplierDetailView.jsx
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import {
-    ArrowLeft, Edit, Loader2, Building2, User2,
-    Phone, Mail, MapPin, Clock, Calendar, FileText
+    ArrowLeft, Edit, MapPin, Phone, Mail, User2, Clock, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import LoadingState from "@/components/shared/LoadingState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import SurfaceCard from "@/components/shared/SurfaceCard";
 import { getSupplierById } from "@/services/supplierService";
 
-// ── Section card — đồng nhất với SupplierDetail ───────────────────────────
-function SectionCard({ icon: Icon, iconBg, iconColor, title, children }) {
-    return (
-        <div className="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden flex flex-col h-full">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}>
-                    <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-                <p className="font-semibold text-slate-800 text-[15px]">{title}</p>
-            </div>
-            <div className="p-6 flex-1 flex flex-col gap-6">{children}</div>
-        </div>
-    );
-}
-
 // ── Info field — hiển thị label + value dạng readonly ────────────────────
-function InfoField({ label, value, mono = false, children }) {
+function InfoField({ label, children, value }) {
     return (
-        <div className="space-y-1.5 flex flex-col">
-            <p className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
-            <div className="flex-1 flex items-start mt-1">
+        <div className="flex flex-col gap-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
+            <div className="flex flex-1 items-start">
                 {children ?? (
-                    <p className={`text-[15px] font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>
-                        {value || "—"}
-                    </p>
+                    <p className="text-sm font-medium text-bo-foreground">{value || "—"}</p>
                 )}
             </div>
         </div>
-    );
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-    return status === 1 ? (
-        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[13px] font-semibold text-emerald-700 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Hoạt động
-        </span>
-    ) : (
-        <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-slate-600 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            Ngừng hoạt động
-        </span>
     );
 }
 
@@ -62,21 +35,22 @@ export default function SupplierDetailView() {
     const [supplier, setSupplier] = useState(null);
     const [loading,  setLoading]  = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const data = await getSupplierById(id);
-                setSupplier(data);
-            } catch (error) {
-                toast.error(error.response?.data?.message || "Không thể tải thông tin nhà cung cấp");
-                navigate("/supplier");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchSupplier = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await getSupplierById(id);
+            setSupplier(data);
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Không thể tải thông tin nhà cung cấp");
+            navigate("/supplier");
+        } finally {
+            setLoading(false);
+        }
     }, [id, navigate]);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
+    useEffect(() => { queueMicrotask(() => fetchSupplier()); }, [fetchSupplier]);
 
     const formatDate = (dateString) => {
         if (!dateString) return "—";
@@ -88,82 +62,80 @@ export default function SupplierDetailView() {
 
     if (loading) {
         return (
-            <div className="lux-sync warehouse-unified gold-text-sync p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen flex flex-col items-center justify-center">
-                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 shadow-sm w-full max-w-sm">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#b8860b]" />
-                    <span className="text-[15px] font-medium text-slate-600">Đang tải dữ liệu...</span>
+            <PageContainer>
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <LoadingState rows={4} label="Đang tải thông tin nhà cung cấp" />
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
     if (!supplier) return null;
 
     return (
-        <div className="lux-sync warehouse-unified gold-text-sync p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+        <PageContainer className="space-y-5">
+            {/* ── Page header ── */}
+            <PageHeader
+                title="Chi tiết nhà cung cấp"
+                description="Thông tin hồ sơ, liên hệ và trạng thái hợp tác của nhà cung cấp"
+                actions={
+                    <>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => navigate("/supplier")}
+                            className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <ArrowLeft className="size-4" />
+                            Quay lại danh sách
+                        </Button>
+                        <Button
+                            onClick={() => navigate(`/supplier/${id}`)}
+                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Edit className="size-4" />
+                            Chỉnh sửa
+                        </Button>
+                    </>
+                }
+            />
 
-            {/* ── Top Header and Navigation ── */}
-            <div className="rounded-2xl border border-[rgba(184,134,11,0.18)] bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <button
-                    type="button"
-                    onClick={() => navigate("/supplier")}
-                    className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors duration-150"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    Quay lại danh sách
-                </button>
-                
-                <div className="ml-auto flex items-center gap-3">
-                    <Button
-                        onClick={() => navigate(`/supplier/${id}`)}
-                        className="h-11 px-6 rounded-xl bg-slate-900 text-white border border-slate-900 font-semibold hover:bg-white hover:text-slate-900 transition-all duration-200 shadow-md"
-                    >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Chỉnh sửa
-                    </Button>
-                </div>
-                </div>
-            </div>
-
-            {/* ── Row 1: Định danh — full width ── */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
-                <div className="flex items-center gap-3 mb-6">
-                    <FileText className="h-5 w-5 text-[#b8860b]" />
-                    <h2 className="text-lg font-bold text-slate-800">Thông tin cơ bản</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+            {/* ── Row 1: Định danh ── */}
+            <SurfaceCard title="Thông tin cơ bản">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
                     <InfoField label="Mã định danh">
-                        <span className="font-semibold text-[#8b6a21] font-mono text-[15px] bg-[#fff3d9] px-2 py-1 rounded-md border border-[#efd9ad]">
+                        <span className="rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-1 font-mono text-sm font-semibold text-bo-foreground">
                             {supplier.maNhaCungCap || "—"}
                         </span>
                     </InfoField>
                     <InfoField label="Tên nhà cung cấp" value={supplier.tenNhaCungCap} />
                     <InfoField label="Trạng thái hoạt động">
-                        <StatusBadge status={supplier.trangThai} />
+                        <StatusBadge
+                            label={supplier.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
+                            tone={supplier.trangThai === 1 ? "success" : "neutral"}
+                        />
                     </InfoField>
                 </div>
-            </div>
+            </SurfaceCard>
 
             {/* ── Row 2: Liên hệ + Địa chỉ & Hệ thống ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
 
                 {/* Liên hệ */}
-                <SectionCard icon={User2} iconBg="bg-blue-100" iconColor="text-blue-600" title="Thông tin liên hệ">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <SurfaceCard title="Thông tin liên hệ" className="h-full">
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         <InfoField label="Người đại diện">
                             <div className="flex items-center gap-2">
-                                <User2 className="h-4 w-4 text-slate-400 shrink-0" />
-                                <span className="text-[15px] font-medium text-slate-800">
+                                <User2 className="size-4 shrink-0 text-slate-400" />
+                                <span className="text-sm font-medium text-bo-foreground">
                                     {supplier.nguoiLienHe || "—"}
                                 </span>
                             </div>
                         </InfoField>
                         <InfoField label="Số điện thoại hotline">
                             <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-slate-400 shrink-0" />
-                                <span className="text-[15px] font-medium text-slate-800 font-mono">
+                                <Phone className="size-4 shrink-0 text-slate-400" />
+                                <span className="font-mono text-sm font-medium text-bo-foreground">
                                     {supplier.soDienThoai || "—"}
                                 </span>
                             </div>
@@ -171,62 +143,53 @@ export default function SupplierDetailView() {
                     </div>
                     <InfoField label="Email liên hệ chính">
                         <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-                            <span className="text-[15px] font-medium text-slate-800">
+                            <Mail className="size-4 shrink-0 text-slate-400" />
+                            <span className="text-sm font-medium text-bo-foreground">
                                 {supplier.email || "—"}
                             </span>
                         </div>
                     </InfoField>
-                </SectionCard>
+                </SurfaceCard>
 
                 {/* Địa chỉ + Hệ thống xếp chồng */}
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-5">
 
                     {/* Địa chỉ */}
-                    <SectionCard icon={MapPin} iconBg="bg-amber-100" iconColor="text-amber-600" title="Địa điểm">
+                    <SurfaceCard title="Địa điểm">
                         <InfoField label="Địa chỉ trụ sở chính / Kho">
                             <div className="flex items-start gap-2">
-                                <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                                <p className="text-[15px] font-medium text-slate-800 leading-relaxed">
+                                <MapPin className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                                <p className="text-sm font-medium leading-relaxed text-bo-foreground">
                                     {supplier.diaChi || "—"}
                                 </p>
                             </div>
                         </InfoField>
-                    </SectionCard>
+                    </SurfaceCard>
 
                     {/* Thông tin hệ thống */}
-                    <div className="rounded-2xl bg-slate-50 shadow-inner border border-slate-200/80 overflow-hidden flex-shrink-0">
-                        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-100">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-200">
-                                <Clock className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <p className="font-semibold text-slate-800 text-[15px]">Thông tin hệ thống</p>
+                    <SurfaceCard title="Thông tin hệ thống" className="bg-bo-surface-subtle">
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <InfoField label="Ngày tạo">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="size-4 shrink-0 text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {formatDate(supplier.ngayTao)}
+                                    </span>
+                                </div>
+                            </InfoField>
+                            <InfoField label="Cập nhật lần cuối">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="size-4 shrink-0 text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {formatDate(supplier.ngayCapNhat)}
+                                    </span>
+                                </div>
+                            </InfoField>
                         </div>
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <InfoField label="Ngày tạo">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <span className="text-[15px] font-medium text-slate-700">
-                                            {formatDate(supplier.ngayTao)}
-                                        </span>
-                                    </div>
-                                </InfoField>
-                                <InfoField label="Cập nhật lần cuối">
-                                    <div className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <span className="text-[15px] font-medium text-slate-700">
-                                            {formatDate(supplier.ngayCapNhat)}
-                                        </span>
-                                    </div>
-                                </InfoField>
-                            </div>
-                        </div>
-                    </div>
+                    </SurfaceCard>
 
                 </div>
             </div>
-
-        </div>
+        </PageContainer>
     );
 }

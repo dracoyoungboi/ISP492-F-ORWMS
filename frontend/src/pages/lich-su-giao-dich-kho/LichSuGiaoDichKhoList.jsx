@@ -1,32 +1,35 @@
 // src/pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { createElement, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-    Dialog, DialogContent, DialogHeader, DialogTitle,
+    Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import {
     DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    Search, Filter, RefreshCcw, ChevronDown, ChevronLeft, ChevronRight,
+    Filter, RefreshCcw, ChevronDown, ChevronLeft, ChevronRight,
     Check, Loader2, History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
     CalendarDays, User2, FileText, Hash, Package,
 } from "lucide-react";
 import { toast } from "sonner";
+import PageContainer from "@/components/backoffice/PageContainer";
+import FilterBar from "@/components/shared/FilterBar";
+import SearchInput from "@/components/shared/SearchInput";
+import TableShell from "@/components/shared/TableShell";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDichKhoService";
 import { getMineKhoList } from "@/services/khoService";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const LOAI_GIAO_DICH_CONFIG = {
-    nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine,   bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-    xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine,   bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700",     dot: "bg-red-500"     },
-    chuyen_kho: { label: "Chuyển kho", icon: ArrowLeftRight,    bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    dot: "bg-blue-500"    },
-    dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal, bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   dot: "bg-amber-500"   },
+    nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine,   badge: "border-bo-success/20 bg-bo-success-soft text-bo-success", dot: "bg-bo-success" },
+    xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine,   badge: "border-bo-danger/20 bg-bo-danger-soft text-bo-danger",   dot: "bg-bo-danger"  },
+    chuyen_kho: { label: "Chuyển kho", icon: ArrowLeftRight,    badge: "border-bo-primary/20 bg-bo-primary-soft text-bo-primary", dot: "bg-bo-primary" },
+    dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal, badge: "border-bo-warning/20 bg-bo-warning-soft text-bo-warning", dot: "bg-bo-warning" },
 };
 
 const LOAI_FILTER_OPTIONS = [
@@ -37,17 +40,54 @@ const LOAI_FILTER_OPTIONS = [
     { value: "dieu_chinh", label: "Điều chỉnh" },
 ];
 
+const STAT_TILES = [
+    { key: "nhap_kho",   label: "Nhập kho",   iconClass: "bg-bo-success-soft text-bo-success" },
+    { key: "xuat_kho",   label: "Xuất kho",   iconClass: "bg-bo-danger-soft text-bo-danger"   },
+    { key: "chuyen_kho", label: "Chuyển kho", iconClass: "bg-bo-primary-soft text-bo-primary" },
+    { key: "dieu_chinh", label: "Điều chỉnh", iconClass: "bg-bo-warning-soft text-bo-warning" },
+];
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const TH_CLASS =
+    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+const DROPDOWN_CONTENT_CLASS =
+    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+const DROPDOWN_ITEM_CLASS =
+    "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+
+const formatDate = (val) =>
+    val ? new Date(val).toLocaleString("vi-VN", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit",
+    }) : "—";
+
 // ── Loại Badge ────────────────────────────────────────────────────────────
 function LoaiBadge({ loai }) {
     const cfg = LOAI_GIAO_DICH_CONFIG[loai] ?? {
-        label: loai, bg: "bg-slate-50", border: "border-slate-200",
-        text: "text-slate-600", dot: "bg-slate-400",
+        label: loai,
+        badge: "border-bo-border bg-bo-surface-subtle text-slate-600",
+        dot: "bg-slate-400",
     };
     return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full border ${cfg.border} ${cfg.bg} px-2.5 py-1 text-xs font-semibold ${cfg.text}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.badge}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
             {cfg.label}
         </span>
+    );
+}
+
+// ── Stat tile ─────────────────────────────────────────────────────────────
+function StatTile({ icon, iconClass, label, value }) {
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+            <div className="min-w-0">
+                <p className="text-xs font-medium text-bo-muted">{label}</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
+            </div>
+            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+                {icon}
+            </span>
+        </div>
     );
 }
 
@@ -58,161 +98,108 @@ function ActionBtn({ title, onClick, children }) {
             type="button"
             title={title}
             onClick={onClick}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-violet-600 transition-all duration-150 hover:scale-110 hover:bg-violet-50 hover:border-violet-200 active:scale-95"
+            className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
         >
             {children}
         </button>
     );
 }
 
-// ── Empty State ───────────────────────────────────────────────────────────
-function EmptyState() {
-    return (
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
-                <History className="h-10 w-10 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800">Không có giao dịch nào</h3>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                Chưa có dữ liệu phù hợp. Hãy thay đổi bộ lọc tìm kiếm.
-            </p>
-        </div>
-    );
-}
-
 // ── Field helper ──────────────────────────────────────────────────────────
-function Field({ icon: Icon, label, value, mono = false }) {
+function LightField({ icon: Icon, label, value, mono = false }) {
     return (
-        <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{label}</span>
             <div className="flex items-center gap-1.5">
-                <Icon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                <p className={`text-[14px] font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>
+                {createElement(Icon, { className: "size-3.5 shrink-0 text-bo-muted" })}
+                <span className={`text-sm font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>
                     {value || "—"}
-                </p>
+                </span>
             </div>
-        </div>
-    );
-}
-
-function SoLuongCell({ label, value, color, prefix = "" }) {
-    return (
-        <div className="flex flex-col items-center py-4 bg-white">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{label}</p>
-            <p className={`text-xl font-bold ${color}`}>{prefix}{value}</p>
         </div>
     );
 }
 
 // ── Detail Modal ──────────────────────────────────────────────────────────
 function DetailModal({ open, onClose, item, loading }) {
-    const formatDate = (val) =>
-        val ? new Date(val).toLocaleString("vi-VN", {
-            year: "numeric", month: "2-digit", day: "2-digit",
-            hour: "2-digit", minute: "2-digit",
-        }) : "—";
-
     const soLuong = Number(item?.soLuong ?? 0);
     const isXuatKho = item?.loaiGiaoDich === "xuat_kho";
     const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
-    const soLuongColor  = displaySoLuong > 0 ? "text-emerald-600" : displaySoLuong < 0 ? "text-red-600" : "text-slate-500";
-    const soLuongBg     = displaySoLuong > 0 ? "bg-emerald-50 border-emerald-200" : displaySoLuong < 0 ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200";
+    const soLuongColor  = displaySoLuong > 0 ? "text-bo-success" : displaySoLuong < 0 ? "text-bo-danger" : "text-slate-600";
+    const soLuongBg     = displaySoLuong > 0 ? "bg-bo-success-soft" : displaySoLuong < 0 ? "bg-bo-danger-soft" : "bg-bo-surface-subtle";
     const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
-
-    /* Light field row — matches the list's Field component style */
-    function LightField({ icon: Icon, label, value, mono = false }) {
-        return (
-            <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
-                <div className="flex items-center gap-1.5">
-                    <Icon className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                    <span className={`text-sm font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>
-                        {value || "—"}
-                    </span>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent style={{ background: "#ffffff" }} className="max-w-lg p-0 overflow-hidden border border-amber-100 shadow-2xl rounded-2xl bg-white [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
+            <DialogContent className="max-w-lg overflow-hidden rounded-lg border border-bo-border bg-white p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
 
-                {/* Single white shell — prevents any shadcn dark areas */}
-                <div className="bg-white rounded-2xl overflow-hidden">
+                {/* ── Header ── */}
+                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle px-5 pb-4 pt-5">
+                    <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-bo-primary-soft">
+                            <History className="size-4 text-bo-primary" />
+                        </span>
+                        Chi tiết giao dịch {item ? (
+                            <span className="font-mono text-bo-primary">#{item.id}</span>
+                        ) : ""}
+                    </DialogTitle>
+                    {item && <LoaiBadge loai={item.loaiGiaoDich} />}
+                </div>
 
-                    {/* ── Gold header bar ── */}
-                    <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-yellow-50">
-                        <DialogTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-                                <History className="h-4 w-4 text-amber-600" />
-                            </div>
-                            Chi tiết giao dịch {item ? (
-                                <span className="font-mono text-amber-600">#{item.id}</span>
-                            ) : ""}
-                        </DialogTitle>
-                        {item && <LoaiBadge loai={item.loaiGiaoDich} />}
+                {loading ? (
+                    <div className="flex items-center justify-center gap-2 bg-white py-14">
+                        <Loader2 className="size-5 animate-spin text-bo-primary" />
+                        <span className="text-sm text-bo-muted">Đang tải...</span>
                     </div>
+                ) : item ? (
+                    <div className="space-y-4 bg-white px-5 py-4">
 
-                    {loading ? (
-                        <div className="flex items-center justify-center py-14 gap-2 bg-white">
-                            <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
-                            <span className="text-sm text-slate-500">Đang tải...</span>
+                        {/* Ngày giao dịch */}
+                        <div className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-sm text-slate-700">
+                            <CalendarDays className="size-4 shrink-0 text-bo-muted" />
+                            <span className="font-medium">{formatDate(item.ngayGiaoDich)}</span>
                         </div>
-                    ) : item ? (
-                        <div className="px-5 py-4 space-y-4 bg-white">
 
-                            {/* Ngày giao dịch */}
-                            <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5 text-sm text-slate-700">
-                                <CalendarDays className="h-4 w-4 text-amber-500 shrink-0" />
-                                <span className="font-medium">{formatDate(item.ngayGiaoDich)}</span>
-                            </div>
-
-                            {/* Grid fields */}
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl bg-slate-50 border border-slate-100 px-4 py-4">
-                                <LightField icon={Package}      label="Sản phẩm"        value={item.tenSanPham} />
-                                <LightField icon={Hash}         label="SKU"             value={item.maSku} mono />
-                                <LightField icon={FileText}     label="Lô hàng"         value={item.maLo} mono />
-                                <LightField icon={Warehouse}    label="Kho"             value={item.tenKho} />
-                                <LightField icon={User2}        label="Người thực hiện" value={item.nguoiDungTen} />
-                                <LightField icon={FileText}     label="Loại tham chiếu" value={item.loaiThamChieu} />
-                                {item.idThamChieu && (
-                                    <LightField icon={Hash}     label="ID tham chiếu"   value={`#${item.idThamChieu}`} mono />
-                                )}
-                                {item.tenKhoChuyenDen && (
-                                    <LightField icon={ArrowLeftRight} label="Kho chuyển đến" value={item.tenKhoChuyenDen} />
-                                )}
-                            </div>
-
-                            {/* Số lượng 3 ô */}
-                            <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
-                                {[
-                                    { label: "TRƯỚC",    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                                    { label: "THAY ĐỔI", value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
-                                    { label: "SAU",      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                                ].map(({ label, value, color, bg, prefix }) => (
-                                    <div key={label} className={`flex flex-col items-center py-4 ${bg}`}>
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</span>
-                                        <span className={`text-xl font-bold ${color}`}>{prefix}{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Ghi chú */}
-                            {item.ghiChu && (
-                                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-                                    <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">Ghi chú</p>
-                                    <p className="text-sm text-slate-700">{item.ghiChu}</p>
-                                </div>
+                        {/* Grid fields */}
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-4">
+                            <LightField icon={Package}      label="Sản phẩm"        value={item.tenSanPham} />
+                            <LightField icon={Hash}         label="SKU"             value={item.maSku} mono />
+                            <LightField icon={FileText}     label="Lô hàng"         value={item.maLo} mono />
+                            <LightField icon={Warehouse}    label="Kho"             value={item.tenKho} />
+                            <LightField icon={User2}        label="Người thực hiện" value={item.nguoiDungTen} />
+                            <LightField icon={FileText}     label="Loại tham chiếu" value={item.loaiThamChieu} />
+                            {item.idThamChieu && (
+                                <LightField icon={Hash}     label="ID tham chiếu"   value={`#${item.idThamChieu}`} mono />
                             )}
-
+                            {item.tenKhoChuyenDen && (
+                                <LightField icon={ArrowLeftRight} label="Kho chuyển đến" value={item.tenKhoChuyenDen} />
+                            )}
                         </div>
-                    ) : null}
 
-                    {/* Bottom padding */}
-                    <div className="h-4 bg-white" />
+                        {/* Số lượng 3 ô */}
+                        <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                            {[
+                                { label: "TRƯỚC",    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
+                                { label: "THAY ĐỔI", value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
+                                { label: "SAU",      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
+                            ].map(({ label, value, color, bg, prefix }) => (
+                                <div key={label} className={`flex flex-col items-center py-4 ${bg}`}>
+                                    <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-bo-muted">{label}</span>
+                                    <span className={`text-xl font-bold ${color}`}>{prefix}{value}</span>
+                                </div>
+                            ))}
+                        </div>
 
-                </div>{/* end white shell */}
+                        {/* Ghi chú */}
+                        {item.ghiChu && (
+                            <div className="rounded-lg border border-bo-warning/20 bg-bo-warning-soft px-4 py-3">
+                                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-bo-warning">Ghi chú</p>
+                                <p className="text-sm text-slate-700">{item.ghiChu}</p>
+                            </div>
+                        )}
+
+                    </div>
+                ) : null}
             </DialogContent>
         </Dialog>
     );
@@ -237,9 +224,7 @@ export default function LichSuGiaoDichKhoList() {
     const isQuanLy = role === "quan_ly_kho" || isAdmin;
 
     // ── Fetch ──────────────────────────────────────────────────────────
-    useEffect(() => { fetchData(); fetchMyWarehouses(); }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const list = await getLichSuGiaoDichKho();
@@ -250,17 +235,26 @@ export default function LichSuGiaoDichKhoList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     // Lấy danh sách kho mình có quyền — cùng pattern PhieuChuyenKhoDetail
-    const fetchMyWarehouses = async () => {
+    const fetchMyWarehouses = useCallback(async () => {
         try {
             const listKho = await getMineKhoList();
             setMyWarehouseIds(listKho.map((k) => k.id));
         } catch (err) {
             console.error("Lỗi khi tải danh sách kho phân quyền:", err);
         }
-    };
+    }, []);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
+    useEffect(() => {
+        queueMicrotask(() => {
+            fetchData();
+            fetchMyWarehouses();
+        });
+    }, [fetchData, fetchMyWarehouses]);
 
     useEffect(() => { setPageNumber(0); }, [filterLoai, search]);
 
@@ -326,294 +320,281 @@ export default function LichSuGiaoDichKhoList() {
 
     const currentLoaiLabel = LOAI_FILTER_OPTIONS.find(o => o.value === filterLoai)?.label ?? "Tất cả";
 
-    const formatDate = (val) =>
-        val ? new Date(val).toLocaleString("vi-VN", {
-            year: "numeric", month: "2-digit", day: "2-digit",
-            hour: "2-digit", minute: "2-digit",
-        }) : "—";
-
     return (
-        <>
+        <PageContainer className="space-y-5">
+
             <DetailModal open={!!selectedId} onClose={handleCloseModal} item={chiTiet} loading={loadingDetail} />
 
-            <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
-                <div className="space-y-6 w-full">
+            {/* ── Stats ── */}
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {STAT_TILES.map(({ key, label, iconClass }) => (
+                    <StatTile
+                        key={key}
+                        icon={createElement(LOAI_GIAO_DICH_CONFIG[key].icon, { className: "size-5" })}
+                        iconClass={iconClass}
+                        label={label}
+                        value={stats[key]}
+                    />
+                ))}
+            </section>
 
-                    {/* ── Stats ── */}
-                    <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[
-                            { key: "nhap_kho",   label: "Nhập kho",   iconBg: "bg-emerald-100", iconColor: "text-emerald-600", Icon: ArrowDownToLine   },
-                            { key: "xuat_kho",   label: "Xuất kho",   iconBg: "bg-red-100",     iconColor: "text-red-500",     Icon: ArrowUpFromLine   },
-                            { key: "chuyen_kho", label: "Chuyển kho", iconBg: "bg-blue-100",    iconColor: "text-blue-600",    Icon: ArrowLeftRight    },
-                            { key: "dieu_chinh", label: "Điều chỉnh", iconBg: "bg-amber-100",   iconColor: "text-amber-600",   Icon: SlidersHorizontal },
-                        ].map(({ key, label, iconBg, iconColor, Icon }) => (
-                            <Card key={key} className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white">
-                                <CardContent className="p-5">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-500">{label}</p>
-                                            <p className="text-2xl font-bold text-gray-900 mt-1">{stats[key]}</p>
-                                        </div>
-                                        <div className={`h-12 w-12 rounded-full ${iconBg} flex items-center justify-center`}>
-                                            <Icon className={`h-6 w-6 ${iconColor}`} />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </section>
-
-                    {/* ── Filter bar ── */}
-                    <Card className="border-0 shadow-lg bg-white">
-                        <CardHeader>
-                            <CardTitle className="flex items-center justify-between gap-2 text-lg font-semibold text-gray-900">
-                                <span className="flex items-center gap-2">
-                                    <Filter className="h-5 w-5 text-purple-600" />
-                                    Bộ lọc tìm kiếm
-                                </span>
-                                <span className="text-xs font-normal text-slate-400">
-                                    {isAdmin ? "Hiển thị toàn bộ giao dịch" : isQuanLy ? "Kho bạn phụ trách" : "Giao dịch bạn thực hiện"}
-                                </span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                {/* Search */}
-                                <div className="space-y-2 md:col-span-2">
-                                    <Label className="text-gray-700 font-medium">Tìm kiếm</Label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                        <Input
-                                            placeholder="Tìm theo sản phẩm, SKU, lô, kho, người thực hiện..."
-                                            className="pl-9 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Loại filter */}
-                                <div className="space-y-2">
-                                    <Label className="text-gray-700 font-medium">Loại giao dịch</Label>
-                                    <DropdownMenu modal={false}>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
-                                                <span className="truncate">{currentLoaiLabel}</span>
-                                                <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-[220px] bg-white border border-gray-100 shadow-xl z-50">
-                                            {LOAI_FILTER_OPTIONS.map((opt) => (
-                                                <DropdownMenuItem
-                                                    key={opt.value}
-                                                    onClick={() => setFilterLoai(opt.value)}
-                                                    className="flex items-center gap-2 cursor-pointer hover:bg-purple-50"
-                                                >
-                                                    {opt.value !== "all" && (
-                                                        <span className={`h-2 w-2 rounded-full ${LOAI_GIAO_DICH_CONFIG[opt.value]?.dot}`} />
-                                                    )}
-                                                    <span className="flex-1">{opt.label}</span>
-                                                    {filterLoai === opt.value && <Check className="h-4 w-4" />}
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-
-                                {/* Reset */}
-                                <div className="flex items-end">
+            {/* ── Filter bar ── */}
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+                    <div className="flex items-center gap-2">
+                        <Filter className="size-4 text-bo-primary" />
+                        <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+                            Bộ lọc tìm kiếm
+                        </h2>
+                    </div>
+                    <span className="text-xs font-normal text-bo-muted">
+                        {isAdmin ? "Hiển thị toàn bộ giao dịch" : isQuanLy ? "Kho bạn phụ trách" : "Giao dịch bạn thực hiện"}
+                    </span>
+                </div>
+                <FilterBar
+                    primary={
+                        <SearchInput
+                            label="Tìm kiếm"
+                            placeholder="Tìm theo sản phẩm, SKU, lô, kho, người thực hiện..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onClear={() => setSearch("")}
+                        />
+                    }
+                    filters={
+                        <>
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        onClick={handleReset}
-                                        className="w-full flex items-center gap-2 transition-all duration-200 border-amber-400 text-amber-600 hover:bg-amber-400 hover:text-white hover:border-amber-400"
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[220px]"
                                     >
-                                        <RefreshCcw className="h-4 w-4" />
-                                        Đặt lại
+                                        <span className="truncate">{currentLoaiLabel}</span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
                                     </Button>
-                                </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} w-[220px]`}>
+                                    {LOAI_FILTER_OPTIONS.map((opt) => (
+                                        <DropdownMenuItem
+                                            key={opt.value}
+                                            onClick={() => setFilterLoai(opt.value)}
+                                            className={`${DROPDOWN_ITEM_CLASS} gap-2`}
+                                        >
+                                            {opt.value !== "all" && (
+                                                <span className={`h-2 w-2 shrink-0 rounded-full ${LOAI_GIAO_DICH_CONFIG[opt.value]?.dot}`} />
+                                            )}
+                                            <span className="flex-1">{opt.label}</span>
+                                            {filterLoai === opt.value && <Check className="size-4" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <Button
+                                variant="outline"
+                                onClick={handleReset}
+                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                <RefreshCcw className="size-4" />
+                                Đặt lại
+                            </Button>
+                        </>
+                    }
+                />
+            </div>
+
+            {/* ── Table / Loading / Empty ── */}
+            {loading ? (
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <LoadingState rows={6} label="Đang tải lịch sử giao dịch kho" />
+                </div>
+            ) : pageItems.length === 0 ? (
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <EmptyState
+                        icon={History}
+                        title="Không có giao dịch nào"
+                        description="Chưa có dữ liệu phù hợp. Hãy thay đổi bộ lọc tìm kiếm."
+                    />
+                </div>
+            ) : (
+                <TableShell
+                    title="Lịch sử giao dịch kho"
+                    description={`Tổng ${totalElements} giao dịch`}
+                    footer={totalElements > 0 ? (
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                            {/* Page size */}
+                            <div className="flex items-center gap-2">
+                                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                                        >
+                                            {pageSize} dòng
+                                            <ChevronDown className="size-3.5 opacity-60" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className={`${DROPDOWN_CONTENT_CLASS} w-[110px]`}>
+                                        {PAGE_SIZE_OPTIONS.map((size) => (
+                                            <DropdownMenuItem
+                                                key={size}
+                                                onClick={() => { setPageSize(size); setPageNumber(0); }}
+                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                            >
+                                                {size} dòng
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
-                        </CardContent>
-                    </Card>
 
-                    {/* ── Table ── */}
-                    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-                        {loading ? (
-                            <div className="flex items-center justify-center py-16 gap-2">
-                                <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-                                <span className="text-sm text-gray-600">Đang tải dữ liệu...</span>
-                            </div>
-                        ) : pageItems.length === 0 ? (
-                            <EmptyState />
-                        ) : (
-                            <div className="overflow-x-auto overflow-y-auto max-h-[560px]">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-slate-200 bg-slate-50">
-                                            {["STT", "Ngày giao dịch", "Loại", "Sản phẩm", "SKU", "Lô hàng", "Kho", "Số lượng", "Người thực hiện", ""].map((h, i) => (
-                                                <th
-                                                    key={i}
-                                                    className={`h-12 px-4 font-semibold text-slate-600 tracking-wide text-xs uppercase whitespace-nowrap ${i === 9 ? "text-center" : "text-left"}`}
-                                                >
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {pageItems.map((item, index) => {
-                                            const soLuong = Number(item.soLuong);
-                                            const isXuatKho = item.loaiGiaoDich === "xuat_kho";
-                                            const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
-                                            const soLuongColor =
-                                                displaySoLuong > 0 ? "text-emerald-600" :
-                                                displaySoLuong < 0 ? "text-red-600" :
-                                                "text-slate-700";
-                                            const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
+                            {/* Page info */}
+                            <p className="text-xs text-bo-muted">
+                                Hiển thị{" "}
+                                <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
+                                {" – "}
+                                <span className="font-semibold text-bo-foreground">
+                                    {Math.min((safePage + 1) * pageSize, totalElements)}
+                                </span>
+                                {" trong tổng số "}
+                                <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
+                            </p>
 
-                                            return (
-                                                <tr key={item.id} className="transition-colors duration-150 hover:bg-violet-50/50">
-                                                    <td className="px-4 py-3.5 align-middle text-slate-400 text-xs">
-                                                        {safePage * pageSize + index + 1}
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle whitespace-nowrap text-slate-600">
-                                                        {formatDate(item.ngayGiaoDich)}
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <LoaiBadge loai={item.loaiGiaoDich} />
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle max-w-[180px]">
-                                                        <span className="font-semibold text-slate-900 line-clamp-2">
-                                                            {item.tenSanPham || "—"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <span className="font-mono text-xs font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-md">
-                                                            {item.maSku || "—"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <span className="font-mono text-xs text-slate-600">
-                                                            {item.maLo || "—"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Warehouse className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                            <span className="text-slate-700">{item.tenKho || "—"}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <span className={`font-bold text-base ${soLuongColor}`}>
-                                                            {soLuongPrefix}{Math.abs(displaySoLuong)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <User2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                            <span className="text-slate-700">{item.nguoiDungTen || "—"}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3.5 align-middle text-center">
-                                                        <ActionBtn title="Xem chi tiết" onClick={() => handleViewDetail(item)}>
-                                                            <Eye className="h-4 w-4" />
-                                                        </ActionBtn>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+                            {/* Nav */}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(safePage - 1)}
+                                    disabled={safePage === 0}
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                >
+                                    <ChevronLeft className="size-3.5" /> Trước
+                                </Button>
 
-                    {/* ── Pagination ── */}
-                    {totalElements > 0 && (
-                        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 p-4">
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-
-                                <div className="flex items-center gap-2">
-                                    <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">
-                                                {pageSize} dòng
-                                                <ChevronDown className="h-4 w-4 opacity-50" />
+                                <div className="hidden items-center gap-1 sm:flex">
+                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                                        let pageNum;
+                                        if (totalPages <= 5)                pageNum = idx;
+                                        else if (safePage < 3)              pageNum = idx;
+                                        else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
+                                        else                                pageNum = safePage - 2 + idx;
+                                        return (
+                                            <Button
+                                                key={idx}
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={
+                                                    safePage === pageNum
+                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
+                                                }
+                                            >
+                                                {pageNum + 1}
                                             </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
-                                            {[10, 20, 50, 100].map((size) => (
-                                                <DropdownMenuItem
-                                                    key={size}
-                                                    onClick={() => { setPageSize(size); setPageNumber(0); }}
-                                                    className="cursor-pointer"
-                                                >
-                                                    {size} dòng
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                        );
+                                    })}
                                 </div>
 
-                                <div className="text-sm text-gray-600">
-                                    Hiển thị{" "}
-                                    <span className="font-semibold text-gray-900">{safePage * pageSize + 1}</span>
-                                    {" "}–{" "}
-                                    <span className="font-semibold text-gray-900">
-                                        {Math.min((safePage + 1) * pageSize, totalElements)}
-                                    </span>
-                                    {" "}trong tổng số{" "}
-                                    <span className="font-semibold text-violet-600">{totalElements}</span> kết quả
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="outline" size="sm"
-                                        onClick={() => handlePageChange(safePage - 1)}
-                                        disabled={safePage === 0}
-                                        className="gap-1 disabled:opacity-50"
-                                    >
-                                        <ChevronLeft className="h-4 w-4" /> Trước
-                                    </Button>
-
-                                    <div className="hidden sm:flex gap-1">
-                                        {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                            let pageNum;
-                                            if (totalPages <= 5)                pageNum = idx;
-                                            else if (safePage < 3)              pageNum = idx;
-                                            else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                            else                                pageNum = safePage - 2 + idx;
-                                            return (
-                                                <Button
-                                                    key={idx}
-                                                    variant={safePage === pageNum ? "default" : "outline"}
-                                                    size="sm"
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={safePage === pageNum
-                                                        ? "bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm"
-                                                        : "border-gray-200"}
-                                                >
-                                                    {pageNum + 1}
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <Button
-                                        variant="outline" size="sm"
-                                        onClick={() => handlePageChange(safePage + 1)}
-                                        disabled={safePage >= totalPages - 1}
-                                        className="gap-1 disabled:opacity-50"
-                                    >
-                                        Sau <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(safePage + 1)}
+                                    disabled={safePage >= totalPages - 1}
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                >
+                                    Sau <ChevronRight className="size-3.5" />
+                                </Button>
                             </div>
                         </div>
-                    )}
+                    ) : null}
+                >
+                    <table className="w-full min-w-[1080px] text-sm">
+                        <thead>
+                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                {["STT", "Ngày giao dịch", "Loại", "Sản phẩm", "SKU", "Lô hàng", "Kho", "Số lượng", "Người thực hiện", ""].map((h, i) => (
+                                    <th
+                                        key={i}
+                                        className={`${TH_CLASS} ${i === 9 ? "text-center" : "text-left"} ${i === 0 ? "w-14" : ""}`}
+                                    >
+                                        {h}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-bo-border">
+                            {pageItems.map((item, index) => {
+                                const soLuong = Number(item.soLuong);
+                                const isXuatKho = item.loaiGiaoDich === "xuat_kho";
+                                const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
+                                const soLuongColor =
+                                    displaySoLuong > 0 ? "text-bo-success" :
+                                    displaySoLuong < 0 ? "text-bo-danger" :
+                                    "text-slate-700";
+                                const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
 
-                </div>
-            </div>
-        </>
+                                return (
+                                    <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+
+                                        <td className="px-4 py-3.5 align-middle text-xs text-bo-muted">
+                                            {safePage * pageSize + index + 1}
+                                        </td>
+
+                                        <td className="whitespace-nowrap px-4 py-3.5 align-middle">
+                                            <span className="text-xs text-bo-muted">{formatDate(item.ngayGiaoDich)}</span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <LoaiBadge loai={item.loaiGiaoDich} />
+                                        </td>
+
+                                        <td className="max-w-[180px] px-4 py-3.5 align-middle">
+                                            <span className="font-semibold leading-snug text-bo-foreground">
+                                                {item.tenSanPham || "—"}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <span className="rounded-md border border-bo-primary/20 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
+                                                {item.maSku || "—"}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <span className="font-mono text-xs text-bo-muted">
+                                                {item.maLo || "—"}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <span className="font-medium text-bo-foreground">{item.tenKho || "—"}</span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <span className={`text-base font-bold ${soLuongColor}`}>
+                                                {soLuongPrefix}{Math.abs(displaySoLuong)}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 align-middle">
+                                            <span className="font-medium text-bo-foreground">{item.nguoiDungTen || "—"}</span>
+                                        </td>
+
+                                        <td className="px-4 py-3.5 text-center align-middle">
+                                            <ActionBtn title="Xem chi tiết" onClick={() => handleViewDetail(item)}>
+                                                <Eye className="size-4" />
+                                            </ActionBtn>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </TableShell>
+            )}
+        </PageContainer>
     );
 }

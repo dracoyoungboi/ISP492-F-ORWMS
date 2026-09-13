@@ -94,7 +94,6 @@ export default function App() {
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
         <Route path="/quote-success" element={<QuoteSuccess />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
-        <Route path="/user/:id" element={<UserDetail />} />
 
         {/* ========== STOREFRONT ROUTES (CÓ NAVBAR + FOOTER CỦA KHÁCH) ========== */}
         <Route element={<StoreLayout />}>
@@ -108,6 +107,9 @@ export default function App() {
         <Route element={<BackofficeLayout />}>
           {/* Dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Hồ sơ cá nhân (mở từ menu tài khoản ở Header) */}
+          <Route path="/user/:id" element={<UserDetail />} />
 
           {/* User management */}
           <Route path="/users" element={<ViewUserListByAdmin />} />

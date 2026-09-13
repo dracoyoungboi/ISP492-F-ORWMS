@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +13,6 @@ import {
     SelectContent,
     SelectItem,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
 
@@ -29,7 +30,6 @@ export default function AddUserByAdmin() {
 
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -55,182 +55,178 @@ export default function AddUserByAdmin() {
     };
 
     return (
-        <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+        <PageContainer>
             {/* FORM CARD */}
-            <Card className="border-0 shadow-lg bg-white max-w-3xl mx-auto rounded-2xl overflow-hidden">
-                <CardContent className="p-8 space-y-6">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-6">
-                                <div>
-                                    <Label className="font-semibold text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                        Tên đăng nhập
-                                    </Label>
-                                    <Input
-                                        placeholder="username"
-                                        value={form.tenDangNhap}
-                                        onChange={(e) =>
-                                            setForm({ ...form, tenDangNhap: e.target.value })
-                                        }
-                                        className="mt-2 h-10 border-[#b8860b]/20 focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30"
-                                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                                        required
-                                    />
-                                </div>
+            <SurfaceCard
+                title="Thêm người dùng mới"
+                description="Tạo tài khoản với vai trò hệ thống và mật khẩu tạm thời"
+                className="mx-auto max-w-3xl"
+            >
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <div className="space-y-5">
+                            <div>
+                                <Label className="font-semibold text-bo-foreground">
+                                    Tên đăng nhập
+                                </Label>
+                                <Input
+                                    placeholder="username"
+                                    value={form.tenDangNhap}
+                                    onChange={(e) =>
+                                        setForm({ ...form, tenDangNhap: e.target.value })
+                                    }
+                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    required
+                                />
+                            </div>
 
-                                <div>
-                                    <Label className="text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>Email</Label>
-                                    <Input
-                                        type="email"
-                                        placeholder="example@gmail.com"
-                                        value={form.email}
-                                        onChange={(e) =>
-                                            setForm({ ...form, email: e.target.value })
-                                        }
-                                        className="mt-2 h-10 border-[#b8860b]/20 focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30"
-                                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                                    />
-                                </div>
+                            <div>
+                                <Label className="text-bo-foreground">Email</Label>
+                                <Input
+                                    type="email"
+                                    placeholder="example@gmail.com"
+                                    value={form.email}
+                                    onChange={(e) =>
+                                        setForm({ ...form, email: e.target.value })
+                                    }
+                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                />
+                            </div>
 
-                                <div>
-                                    <Label className="font-semibold text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                        Vai trò hệ thống
-                                    </Label>
-                                    <Select
-                                        value={form.vaiTro}
-                                        onValueChange={(v) =>
-                                            setForm({ ...form, vaiTro: v })
-                                        }
+                            <div>
+                                <Label className="font-semibold text-bo-foreground">
+                                    Vai trò hệ thống
+                                </Label>
+                                <Select
+                                    value={form.vaiTro}
+                                    onValueChange={(v) =>
+                                        setForm({ ...form, vaiTro: v })
+                                    }
+                                >
+                                    <SelectTrigger className="mt-2 h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent
+                                        position="popper"
+                                        side="bottom"
+                                        align="start"
+                                        sideOffset={4}
+                                        className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                                     >
-                                        <SelectTrigger className="mt-2 h-10 border-[#b8860b]/20 bg-[#fffaf0] text-[#4a3f2f] focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent
-                                            position="popper"
-                                            side="bottom"
-                                            align="start"
-                                            sideOffset={4}
-                                            className="z-50 rounded-xl border border-[#b8860b]/25 bg-gradient-to-b from-[#fffaf0] to-[#f7f0df] p-1.5 shadow-[0_16px_40px_rgba(122,87,0,0.18)]"
-                                            style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                            <SelectItem
-                                                value="nhan_vien_kho"
-                                                className="rounded-md text-[#4a3f2f] focus:bg-[#f2e4bc] focus:text-[#7a5700]"
-                                            >
-                                                Nhân viên kho
-                                            </SelectItem>
+                                        <SelectItem
+                                            value="nhan_vien_kho"
+                                            className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            Nhân viên kho
+                                        </SelectItem>
 
-                                            <SelectItem
-                                                value="quan_ly_kho"
-                                                className="rounded-md text-[#4a3f2f] focus:bg-[#f2e4bc] focus:text-[#7a5700]"
-                                            >
-                                                Quản lý kho
-                                            </SelectItem>
+                                        <SelectItem
+                                            value="quan_ly_kho"
+                                            className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            Quản lý kho
+                                        </SelectItem>
 
-                                            <SelectItem
-                                                value="nhan_vien_ban_hang"
-                                                className="rounded-md text-[#4a3f2f] focus:bg-[#f2e4bc] focus:text-[#7a5700]"
-                                            >
-                                                Nhân viên bán hàng
-                                            </SelectItem>
+                                        <SelectItem
+                                            value="nhan_vien_ban_hang"
+                                            className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            Nhân viên bán hàng
+                                        </SelectItem>
 
-                                            <SelectItem
-                                                value="nhan_vien_mua_hang"
-                                                className="rounded-md text-[#4a3f2f] focus:bg-[#f2e4bc] focus:text-[#7a5700]"
-                                            >
-                                                Nhân viên mua hàng
-                                            </SelectItem>
+                                        <SelectItem
+                                            value="nhan_vien_mua_hang"
+                                            className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            Nhân viên mua hàng
+                                        </SelectItem>
 
-                                            <SelectItem
-                                                value="quan_tri_vien"
-                                                className="rounded-md text-[#4a3f2f] focus:bg-[#f2e4bc] focus:text-[#7a5700]"
-                                            >
-                                                Quản trị viên
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                        <SelectItem
+                                            value="quan_tri_vien"
+                                            className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            Quản trị viên
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <Label className="font-semibold text-bo-foreground">
+                                    Họ và tên
+                                </Label>
+                                <Input
+                                    placeholder="Nguyễn Văn A"
+                                    value={form.hoTen}
+                                    onChange={(e) =>
+                                        setForm({ ...form, hoTen: e.target.value })
+                                    }
+                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    required
+                                />
                             </div>
 
-                            <div className="space-y-6">
-                                <div>
-                                    <Label className="font-semibold text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                        Họ và tên
-                                    </Label>
+                            <div>
+                                <Label className="text-bo-foreground">Số điện thoại</Label>
+                                <Input
+                                    placeholder="090..."
+                                    value={form.soDienThoai}
+                                    onChange={(e) =>
+                                        setForm({ ...form, soDienThoai: e.target.value })
+                                    }
+                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="font-semibold text-bo-foreground">
+                                    Mật khẩu tạm thời
+                                </Label>
+                                <div className="relative mt-2">
                                     <Input
-                                        placeholder="Nguyễn Văn A"
-                                        value={form.hoTen}
+                                        type={showPassword ? "text" : "password"}
+                                        value={form.matKhau}
                                         onChange={(e) =>
-                                            setForm({ ...form, hoTen: e.target.value })
+                                            setForm({ ...form, matKhau: e.target.value })
                                         }
-                                        className="mt-2 h-10 border-[#b8860b]/20 focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30"
-                                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                        className="h-10 pr-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         required
                                     />
-                                </div>
-
-                                <div>
-                                    <Label className="text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>Số điện thoại</Label>
-                                    <Input
-                                        placeholder="090..."
-                                        value={form.soDienThoai}
-                                        onChange={(e) =>
-                                            setForm({ ...form, soDienThoai: e.target.value })
-                                        }
-                                        className="mt-2 h-10 border-[#b8860b]/20 focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30"
-                                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label className="font-semibold text-[#7a6e5f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                        Mật khẩu tạm thời
-                                    </Label>
-                                    <div className="relative mt-2">
-                                        <Input
-                                            type={showPassword ? "text" : "password"}
-                                            value={form.matKhau}
-                                            onChange={(e) =>
-                                                setForm({ ...form, matKhau: e.target.value })
-                                            }
-                                            className="h-10 pr-10 border-[#b8860b]/20 focus-visible:border-[#b8860b] focus-visible:ring-[#b8860b]/30"
-                                            style={{ fontFamily: "'DM Sans', sans-serif" }}
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword((prev) => !prev)}
-                                            className="absolute inset-y-0 right-0 px-3 text-[#9a8564] hover:text-[#7a5700]"
-                                            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                                        >
-                                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </button>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((prev) => !prev)}
+                                        className="absolute inset-y-0 right-0 px-3 text-bo-muted hover:text-bo-foreground"
+                                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        {/* ACTION */}
-                        <div className="flex justify-end gap-3 pt-4 border-t border-[#b8860b]/15">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="border-[#b8860b]/30 text-[#7a6e5f] hover:bg-[#f7edd3] hover:text-[#7a5700]"
-                                onClick={() => navigate("/users")}
-                            >
-                                Hủy
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                                className="bg-gradient-to-br from-[#d4a72b] to-[#b8860b] hover:from-[#c79616] hover:to-[#a97700] text-white shadow-md"
-                            >
-                                {loading ? "Đang lưu..." : "Lưu người dùng"}
-                            </Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
-        </div>
+                    {/* ACTION */}
+                    <div className="flex justify-end gap-3 border-t border-bo-border pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            onClick={() => navigate("/users")}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            {loading ? "Đang lưu..." : "Lưu người dùng"}
+                        </Button>
+                    </div>
+                </form>
+            </SurfaceCard>
+        </PageContainer>
     );
-
 }

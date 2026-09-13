@@ -1,12 +1,12 @@
 export default function Stat({ icon, label, value }) {
   return (
-    <div className="bg-white border-0 shadow-md rounded-xl p-4">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-500">{label}</div>
+    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-medium text-bo-muted">{label}</div>
         {icon}
       </div>
 
-      <div className="mt-2 text-2xl font-bold text-gray-900">
+      <div className="mt-2 text-2xl font-bold tracking-tight text-bo-foreground">
         {value}
       </div>
     </div>

@@ -1,22 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
     ArrowLeft, Building2, Warehouse, Calendar, User, FileText, Package,
-    CheckCircle, XCircle, Printer, AlertCircle, Phone, Mail,
-    MapPin, ShoppingCart, Clock, Send, CreditCard, DollarSign, PackagePlus,
-    Loader2, Ship
-} from "lucide-react";
+    Printer, Phone, Mail, MapPin, Clock, CreditCard, DollarSign,
+    PackagePlus,
+} from 'lucide-react';
 
 import apiClient from '@/services/apiClient';
+
+import PageContainer from '@/components/backoffice/PageContainer';
+import PageHeader from '@/components/backoffice/PageHeader';
+import SurfaceCard from '@/components/shared/SurfaceCard';
+import TableShell from '@/components/shared/TableShell';
+import EmptyState from '@/components/shared/EmptyState';
+import LoadingState from '@/components/shared/LoadingState';
+import ErrorState from '@/components/shared/ErrorState';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -51,35 +54,30 @@ const formatDateTime = (dateString) => {
 
 // ─── Status configs ────────────────────────────────────────────────────────────
 const PO_STATUS = {
-    3: { label: 'Đang vận chuyển', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
-    5: { label: 'Đã thanh toán', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
+    3: { label: 'Đang vận chuyển', tone: 'warning', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
+    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
+};
+
+// Nền banner trạng thái — bám theo bảng tone của StatusBadge
+const BANNER_TONES = {
+    neutral: 'border-bo-border bg-bo-surface-subtle',
+    info: 'border-blue-200 bg-bo-primary-soft',
+    success: 'border-green-200 bg-bo-success-soft',
+    warning: 'border-orange-200 bg-bo-warning-soft',
+    danger: 'border-red-200 bg-bo-danger-soft',
 };
 
 // ── Shared components ──────────────────────────────────────────────────────────
-function SectionCard({ icon: Icon, iconBg, iconColor, title, children }) {
+function InfoField({ label, value, mono = false, icon, children }) {
     return (
-        <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full items-stretch">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconBg}`}>
-                    <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-                <p className="font-bold text-slate-800 text-[14px]">{title}</p>
-            </div>
-            <div className="p-5 flex-1 flex flex-col gap-4 justify-start">{children}</div>
-        </div>
-    );
-}
-
-function InfoField({ label, value, mono = false, icon: Icon, children }) {
-    return (
-        <div className="space-y-1.5 flex flex-col">
-            <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-500 uppercase tracking-widest">
-                {Icon && <Icon className="h-3.5 w-3.5 opacity-70" />}
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                {icon}
                 {label}
             </div>
-            <div className="flex-1 flex items-start mt-0.5">
+            <div className="mt-0.5 flex flex-1 items-start">
                 {children ?? (
-                    <p className={`text-[14px] font-semibold text-slate-800 ${mono ? "font-mono font-bold tracking-tight" : ""}`}>
+                    <p className={`text-sm font-semibold text-bo-foreground ${mono ? "font-mono font-bold tracking-tight" : ""}`}>
                         {value || "—"}
                     </p>
                 )}
@@ -98,7 +96,7 @@ export default function PurchaseOrderDetail() {
     const [userRoles, setUserRoles] = useState([]);
     const [loadingAuth, setLoadingAuth] = useState(true);
 
-    const fetchOrderDetail = async () => {
+    const fetchOrderDetail = useCallback(async () => {
         setLoading(true);
         try {
             const result = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
@@ -111,11 +109,12 @@ export default function PurchaseOrderDetail() {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        if (id) fetchOrderDetail();
     }, [id]);
+
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    useEffect(() => {
+        if (id) queueMicrotask(() => fetchOrderDetail());
+    }, [id, fetchOrderDetail]);
 
     useEffect(() => {
         const fetchUserInfo = async () => {
@@ -141,32 +140,38 @@ export default function PurchaseOrderDetail() {
 
     if (loading) {
         return (
-            <div className="p-6 md:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-[calc(100vh-64px)] lux-sync flex flex-col items-center justify-center">
-                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 shadow-sm w-full max-w-sm">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                    <span className="text-[15px] font-medium text-slate-600">Đang tải dữ liệu đơn hàng...</span>
-                </div>
-            </div>
+            <PageContainer>
+                <SurfaceCard title="Chi tiết đơn mua hàng" description="Đang tải dữ liệu">
+                    <LoadingState rows={4} label="Đang tải dữ liệu đơn hàng" />
+                </SurfaceCard>
+            </PageContainer>
         );
     }
 
     if (!orderData) {
         return (
-            <div className="p-6 md:p-8 flex items-center justify-center min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 lux-sync">
-                <div className="text-center bg-white p-10 rounded-3xl shadow-sm border border-slate-200/60 w-full max-w-md">
-                    <AlertCircle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-                    <p className="text-slate-600 mb-6">Không tìm thấy Đơn mua hàng</p>
-                    <Button onClick={() => navigate('/purchase-orders')}
-                        className="w-full bg-slate-900 border border-slate-900 text-white hover:bg-white hover:text-slate-900 shadow-md rounded-xl h-12">
-                        Quay lại danh sách
-                    </Button>
-                </div>
-            </div>
+            <PageContainer>
+                <SurfaceCard contentClassName="p-0 sm:p-0">
+                    <ErrorState
+                        title="Không tìm thấy Đơn mua hàng"
+                        description="Đơn mua hàng không tồn tại hoặc đã bị xoá khỏi hệ thống."
+                    />
+                    <div className="flex justify-center pb-10">
+                        <Button
+                            onClick={() => navigate('/purchase-orders')}
+                            className="h-10 bg-bo-primary px-5 font-semibold text-white hover:bg-bo-primary-hover"
+                        >
+                            Quay lại danh sách
+                        </Button>
+                    </div>
+                </SurfaceCard>
+            </PageContainer>
         );
     }
 
-    const currentStatus = PO_STATUS[orderData.trangThai] || { label: 'Không rõ', color: 'bg-slate-50 text-slate-500 border-slate-200', icon: Clock, desc: '' };
+    const currentStatus = PO_STATUS[orderData.trangThai] || { label: 'Không rõ', tone: 'neutral', icon: Clock, desc: '' };
     const StatusIcon = currentStatus.icon;
+    const bannerClass = BANNER_TONES[currentStatus.tone] || BANNER_TONES.neutral;
 
     // Phân quyền hiển thị nút
     const canCreateReceipt = userRoles.includes(ROLE.QUAN_TRI_VIEN) || userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
@@ -177,27 +182,27 @@ export default function PurchaseOrderDetail() {
     ) && orderData.chiTietDonMuaHangs?.length > 0;
 
     return (
-        <div className="p-6 md:p-8 pb-24 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 min-h-[calc(100vh-64px)] lux-sync">
+        <PageContainer className="space-y-5">
+            <PageHeader
+                eyebrow="Mua hàng"
+                title={orderData.soDonMua || '—'}
+                description="Chi tiết đơn mua hàng, tình trạng nhận hàng và thanh toán."
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate(-1)}
+                            className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <ArrowLeft className="size-4" /> Quay lại
+                        </Button>
 
-            {/* ── Header ── */}
-            <div className="flex flex-col gap-4 mb-2">
-                <button type="button" onClick={() => navigate(-1)}
-                    className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 hover:text-blue-600 transition-colors duration-200 w-fit">
-                    <ArrowLeft className="h-4 w-4" /> Quay lại
-                </button>
-
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                        <div>
-                            <p className="mt-1 text-[15px] font-medium text-slate-500 flex items-center gap-2">
-                                <span className="font-mono text-blue-700 font-bold bg-blue-100/50 px-2 py-0.5 rounded border border-blue-200/50">{orderData.soDonMua || '—'}</span>
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Button variant="outline" className="h-11 px-5 rounded-xl bg-white border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-sm" onClick={handlePrint}>
-                            <Printer className="mr-2 h-4 w-4 text-slate-500" /> In đơn hàng
+                        <Button
+                            variant="outline"
+                            onClick={handlePrint}
+                            className="gap-1.5 border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <Printer className="size-4" /> In đơn hàng
                         </Button>
 
                         {/* ── Action Buttons ── */}
@@ -207,9 +212,11 @@ export default function PurchaseOrderDetail() {
                                     {orderData.trangThai === 3 && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <Button className="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md"
-                                                    onClick={() => navigate(`/purchase-orders/${orderData.id}/payment`)}>
-                                                    <CreditCard className="mr-2 h-4 w-4" /> Thanh toán
+                                                <Button
+                                                    className="gap-1.5 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                                                    onClick={() => navigate(`/purchase-orders/${orderData.id}/payment`)}
+                                                >
+                                                    <CreditCard className="size-4" /> Thanh toán
                                                 </Button>
                                             </TooltipTrigger>
                                             <TooltipContent><p>Thanh toán cho nhà cung cấp</p></TooltipContent>
@@ -220,10 +227,12 @@ export default function PurchaseOrderDetail() {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span>
-                                                    <Button className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    <Button
+                                                        className="gap-1.5 bg-bo-success font-semibold text-white hover:bg-bo-success/90 disabled:cursor-not-allowed disabled:opacity-50"
                                                         disabled={isFullyReceived}
-                                                        onClick={() => navigate(`/goods-receipts/create?poId=${orderData.id}`)}>
-                                                        <PackagePlus className="mr-2 h-4 w-4" /> Tạo phiếu nhập kho
+                                                        onClick={() => navigate(`/goods-receipts/create?poId=${orderData.id}`)}
+                                                    >
+                                                        <PackagePlus className="size-4" /> Tạo phiếu nhập kho
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>
@@ -233,220 +242,228 @@ export default function PurchaseOrderDetail() {
                                 </div>
                             </TooltipProvider>
                         )}
-                    </div>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             {/* ── Status Banner ── */}
-            <div className={`rounded-2xl p-6 md:p-8 shadow-sm border ${currentStatus.color} flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden`}>
-                <div className={`absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 rounded-full bg-white/40 blur-3xl pointer-events-none`} />
-                <div className="flex items-center gap-5 relative z-10">
-                    <div className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-white/60 shadow-inner border border-white/40 shrink-0`}>
-                        <StatusIcon className="h-8 w-8 text-current opacity-80" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800">{currentStatus.label}</h2>
-                        <p className="mt-1.5 text-[15px] font-medium opacity-80 text-slate-700">{currentStatus.desc}</p>
+            <div className={`flex flex-col items-start justify-between gap-5 rounded-lg border p-4 shadow-sm sm:p-5 md:flex-row md:items-center ${bannerClass}`}>
+                <div className="flex items-center gap-4">
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-white/70 text-bo-foreground">
+                        <StatusIcon className="size-6" />
+                    </span>
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-bold tracking-tight text-bo-foreground sm:text-xl">{currentStatus.label}</h2>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{currentStatus.desc}</p>
                     </div>
                 </div>
 
-                <div className="relative z-10 bg-white/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/60 shadow-sm ml-auto text-right min-w-[220px]">
-                    <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1">Tổng tiền cần thanh toán</p>
-                    <p className={`text-2xl sm:text-3xl font-black tracking-tight ${orderData.trangThai === 5 ? 'text-emerald-600' : 'text-blue-600'}`}>
+                <div className="ml-auto min-w-[220px] rounded-lg border border-white/60 bg-white/80 px-5 py-3 text-right">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền cần thanh toán</p>
+                    <p className={`text-xl font-bold tracking-tight sm:text-2xl ${orderData.trangThai === 5 ? 'text-bo-success' : 'text-bo-primary'}`}>
                         {formatCurrency(orderData.tongTien)}
                     </p>
                 </div>
             </div>
 
             {/* ── Info Cards Grid ── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-                <SectionCard title="Thông tin đơn hàng" icon={FileText} iconBg="bg-violet-100" iconColor="text-violet-600">
-                    <InfoField label="Ngày tạo đơn" icon={Calendar}>
-                        <span className="font-semibold text-slate-800">{formatDateTime(orderData.ngayTao)}</span>
+            <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
+                <SurfaceCard title="Thông tin đơn hàng">
+                    <InfoField label="Ngày tạo đơn" icon={<Calendar className="size-3.5" />}>
+                        <span className="font-semibold text-bo-foreground">{formatDateTime(orderData.ngayTao)}</span>
                     </InfoField>
-                    <InfoField label="Ngày giao dự kiến" icon={Clock}>
-                        <span className="font-semibold text-slate-800">{formatDate(orderData.ngayGiaoDuKien)}</span>
-                    </InfoField>
-                    <Separator className="bg-slate-100" />
-                    <InfoField label="Yêu cầu mua hàng gốc" icon={FileText}>
+                    <div className="mt-4">
+                        <InfoField label="Ngày giao dự kiến" icon={<Clock className="size-3.5" />}>
+                            <span className="font-semibold text-bo-foreground">{formatDate(orderData.ngayGiaoDuKien)}</span>
+                        </InfoField>
+                    </div>
+                    <div className="my-4 border-t border-bo-border" />
+                    <InfoField label="Yêu cầu mua hàng gốc" icon={<FileText className="size-3.5" />}>
                         {orderData.yeuCauMuaHang?.soYeuCauMuaHang ? (
-                            <span className="font-bold text-blue-600 cursor-pointer hover:underline" onClick={() => navigate(`/purchase-requests/${orderData.yeuCauMuaHang?.id}`)}>
+                            <span
+                                className="cursor-pointer font-semibold text-bo-primary hover:underline"
+                                onClick={() => navigate(`/purchase-requests/${orderData.yeuCauMuaHang?.id}`)}
+                            >
                                 {orderData.yeuCauMuaHang.soYeuCauMuaHang}
                             </span>
                         ) : (
-                            <span className="text-slate-400 italic">Không có dữ liệu</span>
+                            <span className="italic text-bo-muted">Không có dữ liệu</span>
                         )}
                     </InfoField>
-                </SectionCard>
+                </SurfaceCard>
 
-                <SectionCard title="Nhà cung cấp" icon={Building2} iconBg="bg-blue-100" iconColor="text-blue-600">
+                <SurfaceCard title="Nhà cung cấp">
                     {orderData.nhaCungCap ? (
                         <>
                             <InfoField label="Tên nhà cung cấp">
-                                <div className="font-bold text-slate-900">{orderData.nhaCungCap.tenNhaCungCap}</div>
+                                <div className="font-semibold text-bo-foreground">{orderData.nhaCungCap.tenNhaCungCap}</div>
                                 <div className="mt-1">
-                                    <span className="inline-flex font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                    <span className="inline-flex rounded border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
                                         {orderData.nhaCungCap.maNhaCungCap}
                                     </span>
                                 </div>
                             </InfoField>
-                            <Separator className="bg-slate-100" />
-                            <InfoField label="Người liên hệ" icon={User} value={orderData.nhaCungCap.nguoiLienHe} />
-                            <InfoField label="Số điện thoại" icon={Phone} mono value={orderData.nhaCungCap.soDienThoai} />
-                            <InfoField label="Email" icon={Mail} value={orderData.nhaCungCap.email} />
+                            <div className="my-4 border-t border-bo-border" />
+                            <div className="space-y-4">
+                                <InfoField label="Người liên hệ" icon={<User className="size-3.5" />} value={orderData.nhaCungCap.nguoiLienHe} />
+                                <InfoField label="Số điện thoại" icon={<Phone className="size-3.5" />} mono value={orderData.nhaCungCap.soDienThoai} />
+                                <InfoField label="Email" icon={<Mail className="size-3.5" />} value={orderData.nhaCungCap.email} />
+                            </div>
                         </>
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-6 gap-2 text-slate-400">
-                            <Building2 className="h-8 w-8 opacity-30" />
-                            <p className="text-[13px] font-medium italic">Không có thông tin</p>
-                        </div>
+                        <EmptyState
+                            icon={Building2}
+                            title="Không có thông tin"
+                            description="Đơn mua hàng chưa gắn nhà cung cấp."
+                            className="min-h-0 py-6"
+                        />
                     )}
-                </SectionCard>
+                </SurfaceCard>
 
-                <SectionCard title="Kho tiếp nhận & Phụ trách" icon={Warehouse} iconBg="bg-amber-100" iconColor="text-amber-600">
+                <SurfaceCard title="Kho tiếp nhận & Phụ trách">
                     <InfoField label="Tên kho nhận hàng">
-                        <div className="font-bold text-slate-900">{orderData.khoNhap?.tenKho || '—'}</div>
+                        <div className="font-semibold text-bo-foreground">{orderData.khoNhap?.tenKho || '—'}</div>
                         {orderData.khoNhap?.maKho && (
                             <div className="mt-1">
-                                <span className="inline-flex font-mono text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                                <span className="inline-flex rounded border border-orange-200 bg-bo-warning-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-warning">
                                     {orderData.khoNhap.maKho}
                                 </span>
                             </div>
                         )}
                     </InfoField>
-                    <Separator className="bg-slate-100" />
-                    <InfoField label="Địa chỉ kho" icon={MapPin}>
-                        <span className="text-[14px] text-slate-700 leading-snug block line-clamp-2">{orderData.khoNhap?.diaChi || "—"}</span>
-                    </InfoField>
-                    <InfoField label="Người phụ trách tạo đơn" icon={User}>
-                        <div className="font-semibold text-slate-900">{orderData.nguoiTao?.hoTen || '—'}</div>
-                        <div className="text-[13px] text-slate-500 mt-0.5">{orderData.nguoiTao?.email}</div>
-                    </InfoField>
-                </SectionCard>
+                    <div className="my-4 border-t border-bo-border" />
+                    <div className="space-y-4">
+                        <InfoField label="Địa chỉ kho" icon={<MapPin className="size-3.5" />}>
+                            <span className="block text-sm leading-6 text-slate-700">{orderData.khoNhap?.diaChi || "—"}</span>
+                        </InfoField>
+                        <InfoField label="Người phụ trách tạo đơn" icon={<User className="size-3.5" />}>
+                            <div className="font-semibold text-bo-foreground">{orderData.nguoiTao?.hoTen || '—'}</div>
+                            <div className="mt-0.5 text-[13px] text-bo-muted">{orderData.nguoiTao?.email}</div>
+                        </InfoField>
+                    </div>
+                </SurfaceCard>
             </div>
 
             {/* ── Product Table ── */}
-            <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col">
-                <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                        <Package className="h-5 w-5" />
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-800">Danh sách Sản phẩm Đặt mua</h2>
-                </div>
-
-                <div className="overflow-x-auto custom-scrollbar">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-200">
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 h-12 w-[350px] pl-6">Sản phẩm</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">Màu sắc</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">Size</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">SL Đặt</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-center h-12">SL Đã Nhận</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-right h-12">Đơn giá</TableHead>
-                                <TableHead className="font-bold text-[13px] uppercase tracking-wider text-slate-500 text-right h-12 pr-6">Thành tiền</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {orderData.chiTietDonMuaHangs?.length > 0 ? (
-                                orderData.chiTietDonMuaHangs.map((item, index) => {
-                                    const isItemReceived = (item.soLuongDaNhan || 0) >= item.soLuongDat;
-                                    return (
-                                        <TableRow key={item.id || index} className="hover:bg-slate-50 border-b border-slate-100 group">
-                                            <TableCell className="py-4 pl-6">
-                                                <div className="flex items-center gap-4">
-                                                    {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
-                                                        <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200/60 overflow-hidden shadow-sm shrink-0">
-                                                            <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product"
-                                                                className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200/60 flex items-center justify-center shrink-0">
-                                                            <Package className="h-6 w-6 text-slate-300" />
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="font-bold text-[14px] text-slate-900 leading-tight">
-                                                            {item.bienTheSanPham?.tenSanPham || item.bienTheSanPham?.tenBienThe || item.bienTheSanPham?.maSku}
-                                                        </p>
-                                                        <p className="text-[12px] text-slate-500 font-medium mt-1 uppercase tracking-wider flex items-center gap-1">
-                                                            Mã: <span className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded">{item.bienTheSanPham?.maSku}</span>
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center py-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <div className="h-4 w-4 rounded-full border border-slate-200 shadow-sm"
-                                                        style={{ backgroundColor: item.bienTheSanPham?.mauSac?.maMauHex }}
-                                                        title={item.bienTheSanPham?.mauSac?.tenMau} />
-                                                    <span className="text-[13px] font-semibold text-slate-700">{item.bienTheSanPham?.mauSac?.tenMau}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center py-4">
-                                                <span className="inline-flex items-center justify-center min-w-[2rem] h-6 px-2 rounded-md bg-slate-100 text-slate-800 font-bold text-[12px] border border-slate-200">
-                                                    {item.bienTheSanPham?.size?.maSize}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-center py-4">
-                                                <span className="inline-flex h-8 min-w-[2.5rem] px-3 items-center justify-center rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/50">
-                                                    {item.soLuongDat}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-center py-4">
-                                                <span className={`inline-flex h-8 min-w-[2.5rem] px-3 items-center justify-center rounded-lg font-bold border ${isItemReceived ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' : 'bg-amber-50 text-amber-700 border-amber-200/50'}`}>
-                                                    {item.soLuongDaNhan || 0}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right py-4 font-semibold text-[15px] text-slate-800">
-                                                {formatCurrency(item.donGia)}
-                                            </TableCell>
-                                            <TableCell className="text-right py-4 pr-6">
-                                                <span className="font-black text-slate-800 text-[16px]">
-                                                    {formatCurrency(item.thanhTien)}
-                                                </span>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-16">
-                                        <div className="flex flex-col items-center justify-center gap-3">
-                                            <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
-                                                <Package className="h-8 w-8 text-slate-300" />
-                                            </div>
-                                            <p className="font-semibold text-slate-500">Chưa có sản phẩm nào</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <div className="bg-slate-50 p-6 sm:p-8 border-t border-slate-100">
+            <TableShell
+                title="Danh sách Sản phẩm Đặt mua"
+                description="Số lượng đặt, số lượng đã nhận và đơn giá từng biến thể."
+                footer={
                     <div className="flex justify-end">
-                        <div className="w-full sm:w-96 space-y-4">
-                            <div className="flex justify-between items-center px-4 py-1">
-                                <span className="text-[13px] text-slate-500 font-bold uppercase tracking-wide">Tổng số lượng Đặt:</span>
-                                <span className="font-bold text-slate-800 text-[16px]">
+                        <div className="w-full space-y-4 sm:w-96">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Tổng số lượng Đặt:</span>
+                                <span className="text-base font-bold text-bo-foreground">
                                     {orderData.chiTietDonMuaHangs?.reduce((sum, item) => sum + item.soLuongDat, 0) || 0}
                                 </span>
                             </div>
-                            <div className="flex justify-between items-center bg-white px-5 py-4 rounded-xl border border-slate-200/60 shadow-sm">
+                            <div className="flex items-center justify-between rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                    <DollarSign className="h-5 w-5 text-blue-600" />
-                                    <span className="text-[14px] text-slate-700 font-bold uppercase tracking-wide">Tổng cộng:</span>
+                                    <DollarSign className="size-4 text-bo-primary" />
+                                    <span className="text-sm font-semibold uppercase tracking-wide text-slate-700">Tổng cộng:</span>
                                 </div>
-                                <span className="font-black text-blue-600 text-[22px]">
+                                <span className="text-xl font-bold text-bo-primary">
                                     {formatCurrency(orderData.tongTien)}
                                 </span>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                }
+            >
+                <table className="w-full min-w-[960px] text-sm">
+                    <thead>
+                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                            <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Đặt</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Đã Nhận</th>
+                            <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
+                            <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bo-border">
+                        {orderData.chiTietDonMuaHangs?.length > 0 ? (
+                            orderData.chiTietDonMuaHangs.map((item, index) => {
+                                const isItemReceived = (item.soLuongDaNhan || 0) >= item.soLuongDat;
+                                return (
+                                    <tr key={item.id || index} className="transition-colors hover:bg-bo-surface-subtle">
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-3">
+                                                {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
+                                                    <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
+                                                        <img
+                                                            src={item.bienTheSanPham.anhBienThe.tepTin.duongDan}
+                                                            alt="Product"
+                                                            className="size-full object-cover"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-slate-100">
+                                                        <Package className="size-5 text-slate-300" />
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold leading-tight text-bo-foreground">
+                                                        {item.bienTheSanPham?.tenSanPham || item.bienTheSanPham?.tenBienThe || item.bienTheSanPham?.maSku}
+                                                    </p>
+                                                    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-bo-muted">
+                                                        Mã: <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">{item.bienTheSanPham?.maSku}</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                {/* data-viz: màu động theo maMauHex */}
+                                                <span
+                                                    className="size-4 rounded-full border border-bo-border"
+                                                    style={{ backgroundColor: item.bienTheSanPham?.mauSac?.maMauHex }}
+                                                    title={item.bienTheSanPham?.mauSac?.tenMau}
+                                                />
+                                                <span className="text-[13px] font-medium text-slate-700">{item.bienTheSanPham?.mauSac?.tenMau}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <span className="inline-flex h-6 min-w-8 items-center justify-center rounded-md border border-bo-border bg-slate-100 px-2 text-xs font-semibold text-bo-foreground">
+                                                {item.bienTheSanPham?.size?.maSize}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <span className="inline-flex h-7 min-w-10 items-center justify-center rounded-md border border-blue-200 bg-bo-primary-soft px-3 font-semibold text-bo-primary">
+                                                {item.soLuongDat}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <span className={`inline-flex h-7 min-w-10 items-center justify-center rounded-md border px-3 font-semibold ${isItemReceived ? 'border-green-200 bg-bo-success-soft text-bo-success' : 'border-orange-200 bg-bo-warning-soft text-bo-warning'}`}>
+                                                {item.soLuongDaNhan || 0}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3 text-right text-[15px] font-semibold text-bo-foreground">
+                                            {formatCurrency(item.donGia)}
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span className="text-base font-bold text-bo-foreground">
+                                                {formatCurrency(item.thanhTien)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        ) : (
+                            <tr>
+                                <td colSpan={7}>
+                                    <EmptyState
+                                        icon={Package}
+                                        title="Chưa có sản phẩm nào"
+                                        description="Đơn mua hàng chưa có chi tiết sản phẩm."
+                                    />
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </TableShell>
+        </PageContainer>
     );
 }

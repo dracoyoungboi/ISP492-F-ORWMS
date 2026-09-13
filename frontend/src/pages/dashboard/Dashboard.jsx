@@ -19,7 +19,7 @@ export default function Dashboard() {
     const DashboardComponent = DASHBOARD_MAP[role];
 
     if (!DashboardComponent) {
-        return <div className="lux-sync p-6 min-h-screen">Không có quyền truy cập</div>;
+        return <div className="flex min-h-screen items-center justify-center bg-bo-canvas p-6 font-backoffice text-bo-muted">Không có quyền truy cập</div>;
     }
 
     return <DashboardComponent />;

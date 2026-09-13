@@ -12,7 +12,7 @@ import { Warehouse } from "lucide-react";
 import { khoService } from "@/services/khoService";
 import { quyenHanService } from "@/services/quyenHan";
 import PermissionMatrix from "./PermissionMatrix";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { parseDateTimeToIsoString } from "@/utils/formatters";
 
 export default function AssignWarehousePermissionModal({
@@ -187,7 +187,7 @@ export default function AssignWarehousePermissionModal({
             const nowIso = new Date().toISOString();
             // Gọi API cho từng kho một (mỗi kho 1 request)
             for (const warehouse of selectedWarehouses) {
-                // payload submit api 
+                // payload submit api
                 const payload = {
                     nguoiDungId: Number(userId),
                     khoId: warehouse.id,
@@ -224,48 +224,48 @@ export default function AssignWarehousePermissionModal({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-            <DialogContent className="w-[95vw] max-w-3xl bg-white text-gray-900 border border-gray-200 rounded-xl shadow-sm dark:bg-white dark:text-gray-900 shadow-2xl">
+            <DialogContent className="w-[95vw] max-w-3xl rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Warehouse className="w-5 h-5 text-purple-600" />
+                        <Warehouse className="h-5 w-5 text-bo-primary" />
                         Thêm phân quyền kho
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-bo-muted">
                         Bước 1: Chọn kho phụ trách • Bước 2: Chọn quyền chức năng áp dụng
                         cho các kho đã chọn.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
+                <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
                     {/* Step 1: Chọn kho */}
                     <section>
-                        <div className="flex items-center justify-between mb-3">
-                            <p className="text-xs font-bold text-gray-700 uppercase tracking-wider italic">
+                        <div className="mb-3 flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-wide text-bo-foreground">
                                 1. Chọn kho phụ trách
                             </p>
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-bo-muted">
                                 * Bắt buộc chọn ít nhất 1 kho
                             </span>
                         </div>
 
                         {loading && warehouses.length === 0 ? (
-                            <p className="text-xs text-gray-500">Đang tải danh sách kho...</p>
+                            <p className="text-xs text-bo-muted">Đang tải danh sách kho...</p>
                         ) : warehouses.length === 0 ? (
-                            <p className="text-xs text-gray-500 italic">
+                            <p className="text-xs italic text-bo-muted">
                                 Chưa có kho nào. Vui lòng tạo kho trước khi phân quyền.
                             </p>
                         ) : (
                             <div
-                                className="space-y-3 max-h-64 overflow-y-auto pr-1"
+                                className="max-h-64 space-y-3 overflow-y-auto pr-1"
                                 onScroll={handleScrollWarehouses}
                             >
                                 {warehouses.map((warehouse) => (
                                     <div
                                         key={warehouse.id}
-                                        className={`flex items-center justify-between p-4 rounded-lg border
+                                        className={`flex items-center justify-between rounded-lg border p-4
                         ${warehouse.isSelected
-                                                ? "bg-gray-50 border-purple-100"
-                                                : "bg-white border-gray-200"
+                                                ? "border-bo-primary/30 bg-bo-primary-soft/40"
+                                                : "border-bo-border bg-white"
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -273,17 +273,17 @@ export default function AssignWarehousePermissionModal({
                                                 type="checkbox"
                                                 checked={warehouse.isSelected}
                                                 onChange={() => toggleWarehouseSelected(warehouse.id)}
-                                                className="h-5 w-5 rounded text-purple-600"
+                                                className="size-5 rounded border-bo-border accent-bo-primary"
                                             />
 
                                             <div>
-                                                <p className="text-sm font-bold text-gray-900">
+                                                <p className="text-sm font-bold text-bo-foreground">
                                                     {warehouse.tenKho}
                                                 </p>
-                                                <p className="text-xs text-gray-500 font-mono uppercase">
+                                                <p className="text-xs uppercase text-bo-muted">
                                                     {warehouse.maKho} • ID: {warehouse.id}
                                                 </p>
-                                                <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">
+                                                <p className="mt-1 line-clamp-1 text-[11px] text-bo-muted">
                                                     {warehouse.diaChi}
                                                 </p>
                                             </div>
@@ -293,10 +293,10 @@ export default function AssignWarehousePermissionModal({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleWarehouseManager(warehouse.id)}
-                                                className={`text-[10px] font-bold px-3 py-1.5 rounded border shadow-sm
+                                                className={`rounded border px-3 py-1.5 text-[10px] font-bold shadow-sm
                             ${warehouse.isManager
-                                                        ? "bg-purple-600 text-white border-purple-600"
-                                                        : "bg-white text-gray-400 border-gray-200"
+                                                        ? "border-bo-primary bg-bo-primary text-white"
+                                                        : "border-bo-border bg-white text-bo-muted"
                                                     }`}
                                             >
                                                 QUẢN LÝ CHÍNH
@@ -306,12 +306,12 @@ export default function AssignWarehousePermissionModal({
                                 ))}
 
                                 {loadingMore && (
-                                    <p className="text-[11px] text-gray-400 text-center py-1">
+                                    <p className="py-1 text-center text-[11px] text-bo-muted">
                                         Đang tải thêm kho...
                                     </p>
                                 )}
                                 {!hasMore && warehouses.length > 0 && (
-                                    <p className="text-[11px] text-gray-400 text-center py-1">
+                                    <p className="py-1 text-center text-[11px] text-bo-muted">
                                         Đã hiển thị tất cả kho.
                                     </p>
                                 )}
@@ -322,10 +322,10 @@ export default function AssignWarehousePermissionModal({
                     {/* Step 2: Chọn quyền */}
                     <section>
                         <div className="mb-3">
-                            <p className="text-xs font-bold text-gray-700 uppercase tracking-wider italic">
+                            <p className="text-xs font-bold uppercase tracking-wide text-bo-foreground">
                                 2. Chọn quyền chức năng
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-1">
+                            <p className="mt-1 text-[11px] text-bo-muted">
                                 Các quyền sẽ được áp dụng cho toàn bộ kho được chọn ở bước 1.
                             </p>
                         </div>
@@ -333,7 +333,7 @@ export default function AssignWarehousePermissionModal({
                         <div
                             className={
                                 selectedWarehouseCount === 0
-                                    ? "opacity-50 pointer-events-none"
+                                    ? "pointer-events-none opacity-50"
                                     : ""
                             }
                         >
@@ -343,33 +343,33 @@ export default function AssignWarehousePermissionModal({
                             />
                         </div>
                         {selectedWarehouseCount === 0 && (
-                            <p className="text-[11px] text-red-500 mt-2">
+                            <p className="mt-2 text-[11px] text-bo-danger">
                                 Vui lòng chọn ít nhất 1 kho ở bước 1 trước khi cấu hình quyền.
                             </p>
                         )}
                     </section>
 
                     <section>
-                        <div className="flex flex-col gap-2 mb-3">
-                            <p className="text-xs font-bold text-gray-700 uppercase tracking-wider italic">3. Cấu hình bổ sung</p>
+                        <div className="mb-3 flex flex-col gap-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-bo-foreground">3. Cấu hình bổ sung</p>
                             <div>
-                                <p className="text-[11px] text-gray-500">
+                                <p className="text-[11px] text-bo-muted">
                                     Ghi chú
                                 </p>
                                 <textarea
-                                    className="w-full p-2 border border-gray-200 rounded-md"
+                                    className="w-full rounded-md border border-bo-border p-2 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
                                     placeholder="Nhập ghi chú"
                                     value={ghiChu}
                                     onChange={(e) => setGhiChu(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500">
+                                <p className="text-[11px] text-bo-muted">
                                     Ngày kết thúc
                                 </p>
                                 <input
                                     type="datetime-local"
-                                    className="w-full p-2 border border-gray-200 rounded-md"
+                                    className="w-full rounded-md border border-bo-border p-2 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
                                     value={ngayKetThuc}
                                     onChange={(e) => setNgayKetThuc(e.target.value)}
                                 />
@@ -378,12 +378,13 @@ export default function AssignWarehousePermissionModal({
                     </section>
                 </div>
 
-                <DialogFooter className="flex gap-2 justify-end">
+                <DialogFooter className="flex justify-end gap-2">
                     <Button
                         type="button"
                         variant="outline"
                         onClick={handleClose}
                         disabled={assigning}
+                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                     >
                         Hủy
                     </Button>
@@ -391,7 +392,7 @@ export default function AssignWarehousePermissionModal({
                         type="button"
                         onClick={handleAssignSubmit}
                         disabled={assigning || !canSubmitAssign}
-                        className="bg-linear-to-r from-purple-600 to-blue-600"
+                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
                         {assigning ? "Đang lưu..." : "Lưu phân quyền"}
                     </Button>
@@ -400,4 +401,3 @@ export default function AssignWarehousePermissionModal({
         </Dialog>
     );
 }
-

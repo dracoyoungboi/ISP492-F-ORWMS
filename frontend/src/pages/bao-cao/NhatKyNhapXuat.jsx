@@ -1,15 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, Package, ArrowDownToLine, ArrowUpFromLine,
+  TrendingUp, TrendingDown, ArrowDownToLine, ArrowUpFromLine,
   Search, RefreshCw, BarChart2, Calendar, Warehouse, ArrowLeftRight,
 } from "lucide-react";
+import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── API ───
@@ -32,6 +36,24 @@ const fmt = (n) => {
 };
 const fmtSL = (n) => (n != null ? Number(n).toLocaleString("vi-VN") : "—");
 
+// Màu biểu đồ lấy từ token bo-* (recharts cần giá trị màu cụ thể)
+const CHART_COLORS = {
+  nhap: "#15803d",
+  nhapLight: "#86efac",
+  xuat: "#dc2626",
+  xuatLight: "#fca5a5",
+  chenhLech: "#1677ff",
+  grid: "#e1e6ec",
+  axis: "#64748b",
+};
+
+const TH_CLASS =
+  "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+const SELECT_CLASS =
+  "h-9 rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15";
+const SELECT_ITEM_CLASS =
+  "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+
 function buildParams({ loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, loaiGiaoDich }) {
   const p = new URLSearchParams({ loai });
   if (["ngay", "chi_tiet", "theo_kho"].includes(loai)) { p.set("tuNgay", tuNgay); p.set("denNgay", denNgay); }
@@ -47,13 +69,15 @@ function buildParams({ loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-4 min-w-[190px]">
-      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3 font-mono">{label}</p>
+    <div className="min-w-[190px] rounded-lg border border-bo-border bg-white p-3 shadow-sm">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
       {payload.map((entry, i) => (
-        <div key={i} className="flex items-center gap-2 mb-1.5">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} />
-          <span className="text-slate-600 text-xs flex-1">{entry.name}</span>
-          <span className="text-slate-900 font-bold text-xs font-mono">{fmtSL(entry.value)}</span>
+        <div key={i} className="mb-1.5 flex items-center gap-2 last:mb-0">
+          <svg className="size-2.5 shrink-0" viewBox="0 0 10 10" aria-hidden="true">
+            <circle cx="5" cy="5" r="5" fill={entry.color} />
+          </svg>
+          <span className="flex-1 text-xs text-slate-600">{entry.name}</span>
+          <span className="text-xs font-bold text-bo-foreground">{fmtSL(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -61,22 +85,20 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // ─── KPI CARD ───
-function KpiCard({ icon: Icon, label, value, sub, colorClass, bgClass, borderClass }) {
+function KpiCard({ icon, label, value, sub, valueClass, iconClass }) {
   return (
-    <Card className={`border ${borderClass} shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white`}>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{label}</p>
-            <p className={`text-2xl font-bold ${colorClass} truncate`}>{value}</p>
-            {sub && <p className="text-xs text-slate-400 mt-1.5">{sub}</p>}
-          </div>
-          <div className={`w-11 h-11 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0 ml-3`}>
-            <Icon size={20} className={colorClass} />
-          </div>
+    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-bo-muted">{label}</p>
+          <p className={`mt-1 truncate text-2xl font-bold tracking-tight ${valueClass}`}>{value}</p>
+          {sub && <p className="mt-1 text-xs text-bo-muted">{sub}</p>}
         </div>
-      </CardContent>
-    </Card>
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+          {icon}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -99,10 +121,10 @@ function MiniSparkline({ data, dataKey, color }) {
 }
 
 // ─── PROGRESS BAR ───
-function ProgressBar({ pct, color }) {
+function ProgressBar({ pct, barClass }) {
   return (
-    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
+    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+      <div className={`h-full rounded-full ${barClass}`} style={{ width: `${Math.min(pct, 100)}%` }} />
     </div>
   );
 }
@@ -110,13 +132,13 @@ function ProgressBar({ pct, color }) {
 // ─── BADGE LOẠI GD ───
 function LoaiGdBadge({ loai }) {
   const map = {
-    nhap_kho: { label: "Nhập kho", cls: "bg-emerald-50 text-emerald-700" },
-    xuat_kho: { label: "Xuất kho", cls: "bg-rose-50 text-rose-700" },
-    chuyen_kho: { label: "Chuyển kho", cls: "bg-amber-50 text-amber-700" },
-    dieu_chinh: { label: "Điều chỉnh", cls: "bg-indigo-50 text-indigo-700" },
+    nhap_kho: { label: "Nhập kho", cls: "border-bo-success/20 bg-bo-success-soft text-bo-success" },
+    xuat_kho: { label: "Xuất kho", cls: "border-bo-danger/20 bg-bo-danger-soft text-bo-danger" },
+    chuyen_kho: { label: "Chuyển kho", cls: "border-bo-primary/20 bg-bo-primary-soft text-bo-primary" },
+    dieu_chinh: { label: "Điều chỉnh", cls: "border-bo-warning/20 bg-bo-warning-soft text-bo-warning" },
   };
-  const cfg = map[loai] || { label: loai || "—", cls: "bg-slate-50 text-slate-600" };
-  return <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${cfg.cls}`}>{cfg.label}</span>;
+  const cfg = map[loai] || { label: loai || "—", cls: "border-bo-border bg-bo-surface-subtle text-slate-600" };
+  return <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.cls}`}>{cfg.label}</span>;
 }
 
 // ─── MAIN ───
@@ -149,7 +171,19 @@ export default function NhatKyNhapXuat() {
     }
   }, [loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, loaiGiaoDich]);
 
-  useEffect(() => { fetchData(); }, [loai, khoId, loaiGiaoDich]);
+  // Giữ tham chiếu mới nhất của hàm tải dữ liệu để effect tự động tải bên dưới
+  // không phụ thuộc vào các mốc thời gian (giữ nguyên hành vi cũ).
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); vẫn tự động tải lại khi đổi tab, kho
+  // hoặc loại giao dịch như hành vi cũ, không tải khi chỉ đổi mốc thời gian.
+  useEffect(() => {
+    queueMicrotask(() => fetchDataRef.current());
+  }, [loai, khoId, loaiGiaoDich]);
 
   const chartData = data.map(d => ({
     ...d,
@@ -187,346 +221,320 @@ export default function NhatKyNhapXuat() {
   ];
 
   return (
-    <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+    <PageContainer className="space-y-5">
 
       {/* ── KPI CARDS ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={ArrowDownToLine} label="Tổng SL nhập"
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard icon={<ArrowDownToLine className="size-5" />} label="Tổng SL nhập"
           value={fmtSL(kpi.tongNhap)} sub={`${chartData.length} kỳ thống kê`}
-          colorClass="text-emerald-700" bgClass="bg-emerald-100" borderClass="border-emerald-100" />
-        <KpiCard icon={ArrowUpFromLine} label="Tổng SL xuất"
+          valueClass="text-bo-success" iconClass="bg-bo-success-soft text-bo-success" />
+        <KpiCard icon={<ArrowUpFromLine className="size-5" />} label="Tổng SL xuất"
           value={fmtSL(kpi.tongXuat)} sub={`Chênh lệch: ${tongChenhLech >= 0 ? "+" : ""}${fmtSL(tongChenhLech)}`}
-          colorClass="text-rose-700" bgClass="bg-rose-100" borderClass="border-rose-100" />
-        <KpiCard icon={TrendingDown} label="Giá trị nhập"
+          valueClass="text-bo-danger" iconClass="bg-bo-danger-soft text-bo-danger" />
+        <KpiCard icon={<TrendingDown className="size-5" />} label="Giá trị nhập"
           value={fmt(kpi.tongGtrNhap)} sub={`${gtrNhapPct}% tổng giá trị`}
-          colorClass="text-purple-700" bgClass="bg-purple-100" borderClass="border-purple-100" />
-        <KpiCard icon={TrendingUp} label="Giá trị xuất"
+          valueClass="text-bo-primary" iconClass="bg-bo-primary-soft text-bo-primary" />
+        <KpiCard icon={<TrendingUp className="size-5" />} label="Giá trị xuất"
           value={fmt(kpi.tongGtrXuat)} sub="Giá trị xuất kho"
-          colorClass="text-indigo-700" bgClass="bg-indigo-100" borderClass="border-indigo-100" />
-      </div>
+          valueClass="text-bo-warning" iconClass="bg-bo-warning-soft text-bo-warning" />
+      </section>
 
       {/* ── FILTER PANEL ── */}
-      <Card className="border-0 shadow-md bg-white">
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar size={14} className="text-purple-500" />
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Bộ lọc nhật ký</span>
+      <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+          <Calendar className="size-4 text-bo-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Bộ lọc nhật ký</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
+          {/* Tab group */}
+          <div className="flex flex-wrap gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
+            {tabConfig.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setLoai(key)}
+                className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${loai === key
+                  ? "bg-bo-primary text-white shadow-sm"
+                  : "text-slate-600 hover:bg-white hover:text-bo-foreground"
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Tab group */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 flex-wrap">
-              {tabConfig.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setLoai(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 cursor-pointer border-0 ${loai === key
-                    ? "bg-white text-purple-700 shadow-sm ring-1 ring-slate-200"
-                    : "text-slate-500 hover:text-slate-700 bg-transparent"
-                    }`}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Date range */}
+          {["ngay", "chi_tiet", "theo_kho"].includes(loai) && (
+            <div className="flex items-center gap-2">
+              <Input type="date" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
+                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20" />
+              <span className="font-medium text-bo-muted">→</span>
+              <Input type="date" value={denNgay} onChange={e => setDenNgay(e.target.value)}
+                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20" />
             </div>
+          )}
 
-            {/* Date range */}
-            {["ngay", "chi_tiet", "theo_kho"].includes(loai) && (
-              <div className="flex items-center gap-2">
-                <Input type="date" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
-                  className="border-slate-200 text-slate-700 h-10 text-sm" />
-                <span className="text-slate-400 font-medium">→</span>
-                <Input type="date" value={denNgay} onChange={e => setDenNgay(e.target.value)}
-                  className="border-slate-200 text-slate-700 h-10 text-sm" />
-              </div>
-            )}
-
-            {/* Year */}
-            {["tuan", "thang", "so_sanh"].includes(loai) && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">NĂM</span>
-                <select
-                  value={nam}
-                  onChange={e => setNam(+e.target.value)}
-                  className="pl-10 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-purple-300 focus:border-purple-400 appearance-none w-[120px]"
-                >
-                  {Array.from({ length: 8 }, (_, i) => thisYear - 7 + i).map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Month for compare */}
-            {loai === "so_sanh" && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">T</span>
-                <select
-                  value={thang}
-                  onChange={e => setThang(+e.target.value)}
-                  className="pl-7 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-purple-300 appearance-none w-[90px]"
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>T{i + 1}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Year range */}
-            {loai === "nam" && (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">TỪ</span>
-                  <select value={tuNam} onChange={e => setTuNam(+e.target.value)}
-                    className="pl-8 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-purple-300 appearance-none w-[110px]">
-                    {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-                <span className="text-slate-400 font-medium">→</span>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">ĐẾN</span>
-                  <select value={denNam} onChange={e => setDenNam(+e.target.value)}
-                    className="pl-10 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-purple-300 appearance-none w-[110px]">
-                    {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Kho */}
-            <div className="relative">
-              <Warehouse size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-              <Select value={khoId} onValueChange={setKhoId}>
-                <SelectTrigger className="pl-9 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-slate-400 min-w-[180px]">
-                  <SelectValue placeholder="Tất cả kho" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 shadow-lg z-50" position="popper" sideOffset={4}>
-                  <SelectItem value="ALL">Tất cả kho</SelectItem>
-                  <SelectItem value="1">KHO01 – Hà Nội</SelectItem>
-                  <SelectItem value="2">KHO02 – Miền Nam</SelectItem>
-                  <SelectItem value="3">KHO03 – Miền Trung</SelectItem>
-                  <SelectItem value="4">KHO04 – Ngoại thành</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Year */}
+          {["tuan", "thang", "so_sanh"].includes(loai) && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Năm</span>
+              <select
+                value={nam}
+                onChange={e => setNam(+e.target.value)}
+                className={`${SELECT_CLASS} w-[110px]`}
+              >
+                {Array.from({ length: 8 }, (_, i) => thisYear - 7 + i).map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
+          )}
 
-            {/* Loại GD */}
-            <div className="relative">
-              <ArrowLeftRight size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-              <Select value={loaiGiaoDich} onValueChange={setLoaiGiaoDich}>
-                <SelectTrigger className="pl-9 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-slate-400 min-w-[160px]">
-                  <SelectValue placeholder="Tất cả loại GD" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 shadow-lg z-50" position="popper" sideOffset={4}>
-                  <SelectItem value="ALL">Tất cả loại GD</SelectItem>
-                  <SelectItem value="nhap_kho">Nhập kho</SelectItem>
-                  <SelectItem value="xuat_kho">Xuất kho</SelectItem>
-                  <SelectItem value="chuyen_kho">Chuyển kho</SelectItem>
-                  <SelectItem value="dieu_chinh">Điều chỉnh</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Month for compare */}
+          {loai === "so_sanh" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Tháng</span>
+              <select
+                value={thang}
+                onChange={e => setThang(+e.target.value)}
+                className={`${SELECT_CLASS} w-[90px]`}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>T{i + 1}</option>
+                ))}
+              </select>
             </div>
+          )}
 
-            <Button
-              onClick={fetchData}
-              disabled={loading}
-              className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 active:bg-slate-100 h-10 px-5 shadow-md shadow-slate-200 transition-all duration-150 gap-2"
-            >
-              {loading ? <RefreshCw size={15} className="animate-spin" /> : <Search size={15} />}
-              Xem báo cáo
-            </Button>
+          {/* Year range */}
+          {loai === "nam" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Từ</span>
+              <select value={tuNam} onChange={e => setTuNam(+e.target.value)}
+                className={`${SELECT_CLASS} w-[100px]`}>
+                {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <span className="font-medium text-bo-muted">→</span>
+              <span className="text-xs font-medium text-bo-muted">Đến</span>
+              <select value={denNam} onChange={e => setDenNam(+e.target.value)}
+                className={`${SELECT_CLASS} w-[100px]`}>
+                {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Kho */}
+          <div className="flex items-center gap-2">
+            <Warehouse className="size-4 shrink-0 text-bo-muted" />
+            <Select value={khoId} onValueChange={setKhoId}>
+              <SelectTrigger className="h-9 min-w-[180px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
+                <SelectValue placeholder="Tất cả kho" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4} className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>Tất cả kho</SelectItem>
+                <SelectItem value="1" className={SELECT_ITEM_CLASS}>KHO01 – Hà Nội</SelectItem>
+                <SelectItem value="2" className={SELECT_ITEM_CLASS}>KHO02 – Miền Nam</SelectItem>
+                <SelectItem value="3" className={SELECT_ITEM_CLASS}>KHO03 – Miền Trung</SelectItem>
+                <SelectItem value="4" className={SELECT_ITEM_CLASS}>KHO04 – Ngoại thành</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Loại GD */}
+          <div className="flex items-center gap-2">
+            <ArrowLeftRight className="size-4 shrink-0 text-bo-muted" />
+            <Select value={loaiGiaoDich} onValueChange={setLoaiGiaoDich}>
+              <SelectTrigger className="h-9 min-w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
+                <SelectValue placeholder="Tất cả loại GD" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4} className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>Tất cả loại GD</SelectItem>
+                <SelectItem value="nhap_kho" className={SELECT_ITEM_CLASS}>Nhập kho</SelectItem>
+                <SelectItem value="xuat_kho" className={SELECT_ITEM_CLASS}>Xuất kho</SelectItem>
+                <SelectItem value="chuyen_kho" className={SELECT_ITEM_CLASS}>Chuyển kho</SelectItem>
+                <SelectItem value="dieu_chinh" className={SELECT_ITEM_CLASS}>Điều chỉnh</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            onClick={fetchData}
+            disabled={loading}
+            className="h-9 gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50"
+          >
+            {loading ? <RefreshCw className="size-4 animate-spin" /> : <Search className="size-4" />}
+            Xem báo cáo
+          </Button>
+        </div>
+      </section>
 
       {/* ── CHART + SUMMARY ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_300px]">
 
-        <Card className="border-0 shadow-md bg-white">
-          <CardHeader className="pb-2 pt-5 px-6">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-800">Biểu đồ nhập xuất kho</CardTitle>
-                <CardDescription className="text-xs text-slate-400 mt-1">Số lượng nhập, xuất &amp; chênh lệch tồn kho theo kỳ</CardDescription>
-              </div>
-              <div className="flex gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-amber-300 inline-block" />Nhập kho
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-amber-500 inline-block" />Xuất kho
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-5 h-0.5 bg-amber-700 inline-block rounded-full" />Chênh lệch
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-5">
+        <SurfaceCard title="Biểu đồ nhập xuất kho" description="Số lượng nhập, xuất & chênh lệch tồn kho theo kỳ">
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-sm bg-bo-success" />Nhập kho
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-sm bg-bo-danger" />Xuất kho
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-5 rounded-full bg-bo-primary" />Chênh lệch
+            </span>
+          </div>
+
+          {loading && chartData.length === 0 ? (
+            <LoadingState rows={4} label="Đang tải biểu đồ nhập xuất" />
+          ) : (
             <ResponsiveContainer width="100%" height={360}>
               <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradNhap" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f7df9f" />
-                    <stop offset="100%" stopColor="#e8b923" />
+                    <stop offset="0%" stopColor={CHART_COLORS.nhapLight} />
+                    <stop offset="100%" stopColor={CHART_COLORS.nhap} />
                   </linearGradient>
                   <linearGradient id="gradXuat" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f3cf6a" />
-                    <stop offset="100%" stopColor="#c79500" />
+                    <stop offset="0%" stopColor={CHART_COLORS.xuatLight} />
+                    <stop offset="100%" stopColor={CHART_COLORS.xuat} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="nhanThoiGian" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
-                <YAxis tickFormatter={fmtSL} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(184,134,11,0.08)" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+                <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
+                <YAxis tickFormatter={fmtSL} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
                 <Bar dataKey="tongNhap" name="Nhập kho" fill="url(#gradNhap)" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 <Bar dataKey="tongXuat" name="Xuất kho" fill="url(#gradXuat)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Line dataKey="chenhLech" name="Chênh lệch" stroke="#8f6500" strokeWidth={2.5}
-                  dot={{ r: 3, fill: "#8f6500", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                <Line dataKey="chenhLech" name="Chênh lệch" stroke={CHART_COLORS.chenhLech} strokeWidth={2.5}
+                  dot={{ r: 3, fill: CHART_COLORS.chenhLech, strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          )}
+        </SurfaceCard>
 
         {/* Side summary */}
         <div className="flex flex-col gap-3">
           {[
-            { label: "Nhập kho", value: fmtSL(kpi.tongNhap), pct: nhapPct, color: "#10b981", textColor: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-100" },
-            { label: "Xuất kho", value: fmtSL(kpi.tongXuat), pct: xuatPct, color: "#f43f5e", textColor: "text-rose-700", bg: "bg-rose-50", border: "border-rose-100" },
-            { label: "Giá trị nhập", value: fmt(kpi.tongGtrNhap), pct: gtrNhapPct, color: "#8b5cf6", textColor: "text-purple-700", bg: "bg-purple-50", border: "border-purple-100" },
+            { label: "Nhập kho", value: fmtSL(kpi.tongNhap), pct: nhapPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
+            { label: "Xuất kho", value: fmtSL(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
+            { label: "Giá trị nhập", value: fmt(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
           ].map(item => (
-            <Card key={item.label} className={`border ${item.border} shadow-sm bg-white`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{item.label}</span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.bg} ${item.textColor}`}>{item.pct}%</span>
-                </div>
-                <p className={`text-xl font-bold ${item.textColor} mb-3`}>{item.value}</p>
-                <ProgressBar pct={item.pct} color={item.color} />
-              </CardContent>
-            </Card>
+            <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-bo-muted">{item.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.bg} ${item.textClass}`}>{item.pct}%</span>
+              </div>
+              <p className={`mb-3 text-xl font-bold ${item.textClass}`}>{item.value}</p>
+              <ProgressBar pct={item.pct} barClass={item.barClass} />
+            </div>
           ))}
 
           {chartData.length > 1 && (
-            <Card className="border border-emerald-100 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Xu hướng nhập kho</p>
-                <MiniSparkline data={chartData} dataKey="tongNhap" color="#10b981" />
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <p className="mb-2 text-xs font-medium text-bo-muted">Xu hướng nhập kho</p>
+              <MiniSparkline data={chartData} dataKey="tongNhap" color={CHART_COLORS.nhap} />
+            </div>
           )}
 
-          <Card className="border border-indigo-100 shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Chỉ số nhanh</p>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Nhập TB / kỳ</span>
-                <span className="text-xs font-bold text-emerald-700">
-                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongNhap / chartData.length)) : "—"}
-                </span>
-              </div>
-              <div className="h-px bg-slate-200" />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Xuất TB / kỳ</span>
-                <span className="text-xs font-bold text-rose-700">
-                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongXuat / chartData.length)) : "—"}
-                </span>
-              </div>
-              <div className="h-px bg-slate-200" />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Tỷ lệ nhập/xuất</span>
-                <span className={`text-xs font-bold ${tongChenhLech >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
-                  {kpi.tongXuat > 0 ? (kpi.tongNhap / kpi.tongXuat).toFixed(2) : "—"}x
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* ── DATA TABLE ── */}
-      <Card className="border-0 shadow-md bg-white">
-        <CardHeader className="pb-3 pt-5 px-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-bold text-slate-800">Chi tiết nhật ký nhập xuất</CardTitle>
-              <CardDescription className="text-xs text-slate-400 mt-1">{chartData.length} kỳ được tổng hợp</CardDescription>
+          <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+            <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">Nhập TB / kỳ</span>
+              <span className="text-xs font-bold text-bo-success">
+                {chartData.length > 0 ? fmtSL(Math.round(kpi.tongNhap / chartData.length)) : "—"}
+              </span>
+            </div>
+            <div className="my-3 h-px bg-bo-border" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">Xuất TB / kỳ</span>
+              <span className="text-xs font-bold text-bo-danger">
+                {chartData.length > 0 ? fmtSL(Math.round(kpi.tongXuat / chartData.length)) : "—"}
+              </span>
+            </div>
+            <div className="my-3 h-px bg-bo-border" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">Tỷ lệ nhập/xuất</span>
+              <span className={`text-xs font-bold ${tongChenhLech >= 0 ? "text-bo-success" : "text-bo-danger"}`}>
+                {kpi.tongXuat > 0 ? (kpi.tongNhap / kpi.tongXuat).toFixed(2) : "—"}x
+              </span>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-y border-slate-100 bg-slate-50/70">
-                  {["#", "Thời kỳ", "SL Nhập", "SL Xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
-                    <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap ${i > 1 ? "text-right" : "text-left"} ${i === 7 ? "text-center" : ""}`}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {chartData.map((row, i) => {
-                  const cl = row.tongNhap - row.tongXuat;
-                  return (
-                    <tr key={i} className="hover:bg-purple-50/50 transition-colors duration-100">
-                      <td className="px-5 py-3.5 text-xs text-slate-300 font-medium">{String(i + 1).padStart(2, "0")}</td>
-                      <td className="px-5 py-3.5 text-sm text-slate-600 font-medium">{row.nhanThoiGian}</td>
-                      <td className="px-5 py-3.5 text-right text-sm font-bold text-emerald-700">{fmtSL(row.tongNhap)}</td>
-                      <td className="px-5 py-3.5 text-right text-sm font-bold text-rose-600">{fmtSL(row.tongXuat)}</td>
-                      <td className="px-5 py-3.5 text-right">
-                        <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${cl >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                          {cl >= 0 ? "+" : ""}{fmtSL(cl)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right text-sm text-purple-700 font-semibold">{fmt(row.tongGiaTriNhap)}</td>
-                      <td className="px-5 py-3.5 text-right text-sm text-indigo-700 font-semibold">{fmt(row.tongGiaTriXuat)}</td>
-                      <td className="px-5 py-3.5 text-center">
-                        {row.loaiGiaoDich ? <LoaiGdBadge loai={row.loaiGiaoDich} /> : <span className="text-xs text-slate-300">—</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
+        </div>
+      </section>
 
-                {chartData.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                          <BarChart2 size={24} className="text-slate-400" />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-500">Không có dữ liệu</p>
-                        <p className="text-xs text-slate-400">Hãy thay đổi bộ lọc và thử lại</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-
-              {chartData.length > 0 && (
-                <tfoot>
-                  <tr className="border-t-2 border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-                    <td colSpan={2} className="px-5 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide">Tổng cộng</td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-emerald-700">{fmtSL(kpi.tongNhap)}</td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-rose-600">{fmtSL(kpi.tongXuat)}</td>
-                    <td className="px-5 py-4 text-right">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${tongChenhLech >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                        {tongChenhLech >= 0 ? "+" : ""}{fmtSL(tongChenhLech)}
+      {/* ── DATA TABLE ── */}
+      <TableShell
+        title="Chi tiết nhật ký nhập xuất"
+        description={`${chartData.length} kỳ được tổng hợp`}
+      >
+        {loading && chartData.length === 0 ? (
+          <LoadingState rows={5} label="Đang tải nhật ký nhập xuất" />
+        ) : chartData.length === 0 ? (
+          <EmptyState
+            icon={BarChart2}
+            title="Không có dữ liệu"
+            description="Hãy thay đổi bộ lọc và thử lại."
+          />
+        ) : (
+          <table className="w-full min-w-[960px] text-sm">
+            <thead>
+              <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                {["#", "Thời kỳ", "SL Nhập", "SL Xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
+                  <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right" : "text-left"} ${i === 7 ? "text-center" : ""}`}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bo-border">
+              {chartData.map((row, i) => {
+                const cl = row.tongNhap - row.tongXuat;
+                return (
+                  <tr key={i} className="transition-colors hover:bg-bo-surface-subtle">
+                    <td className="px-4 py-3.5 text-xs font-medium text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
+                    <td className="px-4 py-3.5 font-medium text-bo-foreground">{row.nhanThoiGian}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-bo-success">{fmtSL(row.tongNhap)}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-bo-danger">{fmtSL(row.tongXuat)}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${cl >= 0
+                        ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
+                        : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
+                        }`}>
+                        {cl >= 0 ? "+" : ""}{fmtSL(cl)}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-purple-700">{fmt(kpi.tongGtrNhap)}</td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-indigo-700">{fmt(kpi.tongGtrXuat)}</td>
-                    <td />
+                    <td className="px-4 py-3.5 text-right font-semibold text-bo-primary">{fmt(row.tongGiaTriNhap)}</td>
+                    <td className="px-4 py-3.5 text-right font-semibold text-slate-600">{fmt(row.tongGiaTriXuat)}</td>
+                    <td className="px-4 py-3.5 text-center">
+                      {row.loaiGiaoDich ? <LoaiGdBadge loai={row.loaiGiaoDich} /> : <span className="text-xs text-bo-muted">—</span>}
+                    </td>
                   </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+            </tbody>
 
-    </div>
+            <tfoot>
+              <tr className="border-t-2 border-bo-border bg-bo-surface-subtle">
+                <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-success">{fmtSL(kpi.tongNhap)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-danger">{fmtSL(kpi.tongXuat)}</td>
+                <td className="px-4 py-3.5 text-right">
+                  <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${tongChenhLech >= 0
+                    ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
+                    : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
+                    }`}>
+                    {tongChenhLech >= 0 ? "+" : ""}{fmtSL(tongChenhLech)}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-primary">{fmt(kpi.tongGtrNhap)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-slate-600">{fmt(kpi.tongGtrXuat)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </TableShell>
+
+    </PageContainer>
   );
 }

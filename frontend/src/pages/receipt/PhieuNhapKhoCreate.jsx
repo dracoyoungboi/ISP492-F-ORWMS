@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
@@ -8,173 +8,34 @@ import { donBanHangService } from "@/services/donBanHangService";
 import { getMineKhoList } from "@/services/khoService";
 import { toast } from "sonner";
 import {
-    ChevronDown,
-    FileText,
-    Warehouse,
-    ArrowRightLeft,
-    Package,
     ArrowLeft,
-    CheckCircle2,
+    ArrowRightLeft,
+    FileText,
     Loader2,
-    Calendar,
-    User,
-    ClipboardList,
-    AlertCircle,
-    Info,
-    LayoutGrid,
     Truck,
-    Undo2
+    Undo2,
+    Warehouse,
 } from "lucide-react";
 
-/* ══════════════════════════════════════════════════════
-   STYLES — Light Ivory / Gold Luxury
-   (Sync with Warehouse / Homepage / Login / Detail)
-══════════════════════════════════════════════════════ */
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import FormActions from "@/components/shared/FormActions";
+import LoadingState from "@/components/shared/LoadingState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
-.wh-root {
-  min-height: 100vh;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 55%, #ede9de 100%);
-  padding: 28px 28px 56px;
-  position: relative;
-  font-family: 'DM Sans', system-ui, sans-serif;
-}
+const SELECT_CLASS =
+    "h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:opacity-50";
 
-.wh-grid {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.05) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
+const FIELD_LABEL_CLASS = "text-xs font-medium text-bo-foreground";
 
-.wh-orb-1 {
-  position: fixed; width: 600px; height: 600px; border-radius: 50%;
-  background: rgba(184,134,11,0.06); filter: blur(120px);
-  top: -200px; right: -150px; pointer-events: none; z-index: 0;
-}
-
-.wh-inner {
-  position: relative; z-index: 1;
-  max-width: 1400px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 24px;
-}
-
-/* ── Header ── */
-.wh-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  padding-bottom: 24px;
-  border-bottom: 1.5px solid rgba(184,134,11,0.15);
-}
-.wh-title-wrap { display: flex; flex-direction: column; gap: 4px; }
-.wh-eyebrow {
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  letter-spacing: 0.25em; color: rgba(184,134,11,0.65);
-  text-transform: uppercase; font-weight: 500;
-}
-.wh-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 32px; font-weight: 900; color: #1a1612;
-  letter-spacing: -0.5px;
-}
-.wh-title span { color: #b8860b; }
-
-/* ── Cards ── */
-.sec-card {
-  background: #fff; border-radius: 20px; border: 1px solid rgba(184,134,11,0.15);
-  overflow: hidden; box-shadow: 0 4px 20px rgba(100,80,30,0.06);
-  display: flex; flex-direction: column;
-}
-.sec-head {
-  padding: 18px 24px; background: #faf8f3;
-  border-bottom: 1px solid rgba(184,134,11,0.12);
-  display: flex; align-items: center; gap: 12px;
-}
-.sec-icon-wrap {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(184,134,11,0.1); color: #b8860b;
-}
-.sec-title {
-  font-family: 'DM Mono', monospace; font-size: 12px;
-  letter-spacing: 0.05em; font-weight: 700; color: #1a1612; text-transform: uppercase;
-}
-.sec-body { padding: 24px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
-
-/* ── Controls ── */
-.inp-group { display: flex; flex-direction: column; gap: 8px; }
-.inp-label {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  text-transform: uppercase; color: #b8860b; letter-spacing: 0.05em;
-}
-.inp-select, .inp-text, .inp-area {
-  width: 100%; height: 44px; padding: 0 16px; border-radius: 12px;
-  background: #faf8f3; border: 1.5px solid rgba(184,134,11,0.1);
-  font-size: 14px; color: #1a1612; transition: all 0.2s;
-}
-.inp-select:focus, .inp-text:focus, .inp-area:focus {
-  outline: none; border-color: #b8860b; background: #fff; box-shadow: 0 0 0 4px rgba(184,134,11,0.08);
-}
-.inp-area { height: auto; padding: 14px 16px; min-height: 100px; resize: none; }
-
-/* ── Source Toggle ── */
-.toggle-pill {
-  display: flex; background: rgba(184,134,11,0.06);
-  padding: 5px; border-radius: 14px; gap: 4px; border: 1px solid rgba(184,134,11,0.1);
-}
-.toggle-btn {
-  padding: 8px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; gap: 8px; transition: all 0.2s;
-  cursor: pointer; border: none; background: transparent; color: #7a6e5f;
-}
-.toggle-btn.active { background: #fff; color: #b8860b; box-shadow: 0 2px 8px rgba(184,134,11,0.15); }
-
-/* ── Table ── */
-.wh-tbl { width: 100%; border-collapse: collapse; }
-.wh-th {
-  height: 44px; padding: 0 16px; background: #faf8f3;
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  color: rgba(184,134,11,0.6); text-transform: uppercase; letter-spacing: 0.1em;
-  border-bottom: 2px solid rgba(184,134,11,0.12);
-}
-.wh-td { padding: 14px 16px; border-bottom: 1px solid rgba(184,134,11,0.08); font-size: 14px; }
-
-/* ── Buttons ── */
-.btn-gold {
-  height: 44px; padding: 0 24px; border-radius: 12px;
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  border: none; color: #fff; font-size: 14px; font-weight: 700;
-  display: flex; align-items: center; gap: 10px; cursor: pointer;
-  box-shadow: 0 4px 15px rgba(184,134,11,0.3); transition: all 0.2s;
-}
-.btn-gold:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(184,134,11,0.45); }
-.btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.btn-white {
-  height: 44px; padding: 0 24px; border-radius: 12px;
-  background: #fff; border: 1.5px solid rgba(184,134,11,0.2);
-  color: #7a6e5f; font-size: 14px; font-weight: 600;
-  display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;
-}
-.btn-white:hover:not(:disabled) { border-color: #b8860b; color: #b8860b; background: rgba(184,134,11,0.05); }
-
-.back-link {
-  display: flex; align-items: center; gap: 6px;
-  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.1em; color: #a89f92;
-  transition: color 0.2s;
-}
-.back-link:hover { color: #b8860b; }
-
-.badge-tag {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  padding: 3px 10px; border-radius: 6px; text-transform: uppercase;
-}
-.badge-tag.gold { background: rgba(184,134,11,0.1); color: #b8860b; }
-.badge-tag.indigo { background: rgba(99,102,241,0.1); color: #6366f1; }
-.badge-tag.red { background: rgba(220,38,38,0.1); color: #dc2626; }
-`;
+const SOURCE_TABS = [
+    { value: "PO", label: "Nhập từ Đối Tác", icon: FileText },
+    { value: "TRANSFER", label: "Nhận hàng nội bộ", icon: ArrowRightLeft },
+    { value: "RETURN", label: "Nhập hàng trả lại", icon: Undo2 },
+];
 
 export default function PhieuNhapKhoCreate() {
     const navigate = useNavigate();
@@ -205,11 +66,53 @@ export default function PhieuNhapKhoCreate() {
         ghiChu: "",
     });
 
-    useEffect(() => {
-        fetchInitialData();
+    const handleSelectPO = useCallback(async (id) => {
+        if (!id) { setSelectedPO(null); return; }
+        setActionLoading(true);
+        try {
+            const res = await purchaseOrderService.getById(id);
+            const data = res.data;
+            data.chiTietDonMuaHangs = data.chiTietDonMuaHangs.map(item => {
+                const maxQuantity = (item.soLuongDat || 0) - (item.soLuongDaNhan || 0);
+                return {
+                    ...item,
+                    maxSoLuong: maxQuantity,
+                    soLuongNhapTay: maxQuantity
+                };
+            });
+            setSelectedPO(data);
+            setForm(prev => ({
+                ...prev,
+                donMuaHangId: data.id,
+                khoId: data.khoNhap?.id || prev.khoId,
+                ghiChu: `Tạo phiếu nhập kho từ PO ${data.soDonMua}`
+            }));
+        } catch {
+            toast.error("Không thể tải chi tiết đơn mua hàng");
+        } finally { setActionLoading(false); }
     }, []);
 
-    async function fetchInitialData() {
+    const handleSelectTransfer = useCallback(async (id) => {
+        if (!id) { setSelectedTransfer(null); return; }
+        setActionLoading(true);
+        try {
+            const res = await phieuChuyenKhoService.getDetail(id);
+            const data = res.data || res;
+            setSelectedTransfer(data);
+            setForm(prev => ({
+                ...prev,
+                transferId: data.id,
+                khoId: data.trangThai === 4 ? data.khoXuatId : data.khoNhapId,
+                ghiChu: data.trangThai === 4
+                    ? `Nhập hoàn trả (RET) từ phiếu chuyển bị hủy: ${data.soPhieuXuat}`
+                    : `Nhập kho nội bộ từ phiếu chuyển: ${data.soPhieuXuat}`
+            }));
+        } catch {
+            toast.error("Không thể tải chi tiết luân chuyển");
+        } finally { setActionLoading(false); }
+    }, []);
+
+    const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
             const myWarehousesRes = await getMineKhoList().catch(() => ({ data: [] }));
@@ -237,7 +140,7 @@ export default function PhieuNhapKhoCreate() {
                 }).catch(() => ({ content: [] })),
 
                 phieuNhapKhoService.filter({ page: 0, size: 2000 }).catch(() => ({ content: [] })),
-                
+
                 phieuXuatKhoService.filter({ page: 0, size: 2000 }).catch(() => ({ content: [] })),
 
                 // Fetch các Đơn Bán Hàng trạng thái 6 (Bị hoàn trả) để tham chiếu
@@ -324,21 +227,21 @@ export default function PhieuNhapKhoCreate() {
             const returnedSOIds = new Set(rawReturnSOs.map(so => Number(so.id)));
 
             // Lọc ra các Phiếu nhập hoàn trả đang TỒN TẠI (Trạng thái khác 4 - Đã hủy)
-            const activeReturnReceipts = allReceipts.filter(r => 
-                r.trangThai !== 4 && 
+            const activeReturnReceipts = allReceipts.filter(r =>
+                r.trangThai !== 4 &&
                 (r.soPhieuNhap?.includes("-RET-") || (r.loaiNhap || "").toLowerCase().includes("hoàn trả"))
             );
 
             const availableReturnPXs = allIssues.filter(px => {
                 if (px.trangThai !== 3) return false; // Phải là phiếu đã xuất thành công
                 if (!px.donBanHang || !returnedSOIds.has(Number(px.donBanHang.id))) return false; // Phải thuộc Đơn bán hàng bị hoàn trả
-                
+
                 // Kho xuất đi phải là kho thuộc quyền quản lý của nhân viên (để trả về đúng kho)
                 const targetKhoId = px.kho?.id || px.khoXuatId;
                 if (!targetKhoId || !myWarehouseIds.map(Number).includes(Number(targetKhoId))) return false;
 
                 // Kiểm tra xem phiếu xuất này đã bị lấy đi tạo Phiếu nhập hoàn trả nào chưa (dựa vào ghi chú chứa mã phiếu xuất)
-                const isAlreadyReturned = activeReturnReceipts.some(receipt => 
+                const isAlreadyReturned = activeReturnReceipts.some(receipt =>
                     receipt.ghiChu?.includes(px.soPhieuXuat)
                 );
                 if (isAlreadyReturned) return false; // Nếu đã có phiếu nhập -> Ẩn khỏi dropdown
@@ -374,38 +277,18 @@ export default function PhieuNhapKhoCreate() {
                 }
             }
 
-        } catch (error) {
+        } catch {
             toast.error("Không thể tải dữ liệu khởi tạo");
         } finally {
             setLoading(false);
         }
-    }
+    }, [searchParams, handleSelectPO, handleSelectTransfer]);
 
-    const handleSelectPO = async (id) => {
-        if (!id) { setSelectedPO(null); return; }
-        setActionLoading(true);
-        try {
-            const res = await purchaseOrderService.getById(id);
-            const data = res.data;
-            data.chiTietDonMuaHangs = data.chiTietDonMuaHangs.map(item => {
-                const maxQuantity = (item.soLuongDat || 0) - (item.soLuongDaNhan || 0);
-                return {
-                    ...item,
-                    maxSoLuong: maxQuantity,
-                    soLuongNhapTay: maxQuantity
-                };
-            });
-            setSelectedPO(data);
-            setForm(prev => ({
-                ...prev,
-                donMuaHangId: data.id,
-                khoId: data.khoNhap?.id || prev.khoId,
-                ghiChu: `Tạo phiếu nhập kho từ PO ${data.soDonMua}`
-            }));
-        } catch (error) {
-            toast.error("Không thể tải chi tiết đơn mua hàng");
-        } finally { setActionLoading(false); }
-    };
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); dữ liệu khởi tạo vẫn tải ngay khi mount.
+    useEffect(() => {
+        queueMicrotask(() => fetchInitialData());
+    }, [fetchInitialData]);
 
     const handleQuantityChange = (chiTietId, newValue) => {
         setSelectedPO(prev => {
@@ -429,32 +312,12 @@ export default function PhieuNhapKhoCreate() {
         });
     };
 
-    const handleSelectTransfer = async (id) => {
-        if (!id) { setSelectedTransfer(null); return; }
-        setActionLoading(true);
-        try {
-            const res = await phieuChuyenKhoService.getDetail(id);
-            const data = res.data || res;
-            setSelectedTransfer(data);
-            setForm(prev => ({
-                ...prev,
-                transferId: data.id,
-                khoId: data.trangThai === 4 ? data.khoXuatId : data.khoNhapId,
-                ghiChu: data.trangThai === 4
-                    ? `Nhập hoàn trả (RET) từ phiếu chuyển bị hủy: ${data.soPhieuXuat}`
-                    : `Nhập kho nội bộ từ phiếu chuyển: ${data.soPhieuXuat}`
-            }));
-        } catch (e) {
-            toast.error("Không thể tải chi tiết luân chuyển");
-        } finally { setActionLoading(false); }
-    };
-
     // Bổ sung handler khi chọn Phiếu Xuất trả lại
-    const handleSelectReturn = async (id) => {
-        if (!id) { 
-            setSelectedReturn(null); 
+    const handleSelectReturn = useCallback(async (id) => {
+        if (!id) {
+            setSelectedReturn(null);
             setForm(prev => ({ ...prev, phieuXuatId: "", ghiChu: "" })); // Reset form khi bỏ chọn
-            return; 
+            return;
         }
         setActionLoading(true);
         try {
@@ -470,10 +333,10 @@ export default function PhieuNhapKhoCreate() {
                 khoId: selectedItem?.kho?.id || selectedItem?.khoXuatId || prev.khoId,
                 ghiChu: `Nhập hoàn trả từ phiếu xuất: ${selectedItem?.soPhieuXuat} (Đơn: ${selectedItem?.donBanHang?.soDonHang || 'Không rõ'})`
             }));
-        } catch (e) {
+        } catch {
             toast.error("Không thể tải chi tiết phiếu xuất");
         } finally { setActionLoading(false); }
-    };
+    }, [returnList]);
 
     async function createPhieu() {
         if (importSource === "PO") {
@@ -531,223 +394,253 @@ export default function PhieuNhapKhoCreate() {
         if (id) navigate(`/goods-receipts/${id}`);
     };
 
-    if (loading) return <div className="wh-root flex items-center justify-center"><Loader2 size={32} className="animate-spin text-[#b8860b]" /></div>;
+    if (loading) {
+        return (
+            <PageContainer>
+                <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
+            </PageContainer>
+        );
+    }
 
     const returnItemsToRender = selectedReturn?.chiTiet || selectedReturn?.chiTietPhieuXuatKhos || [];
+    const noSourceSelected =
+        (importSource === "PO" && !selectedPO) ||
+        (importSource === "TRANSFER" && !selectedTransfer) ||
+        (importSource === "RETURN" && !selectedReturn);
 
     return (
-        <>
-            <style>{STYLES}</style>
-            <div className="wh-root">
-                <div className="wh-grid" />
-                <div className="wh-orb-1" />
+        <PageContainer className="space-y-5">
+            <Link
+                to="/goods-receipts"
+                className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
+            >
+                <ArrowLeft className="size-4" />
+                Quay lại danh sách
+            </Link>
 
-                <div className="wh-inner">
-                    <Link
-                        to="/goods-receipts"
-                        className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors duration-150 mb-4"
-                    >
-                        <ArrowLeft size={16} />
-                        Quay lại danh sách
-                    </Link>
+            <PageHeader
+                title="Tạo phiếu nhập kho"
+                description="Chọn nguồn chứng từ phù hợp để khởi tạo phiếu nhập kho."
+            />
 
-                    {/* ── Source Toggle ── */}
-                    <div className="flex justify-center sm:justify-start">
-                        <div className="toggle-pill">
-                            <button onClick={() => setImportSource("PO")} className={`toggle-btn ${importSource === "PO" ? "active" : ""}`}>
-                                <FileText size={14} /> Nhập từ Đối Tác
-                            </button>
-                            <button onClick={() => setImportSource("TRANSFER")} className={`toggle-btn ${importSource === "TRANSFER" ? "active" : ""}`}>
-                                <ArrowRightLeft size={14} /> Nhận hàng nội bộ
-                            </button>
-                            <button onClick={() => setImportSource("RETURN")} className={`toggle-btn ${importSource === "RETURN" ? "active" : ""}`}>
-                                <Undo2 size={14} /> Nhập hàng trả lại
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                        {/* ── Settings ── */}
-                        <aside className="lg:col-span-1 flex flex-col gap-6">
-                            <div className="sec-card h-full">
-                                <div className="sec-head">
-                                    <div className="sec-icon-wrap"><Package size={16} /></div>
-                                    <span className="sec-title">Thông tin nguồn</span>
-                                </div>
-                                <div className="sec-body">
-                                    {importSource === "PO" && (
-                                        <div className="inp-group">
-                                            <label className="inp-label">Đơn liên kết</label>
-                                            <select
-                                                className="inp-select"
-                                                value={form.donMuaHangId}
-                                                onChange={(e) => handleSelectPO(e.target.value)}
-                                            >
-                                                <option value="">-- Chọn đơn --</option>
-                                                {poList.map(po => <option key={po.id} value={po.id}>{po.soDonMua} - {po.nhaCungCap?.tenNhaCungCap}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                    {importSource === "TRANSFER" && (
-                                        <div className="inp-group">
-                                            <label className="inp-label">Yêu cầu luân chuyển</label>
-                                            <select
-                                                className="inp-select"
-                                                value={form.transferId}
-                                                onChange={(e) => handleSelectTransfer(e.target.value)}
-                                            >
-                                                <option value="">-- Chọn chứng từ vận chuyển --</option>
-                                                {transferList.map(t => <option key={t.id} value={t.id}>{t.soPhieuXuat} ({t.kho?.tenKho} → {t.khoChuyenDen?.tenKho})</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                    {importSource === "RETURN" && (
-                                        <div className="inp-group">
-                                            <label className="inp-label">Phiếu xuất hoàn trả</label>
-                                            <select
-                                                className="inp-select"
-                                                value={form.phieuXuatId}
-                                                onChange={(e) => handleSelectReturn(e.target.value)}
-                                            >
-                                                <option value="">-- Chọn phiếu xuất --</option>
-                                                {returnList.map(px => (
-                                                    <option key={px.id} value={px.id}>
-                                                        {px.soPhieuXuat} (Đơn: {px.donBanHang?.soDonHang})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    <div className="inp-group">
-                                        <label className="inp-label">Kho tiếp nhận</label>
-                                        <div className="inp-text flex items-center font-bold bg-[#faf8f3] border-dashed">
-                                            <Warehouse size={14} className="mr-2 opacity-50" />
-                                            {form.khoId ? warehouses.find(k => k.id === parseInt(form.khoId))?.tenKho : "Tự động trích xuất"}
-                                        </div>
-                                    </div>
-
-                                    <div className="inp-group">
-                                        <label className="inp-label">Ghi chú phiếu</label>
-                                        <textarea
-                                            className="inp-area"
-                                            placeholder="..."
-                                            value={form.ghiChu}
-                                            onChange={(e) => setForm(p => ({ ...p, ghiChu: e.target.value }))}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </aside>
-
-                        {/* ── Content Preview ── */}
-                        <div className="lg:col-span-2">
-                            <div className="sec-card h-full">
-                                <div className="sec-head justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="sec-icon-wrap"><ClipboardList size={16} /></div>
-                                        <span className="sec-title">Mặt hàng dự kiến</span>
-                                    </div>
-                                    {importSource === "PO" && selectedPO && <span className="badge-tag gold">#{selectedPO.soDonMua}</span>}
-                                    {importSource === "TRANSFER" && selectedTransfer && <span className="badge-tag indigo">#{selectedTransfer.soPhieuXuat}</span>}
-                                    {importSource === "RETURN" && selectedReturn && <span className="badge-tag red">#{selectedReturn?.phieu.soPhieuXuat}</span>}
-                                </div>
-                                <div className="flex-1 overflow-x-auto">
-                                    {((importSource === "PO" && !selectedPO) || 
-                                      (importSource === "TRANSFER" && !selectedTransfer) || 
-                                      (importSource === "RETURN" && !selectedReturn)) ? (
-                                        <div className="h-[400px] flex flex-col items-center justify-center opacity-30 gap-3 grayscale">
-                                            <Truck size={48} />
-                                            <p className="font-mono text-xs uppercase tracking-widest italic">Vui lòng chọn nguồn chứng từ</p>
-                                        </div>
-                                    ) : (
-                                        <table className="wh-tbl">
-                                            <thead className="wh-thead">
-                                                <tr>
-                                                    <th className="wh-th text-left">Sản phẩm</th>
-                                                    <th className="wh-th text-center">Số lượng</th>
-                                                    <th className="wh-th text-right">Trạng thái</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="wh-tbody">
-                                                {importSource === "PO" ? selectedPO.chiTietDonMuaHangs.map(ct => (
-                                                    <tr key={ct.id}>
-                                                        <td className="wh-td">
-                                                            <div className="font-bold text-[#1a1612]">
-                                                                {ct.bienTheSanPham?.tenSanPham || 'Tên sản phẩm'}
-                                                            </div>
-                                                            <div className="font-mono text-[11px] text-[#b8860b] mt-0.5">{ct.bienTheSanPham?.maSku}</div>
-                                                        </td>
-                                                        <td className="wh-td text-center">
-                                                            <div className="flex flex-col items-center justify-center gap-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        max={ct.maxSoLuong}
-                                                                        className="w-20 px-2 py-1.5 text-center font-black text-[#b8860b] text-base bg-white border border-[rgba(184,134,11,0.3)] rounded-lg outline-none focus:border-[#b8860b] focus:ring-2 focus:ring-[rgba(184,134,11,0.2)] transition-all"
-                                                                        value={ct.soLuongNhapTay}
-                                                                        onChange={(e) => handleQuantityChange(ct.id, e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                {ct.soLuongDaNhan > 0 && (
-                                                                    <span className="text-[10px] text-slate-400 font-medium">
-                                                                        Đã nhận: {ct.soLuongDaNhan}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="wh-td text-right">
-                                                            <span className="badge-tag gold">Waiting</span>
-                                                        </td>
-                                                    </tr>
-                                                )) : importSource === "TRANSFER" ? selectedTransfer.items?.map(item => (
-                                                    <tr key={item.id}>
-                                                        <td className="wh-td">
-                                                            <div className="font-bold text-[#1a1612]">{item.tenSanPham}</div>
-                                                            <div className="font-mono text-[11px] text-[#b8860b] mt-0.5">{item.sku}</div>
-                                                        </td>
-                                                        <td className="wh-td text-center">
-                                                            <span className="font-black text-[#6366f1] text-base">{item.soLuongYeuCau}</span>
-                                                        </td>
-                                                        <td className="wh-td text-right">
-                                                            <span className="badge-tag indigo">In Transit</span>
-                                                        </td>
-                                                    </tr>
-                                                )) : returnItemsToRender.map(item => (
-                                                    <tr key={item.id}>
-                                                        <td className="wh-td">
-                                                            <div className="font-bold text-[#1a1612]">{item.tenSanPham || item.bienTheSanPham?.sanPham?.tenSanPham || 'Sản phẩm'}</div>
-                                                            <div className="font-mono text-[11px] text-[#b8860b] mt-0.5">{item.sku || item.bienTheSanPham?.maSku}</div>
-                                                        </td>
-                                                        <td className="wh-td text-center">
-                                                            <span className="font-black text-[#e11d48] text-base">{item.soLuongCanXuat || item.soLuong}</span>
-                                                        </td>
-                                                        <td className="wh-td text-right">
-                                                            <span className="badge-tag red">Return</span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Footer Actions ── */}
-                    <div className="flex justify-end gap-3">
-                        <button onClick={createPhieu} disabled={actionLoading || !form.khoId} className="btn-white">Lưu nháp</button>
-                        <button onClick={handleContinue} disabled={actionLoading || !form.khoId} className="btn-gold">
-                            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : (
-                                importSource === "RETURN" ? <Undo2 size={16} /> : <ArrowRightLeft size={16} />
-                            )}
-                            {importSource === "PO" ? "Tiếp tục khai Lô" : (importSource === "RETURN" ? "Xác nhận nhập kho" : "Nhập kho ngay")}
+            {/* ── Source Toggle ── */}
+            <div className="flex w-fit flex-wrap items-center gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
+                {SOURCE_TABS.map(tab => {
+                    const TabIcon = tab.icon;
+                    const isActive = importSource === tab.value;
+                    return (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => setImportSource(tab.value)}
+                            className={
+                                isActive
+                                    ? "flex items-center gap-2 rounded-md bg-white px-4 py-1.5 text-sm font-semibold text-bo-primary shadow-sm"
+                                    : "flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-foreground"
+                            }
+                        >
+                            <TabIcon className="size-3.5" /> {tab.label}
                         </button>
-                    </div>
+                    );
+                })}
+            </div>
+
+            <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3">
+                {/* ── Settings ── */}
+                <div className="lg:col-span-1">
+                    <SurfaceCard title="Thông tin nguồn" className="h-full">
+                        <div className="flex flex-col gap-5">
+                            {importSource === "PO" && (
+                                <div className="flex flex-col gap-2">
+                                    <label className={FIELD_LABEL_CLASS}>Đơn liên kết</label>
+                                    <select
+                                        className={SELECT_CLASS}
+                                        value={form.donMuaHangId}
+                                        onChange={(e) => handleSelectPO(e.target.value)}
+                                    >
+                                        <option value="">-- Chọn đơn --</option>
+                                        {poList.map(po => <option key={po.id} value={po.id}>{po.soDonMua} - {po.nhaCungCap?.tenNhaCungCap}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {importSource === "TRANSFER" && (
+                                <div className="flex flex-col gap-2">
+                                    <label className={FIELD_LABEL_CLASS}>Yêu cầu luân chuyển</label>
+                                    <select
+                                        className={SELECT_CLASS}
+                                        value={form.transferId}
+                                        onChange={(e) => handleSelectTransfer(e.target.value)}
+                                    >
+                                        <option value="">-- Chọn chứng từ vận chuyển --</option>
+                                        {transferList.map(t => <option key={t.id} value={t.id}>{t.soPhieuXuat} ({t.kho?.tenKho} → {t.khoChuyenDen?.tenKho})</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {importSource === "RETURN" && (
+                                <div className="flex flex-col gap-2">
+                                    <label className={FIELD_LABEL_CLASS}>Phiếu xuất hoàn trả</label>
+                                    <select
+                                        className={SELECT_CLASS}
+                                        value={form.phieuXuatId}
+                                        onChange={(e) => handleSelectReturn(e.target.value)}
+                                    >
+                                        <option value="">-- Chọn phiếu xuất --</option>
+                                        {returnList.map(px => (
+                                            <option key={px.id} value={px.id}>
+                                                {px.soPhieuXuat} (Đơn: {px.donBanHang?.soDonHang})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-2">
+                                <label className={FIELD_LABEL_CLASS}>Kho tiếp nhận</label>
+                                <div className="flex h-9 items-center gap-2 rounded-md border border-dashed border-bo-border bg-bo-surface-subtle px-3 text-sm font-medium text-bo-foreground">
+                                    <Warehouse className="size-3.5 shrink-0 opacity-60" />
+                                    <span className="truncate">
+                                        {form.khoId ? warehouses.find(k => k.id === parseInt(form.khoId))?.tenKho : "Tự động trích xuất"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className={FIELD_LABEL_CLASS}>Ghi chú phiếu</label>
+                                <Textarea
+                                    className="min-h-24 border-bo-border bg-white text-sm text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                                    placeholder="..."
+                                    value={form.ghiChu}
+                                    onChange={(e) => setForm(p => ({ ...p, ghiChu: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                    </SurfaceCard>
+                </div>
+
+                {/* ── Content Preview ── */}
+                <div className="lg:col-span-2">
+                    <SurfaceCard
+                        title="Mặt hàng dự kiến"
+                        className="h-full"
+                        contentClassName="p-0"
+                        action={
+                            <>
+                                {importSource === "PO" && selectedPO && (
+                                    <StatusBadge label={`#${selectedPO.soDonMua}`} tone="neutral" dot={false} />
+                                )}
+                                {importSource === "TRANSFER" && selectedTransfer && (
+                                    <StatusBadge label={`#${selectedTransfer.soPhieuXuat}`} tone="info" dot={false} />
+                                )}
+                                {importSource === "RETURN" && selectedReturn && (
+                                    <StatusBadge label={`#${selectedReturn?.phieu.soPhieuXuat}`} tone="danger" dot={false} />
+                                )}
+                            </>
+                        }
+                    >
+                        <div className="min-h-[320px] overflow-x-auto">
+                            {noSourceSelected ? (
+                                <div className="flex h-[320px] flex-col items-center justify-center gap-3 text-bo-muted">
+                                    <Truck className="size-10 text-slate-300" />
+                                    <p className="text-xs font-medium uppercase tracking-widest">
+                                        Vui lòng chọn nguồn chứng từ
+                                    </p>
+                                </div>
+                            ) : (
+                                <table className="w-full min-w-[560px] text-sm">
+                                    <thead>
+                                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                            <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
+                                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
+                                            <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-bo-border">
+                                        {importSource === "PO" ? selectedPO.chiTietDonMuaHangs.map(ct => (
+                                            <tr key={ct.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-bo-foreground">
+                                                        {ct.bienTheSanPham?.tenSanPham || 'Tên sản phẩm'}
+                                                    </div>
+                                                    <div className="mt-0.5 font-mono text-[11px] text-bo-muted">{ct.bienTheSanPham?.maSku}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={ct.maxSoLuong}
+                                                            className="h-9 w-24 rounded-md border border-bo-border bg-white px-2 text-center text-sm font-semibold text-bo-primary focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
+                                                            value={ct.soLuongNhapTay}
+                                                            onChange={(e) => handleQuantityChange(ct.id, e.target.value)}
+                                                        />
+                                                        {ct.soLuongDaNhan > 0 && (
+                                                            <span className="text-[10px] font-medium text-bo-muted">
+                                                                Đã nhận: {ct.soLuongDaNhan}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <StatusBadge label="Waiting" tone="warning" />
+                                                </td>
+                                            </tr>
+                                        )) : importSource === "TRANSFER" ? selectedTransfer.items?.map(item => (
+                                            <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-bo-foreground">{item.tenSanPham}</div>
+                                                    <div className="mt-0.5 font-mono text-[11px] text-bo-muted">{item.sku}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="text-sm font-semibold text-bo-primary">{item.soLuongYeuCau}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <StatusBadge label="In Transit" tone="info" />
+                                                </td>
+                                            </tr>
+                                        )) : returnItemsToRender.map(item => (
+                                            <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-bo-foreground">{item.tenSanPham || item.bienTheSanPham?.sanPham?.tenSanPham || 'Sản phẩm'}</div>
+                                                    <div className="mt-0.5 font-mono text-[11px] text-bo-muted">{item.sku || item.bienTheSanPham?.maSku}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="text-sm font-semibold text-bo-danger">{item.soLuongCanXuat || item.soLuong}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <StatusBadge label="Return" tone="danger" />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </SurfaceCard>
                 </div>
             </div>
-        </>
+
+            {/* ── Footer Actions ── */}
+            <FormActions>
+                <Button
+                    variant="outline"
+                    onClick={createPhieu}
+                    disabled={actionLoading || !form.khoId}
+                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                >
+                    {actionLoading && <Loader2 className="size-4 animate-spin" />}
+                    Lưu nháp
+                </Button>
+                <Button
+                    onClick={handleContinue}
+                    disabled={actionLoading || !form.khoId}
+                    className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : (
+                        importSource === "RETURN" ? <Undo2 className="size-4" /> : <ArrowRightLeft className="size-4" />
+                    )}
+                    {importSource === "PO" ? "Tiếp tục khai Lô" : (importSource === "RETURN" ? "Xác nhận nhập kho" : "Nhập kho ngay")}
+                </Button>
+            </FormActions>
+        </PageContainer>
     );
 }

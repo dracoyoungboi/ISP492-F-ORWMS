@@ -8,27 +8,26 @@
  * - Gọi thongKeHeThongService.getTonKhoTongQuan({ khoId?, keyword? })
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-    Table, TableBody, TableCell, TableHead,
-    TableHeader, TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import {
     DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    Loader2, PackagePlus, Search, Filter,
-    Warehouse, RefreshCw, ShieldAlert,
-    CheckCircle2, AlertTriangle, XOctagon, Layers,
-    ChevronDown, Check
+    PackagePlus, Filter, Warehouse, RefreshCw, ShieldAlert,
+    ChevronDown, Check,
 } from "lucide-react";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import TableShell from "@/components/shared/TableShell";
+import StatusBadge from "@/components/shared/StatusBadge";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import SearchInput from "@/components/shared/SearchInput";
 
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
@@ -51,58 +50,12 @@ const ROLES_ALL_KHO = [
 
 const ALLOWED_ROLES = Object.values(ROLE);
 
-/* ══════════════════════════════════════════════════════
-   STYLES — Light Ivory / Gold Luxury
-══════════════════════════════════════════════════════ */
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
-.wh-root {
-  min-height: 100vh;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 55%, #ede9de 100%);
-  padding: 28px 28px 56px;
-  position: relative;
-  font-family: 'DM Sans', system-ui, sans-serif;
-}
-
-.wh-grid {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.05) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-
-.wh-orb-1 {
-  position: fixed; width: 600px; height: 600px; border-radius: 50%;
-  background: rgba(184,134,11,0.06); filter: blur(120px);
-  top: -200px; right: -150px; pointer-events: none; z-index: 0;
-}
-
-.wh-inner {
-  position: relative; z-index: 1;
-  max-width: 1500px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 24px;
-}
-
-/* ── Cards ── */
-.sec-card {
-  background: #fff; border-radius: 20px; border: 1px solid rgba(184,134,11,0.15);
-  overflow: hidden; box-shadow: 0 4px 20px rgba(100,80,30,0.06);
-  display: flex; flex-direction: column;
-}
-
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(184,134,11,0.2); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(184,134,11,0.4); }
-
-.badge-tag {
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
-  padding: 4px 10px; border-radius: 6px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;
-}
-`;
+const DROPDOWN_CONTENT_CLASS =
+    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+const DROPDOWN_ITEM_CLASS =
+    "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+const TH_CLASS =
+    "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -145,11 +98,19 @@ function trangThaiTon(item) {
 }
 
 const STATUS_CFG = {
-    het_hang: { label: "Hết hàng", cls: "bg-[#fff0f0] text-[#e03131] border border-[#ffc9c9]", icon: XOctagon },
-    thieu_hang: { label: "Thiếu hàng", cls: "bg-[#fff4e6] text-[#e8590c] border border-[#ffd8a8]", icon: AlertTriangle },
-    binh_thuong: { label: "Bình thường", cls: "bg-[#ebfbee] text-[#2b8a3e] border border-[#b2f2bb]", icon: CheckCircle2 },
-    du_hang: { label: "Dư hàng", cls: "bg-[#e7f5ff] text-[#1864ab] border border-[#a5d8ff]", icon: Layers },
+    het_hang: { label: "Hết hàng", tone: "danger" },
+    thieu_hang: { label: "Thiếu hàng", tone: "warning" },
+    binh_thuong: { label: "Bình thường", tone: "success" },
+    du_hang: { label: "Dư hàng", tone: "info" },
 };
+
+const TRANG_THAI_FILTERS = [
+    { key: "tat_ca", label: "Tất cả" },
+    { key: "het_hang", label: "Hết hàng" },
+    { key: "thieu_hang", label: "Thiếu" },
+    { key: "binh_thuong", label: "Bình thường" },
+    { key: "du_hang", label: "Dư hàng" },
+];
 
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
 export default function TonKhoTongQuan() {
@@ -238,13 +199,18 @@ export default function TonKhoTongQuan() {
         }
     }, []);
 
-    // Auto-load khi auth xong
+    const autoLoaded = useRef(false);
+
+    // Auto-load khi auth xong — chỉ chạy một lần duy nhất như hành vi cũ
+    // (đổi kho ở dropdown đã tự gọi loadTonKho).
     useEffect(() => {
-        if (loadingAuth || authError) return;
+        if (loadingAuth || authError || autoLoaded.current) return;
+        autoLoaded.current = true;
         const khoId = selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined);
-        loadTonKho({ khoId });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadingAuth, authError]);
+        // Hoãn qua microtask để tránh setState đồng bộ trong effect
+        // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay sau khi xác thực.
+        queueMicrotask(() => loadTonKho({ khoId }));
+    }, [loadingAuth, authError, selectedKhoId, khoList, loadTonKho]);
 
     // Bấm nút Lọc
     const handleFilter = () => {
@@ -279,343 +245,363 @@ export default function TonKhoTongQuan() {
     // RENDER: Loading Auth
     if (loadingAuth) {
         return (
-            <div className="wh-root flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                    <Loader2 size={32} className="animate-spin text-[#b8860b]" />
-                    <p className="font-mono text-sm uppercase tracking-widest text-[#b8860b]">Đang tải dữ liệu...</p>
-                </div>
-            </div>
+            <PageContainer className="space-y-5">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <LoadingState rows={6} label="Đang tải dữ liệu" />
+                </section>
+            </PageContainer>
         );
     }
 
     // RENDER: Auth error
     if (authError) {
         return (
-            <div className="wh-root flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <ShieldAlert size={48} className="text-[#c92a2a] opacity-80" />
-                    <p className="font-bold text-[#1a1612] text-lg">{authError}</p>
-                    <Button variant="outline" onClick={() => window.location.reload()} className="h-11 px-6 bg-[#faf8f3] border-[#b8860b]/30 rounded-xl font-bold text-[#b8860b] hover:bg-white transition-colors">
-                        Thử lại
-                    </Button>
-                </div>
-            </div>
+            <PageContainer className="space-y-5">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <ErrorState
+                        title={authError}
+                        description="Vui lòng tải lại trang hoặc đăng nhập lại để tiếp tục."
+                        onRetry={() => window.location.reload()}
+                    />
+                </section>
+            </PageContainer>
         );
     }
 
     // RENDER: No access
     if (!hasAccess) {
         return (
-            <div className="wh-root flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3 text-center">
-                    <ShieldAlert size={48} className="text-[#8b6a21] opacity-50" />
-                    <p className="font-bold text-[#1a1612] text-lg">Bạn không có quyền truy cập trang này.</p>
-                </div>
-            </div>
+            <PageContainer className="space-y-5">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <EmptyState
+                        icon={ShieldAlert}
+                        title="Không có quyền truy cập"
+                        description="Bạn không có quyền truy cập trang này."
+                    />
+                </section>
+            </PageContainer>
         );
     }
 
     return (
-        <>
-            <style>{STYLES}</style>
-            <div className="wh-root">
-                <div className="wh-grid" />
-                <div className="wh-orb-1" />
+        <PageContainer className="space-y-5">
 
-                <div className="wh-inner">
-                    {/* ── Page header ── */}
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div>
-                            <p className="text-sm text-slate-500 mt-1">
-                                Theo dõi và quản lý hàng hóa theo biến thể · {hasLoaded && (
-                                    <span>Hiển thị <b className="text-[#b8860b]">{filteredData.length}</b> / <b className="text-[#1a1612]">{data.length}</b> bản ghi</span>
-                                )}
-                            </p>
-                        </div>
+            {/* ── Bộ lọc ── */}
+            <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bo-border px-4 py-3 sm:px-5">
+                    <div className="flex items-center gap-2">
+                        <Filter className="size-4 text-bo-primary" />
+                        <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+                            Bộ lọc tồn kho
+                        </h2>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <p className="text-xs text-bo-muted">
+                            {hasLoaded ? (
+                                <>
+                                    {"Hiển thị "}
+                                    <span className="font-semibold text-bo-primary">{filteredData.length}</span>
+                                    {" / "}
+                                    <span className="font-semibold text-bo-foreground">{data.length}</span>
+                                    {" bản ghi"}
+                                </>
+                            ) : (
+                                "Theo dõi và quản lý hàng hóa theo biến thể"
+                            )}
+                        </p>
                         <Button
                             variant="outline"
                             disabled={loading}
                             onClick={() => loadTonKho({ khoId: selectedKhoId ?? undefined, kw: keyword.trim() || undefined })}
-                            className="h-10 px-4 rounded-xl font-bold border-[#b8860b]/20 text-[#b8860b] bg-white hover:bg-[#faf8f3] transition-all disabled:opacity-50"
+                            className="h-9 shrink-0 gap-2 border-bo-border bg-white text-sm font-medium text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                         >
-                            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+                            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> Làm mới
                         </Button>
                     </div>
-
-                    {/* ── Bộ lọc ── */}
-                    <div className="sec-card p-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-end">
-                            {/* Trạng thái */}
-                            <div className="flex flex-col gap-2">
-                                <Label className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#b8860b]">Trạng thái tồn kho</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "tat_ca", label: "Tất cả" },
-                                        { key: "het_hang", label: "Hết hàng" },
-                                        { key: "thieu_hang", label: "Thiếu" },
-                                        { key: "binh_thuong", label: "Bình thường" },
-                                        { key: "du_hang", label: "Dư hàng" },
-                                    ].map(({ key, label }) => {
-                                        const isSelected = trangThaiFilter === key;
-                                        return (
-                                            <button
-                                                key={key}
-                                                onClick={() => setTrangThaiFilter(key)}
-                                                className={`px-3 py-1.5 rounded-lg text-[12px] font-bold border transition-all ${isSelected
-                                                        ? "bg-[#b8860b] text-white border-[#b8860b] shadow-sm"
-                                                        : "bg-[#faf8f3] text-slate-500 border-[#b8860b]/20 hover:border-[#b8860b]/50 hover:bg-white"
-                                                    }`}
-                                            >
-                                                {label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Chọn kho bằng Shadcn DropdownMenu */}
-                            <div className="flex flex-col gap-2">
-                                <Label className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#b8860b] flex items-center gap-1.5">
-                                    <Warehouse className="h-3 w-3" /> Kho hàng
-                                </Label>
-                                <DropdownMenu modal={false}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            disabled={!multiKho}
-                                            className="w-full justify-between h-11 bg-[#faf8f3] border-[#b8860b]/20 hover:bg-white text-[13px] font-bold text-[#1a1612]"
-                                        >
-                                            <span className="truncate">{activeKhoLabel}</span>
-                                            <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="w-56 bg-white border-[#b8860b]/20 shadow-xl z-50 rounded-xl">
-                                        {multiKho && (
-                                            <DropdownMenuItem
-                                                onClick={() => handleSelectKho(null)}
-                                                className="flex items-center justify-between cursor-pointer hover:bg-[#faf8f3] text-[13px] font-semibold py-2"
-                                            >
-                                                Tất cả kho
-                                                {!selectedKhoId && <Check className="h-4 w-4 text-[#b8860b]" />}
-                                            </DropdownMenuItem>
-                                        )}
-                                        {khoList.map(kho => (
-                                            <DropdownMenuItem
-                                                key={kho.id}
-                                                onClick={() => handleSelectKho(kho.id)}
-                                                className="flex items-center justify-between cursor-pointer hover:bg-[#faf8f3] text-[13px] font-semibold py-2"
-                                            >
-                                                <span className="truncate">{kho.tenKho}</span>
-                                                {selectedKhoId === kho.id && (
-                                                    <Check className="h-4 w-4 text-[#b8860b] flex-shrink-0" />
-                                                )}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Tìm kiếm bằng Shadcn Input */}
-                            <div className="flex flex-col gap-2">
-                                <Label className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#b8860b]">Tìm kiếm</Label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#b8860b]/50" />
-                                    <Input
-                                        placeholder="SKU, mã SP, tên sản phẩm..."
-                                        value={keyword}
-                                        onChange={e => setKeyword(e.target.value)}
-                                        onKeyDown={e => e.key === "Enter" && handleFilter()}
-                                        className="pl-9 h-11 bg-[#faf8f3] border-[#b8860b]/20 focus-visible:ring-[#b8860b] text-[13px] font-medium text-[#1a1612]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Bảng dữ liệu dùng Shadcn Table ── */}
-                    <div className="sec-card flex-1 min-h-[400px]">
-                        <div className="overflow-x-auto overflow-y-auto max-h-[600px] custom-scrollbar">
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-[#faf8f3] z-10 shadow-sm">
-                                    <TableRow className="border-b-[#b8860b]/20 hover:bg-[#faf8f3]">
-                                        <TableHead className="whitespace-nowrap text-center text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px] h-12">STT</TableHead>
-                                        <TableHead className="whitespace-nowrap text-left text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Mã SP / SKU</TableHead>
-                                        <TableHead className="whitespace-nowrap text-left text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px] min-w-[200px]">Sản phẩm & Biến thể</TableHead>
-                                        <TableHead className="whitespace-nowrap text-left text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Kho</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">On Hand</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#1864ab] font-mono font-bold uppercase tracking-wider text-[10px]">↓ Incoming</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#d9480f] font-mono font-bold uppercase tracking-wider text-[10px]">↑ Outgoing</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#0b7285] font-mono font-bold uppercase tracking-wider text-[10px]">Free to Use</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Tồn tối thiểu</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Giá trị tồn</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Tình trạng</TableHead>
-                                        <TableHead className="whitespace-nowrap text-center text-[#8b6a21] font-mono font-bold uppercase tracking-wider text-[10px]">Thao tác</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading && (
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={12} className="h-48 text-center border-b-0">
-                                                <div className="flex flex-col items-center justify-center gap-3 text-[#b8860b]">
-                                                    <Loader2 className="h-8 w-8 animate-spin" />
-                                                    <span className="font-mono text-xs uppercase tracking-widest font-bold">Đang tải bảng tồn kho...</span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-
-                                    {!loading && !hasLoaded && (
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={12} className="h-48 text-center text-slate-400 font-mono text-sm uppercase tracking-widest border-b-0">
-                                                Nhấn <strong className="text-[#b8860b]">Lọc</strong> để xem dữ liệu
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-
-                                    {!loading && hasLoaded && filteredData.length === 0 && (
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={12} className="h-48 text-center text-slate-400 font-mono text-sm uppercase tracking-widest border-b-0">
-                                                Không tìm thấy dữ liệu phù hợp
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-
-                                    {!loading && filteredData.map((item, idx) => {
-                                        const statusKey = trangThaiTon(item);
-                                        const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
-                                        const StatusIcon = statusCfg.icon;
-                                        const isLow = statusKey === "het_hang" || statusKey === "thieu_hang";
-
-                                        const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
-                                        const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
-                                        const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
-                                        const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
-                                        const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
-
-                                        return (
-                                            <TableRow 
-                                                key={`${item.bienTheId}-${item.khoId}-${idx}`} 
-                                                className={`border-b border-[#b8860b]/10 transition-colors ${isLow ? 'bg-[#fffaf0] hover:bg-[#fff4e6]' : 'bg-white hover:bg-[#faf8f3]'}`}
-                                            >
-                                                <TableCell className="text-center font-mono text-slate-400 text-[13px]">{idx + 1}</TableCell>
-
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="font-mono text-[10px] font-bold text-slate-500 uppercase">{item.maSanPham}</span>
-                                                        <span className="font-mono text-[11px] font-black text-[#8b6a21] bg-[#b8860b]/10 w-fit px-1.5 py-0.5 rounded">{item.maSku}</span>
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell className="max-w-[250px]">
-                                                    <p className="font-bold text-[#1a1612] truncate mb-1 text-[13px]">{item.tenSanPham}</p>
-                                                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
-                                                        {item.maMauHex && <span style={{ background: item.maMauHex }} className="h-3 w-3 rounded-full border border-slate-200" />}
-                                                        <span className="font-semibold">{item.tenMau}</span>
-                                                        <span className="text-slate-300">|</span>
-                                                        <Badge variant="outline" className="font-mono font-bold px-1.5 py-0 rounded text-[10px] border-[#b8860b]/20 bg-white">
-                                                            {item.tenSize ?? item.maSize}
-                                                        </Badge>
-                                                        <span className="text-slate-300">|</span>
-                                                        <span>{item.tenChatLieu}</span>
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <span className="inline-flex items-center gap-1 bg-white border border-[#b8860b]/20 text-[#8b6a21] rounded-md px-2 py-1 text-[11px] font-bold whitespace-nowrap">
-                                                        <Warehouse className="h-3 w-3" /> {item.tenKho}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <NumBadge value={onHand} colorClass={isLow ? "bg-[#e03131] text-white" : "bg-[#2b8a3e] text-white"} />
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <NumBadge value={incoming} colorClass={incoming > 0 ? "bg-[#1864ab] text-white" : "bg-white text-slate-400 border border-slate-200"} />
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <NumBadge value={outgoing} colorClass={outgoing > 0 ? "bg-[#d9480f] text-white" : "bg-white text-slate-400 border border-slate-200"} />
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <NumBadge value={freeToUse} colorClass={freeToUse < 0 ? "bg-[#e03131] text-white" : freeToUse === 0 ? "bg-white text-slate-400 border border-slate-200" : "bg-[#0b7285] text-white"} />
-                                                </TableCell>
-
-                                                <TableCell className="text-right font-mono text-slate-500 font-bold text-[13px]">{fmt(item.mucTonToiThieu)}</TableCell>
-                                                <TableCell className="text-right font-bold text-[#8b6a21] text-[13px]">{formatCurrency(giaTri)}</TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <span className={`badge-tag ${statusCfg.cls}`}>
-                                                        <StatusIcon size={12} strokeWidth={3} /> {statusCfg.label}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    {showNhapKho && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
-                                                            className="inline-flex items-center justify-center gap-1.5 h-7 px-3 rounded-lg bg-[#b8860b]/10 text-[#8b6a21] hover:bg-[#b8860b] hover:text-white font-bold text-[11px] transition-colors"
-                                                            title="Tạo yêu cầu nhập kho"
-                                                        >
-                                                            <PackagePlus className="h-3.5 w-3.5" /> Nhập
-                                                        </Button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-
-                    {/* ── Summary footer ── */}
-                    {hasLoaded && filteredData.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-[#b8860b]/20 bg-white shadow-sm px-6 py-4">
-                            <SummaryItem label="Tổng On Hand" value={fmt(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))} />
-                            <Divider />
-                            <SummaryItem label="Incoming" value={fmt(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))} valueClass="text-[#1864ab]" />
-                            <Divider />
-                            <SummaryItem label="Outgoing" value={fmt(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))} valueClass="text-[#d9480f]" />
-                            <Divider />
-                            <SummaryItem label="Tổng giá trị tồn" value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))} valueClass="text-[#2b8a3e]" />
-                            <Divider />
-                            <SummaryItem label="Cảnh báo (Hết/Thiếu)" value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`} valueClass="text-[#e03131]" />
-                            {multiKho && (
-                                <>
-                                    <Divider />
-                                    <SummaryItem label="Số lượng kho" value={`${new Set(filteredData.map(i => i.khoId)).size} kho`} />
-                                </>
-                            )}
-                        </div>
-                    )}
                 </div>
-            </div>
-        </>
+
+                <div className="grid grid-cols-1 items-end gap-5 p-4 sm:p-5 lg:grid-cols-3">
+                    {/* Trạng thái */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            Trạng thái tồn kho
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                            {TRANG_THAI_FILTERS.map(({ key, label }) => {
+                                const isSelected = trangThaiFilter === key;
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => setTrangThaiFilter(key)}
+                                        className={`cursor-pointer rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${isSelected
+                                            ? "border-bo-primary bg-bo-primary text-white"
+                                            : "border-bo-border bg-white text-slate-600 hover:bg-bo-surface-subtle"
+                                            }`}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Chọn kho bằng Shadcn DropdownMenu */}
+                    <div className="flex flex-col gap-2">
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <Warehouse className="size-3.5" /> Kho hàng
+                        </span>
+                        <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    disabled={!multiKho}
+                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                >
+                                    <span className="truncate">{activeKhoLabel}</span>
+                                    <ChevronDown className="size-4 shrink-0 opacity-70" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className={`${DROPDOWN_CONTENT_CLASS} w-56`}>
+                                {multiKho && (
+                                    <DropdownMenuItem
+                                        onClick={() => handleSelectKho(null)}
+                                        className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
+                                    >
+                                        Tất cả kho
+                                        {!selectedKhoId && <Check className="size-4 shrink-0 text-bo-primary" />}
+                                    </DropdownMenuItem>
+                                )}
+                                {khoList.map(kho => (
+                                    <DropdownMenuItem
+                                        key={kho.id}
+                                        onClick={() => handleSelectKho(kho.id)}
+                                        className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
+                                    >
+                                        <span className="truncate">{kho.tenKho}</span>
+                                        {selectedKhoId === kho.id && (
+                                            <Check className="size-4 shrink-0 text-bo-primary" />
+                                        )}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    {/* Tìm kiếm */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            Tìm kiếm
+                        </span>
+                        <SearchInput
+                            label="Tìm kiếm tồn kho"
+                            placeholder="SKU, mã SP, tên sản phẩm..."
+                            value={keyword}
+                            onChange={e => setKeyword(e.target.value)}
+                            onClear={() => setKeyword("")}
+                            onKeyDown={e => e.key === "Enter" && handleFilter()}
+                            className="sm:max-w-none"
+                        />
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Bảng dữ liệu ── */}
+            <TableShell
+                title="Tồn kho theo biến thể"
+                description="Số lượng tồn, hàng đang về và hàng đang xuất theo từng kho"
+                footer={hasLoaded && filteredData.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        <SummaryItem
+                            label="Tổng On Hand"
+                            value={fmt(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
+                        />
+                        <Divider />
+                        <SummaryItem
+                            label="Incoming"
+                            value={fmt(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
+                            valueClass="text-bo-primary"
+                        />
+                        <Divider />
+                        <SummaryItem
+                            label="Outgoing"
+                            value={fmt(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
+                            valueClass="text-bo-warning"
+                        />
+                        <Divider />
+                        <SummaryItem
+                            label="Tổng giá trị tồn"
+                            value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
+                            valueClass="text-bo-success"
+                        />
+                        <Divider />
+                        <SummaryItem
+                            label="Cảnh báo (Hết/Thiếu)"
+                            value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
+                            valueClass="text-bo-danger"
+                        />
+                        {multiKho && (
+                            <>
+                                <Divider />
+                                <SummaryItem
+                                    label="Số lượng kho"
+                                    value={`${new Set(filteredData.map(i => i.khoId)).size} kho`}
+                                />
+                            </>
+                        )}
+                    </div>
+                ) : null}
+            >
+                {loading ? (
+                    <LoadingState rows={6} label="Đang tải bảng tồn kho" />
+                ) : !hasLoaded ? (
+                    <EmptyState
+                        icon={Warehouse}
+                        title="Chưa có dữ liệu tồn kho"
+                        description='Nhấn "Lọc" để xem dữ liệu.'
+                    />
+                ) : filteredData.length === 0 ? (
+                    <EmptyState
+                        icon={Warehouse}
+                        title="Không tìm thấy dữ liệu phù hợp"
+                        description="Hãy thay đổi trạng thái hoặc từ khóa tìm kiếm."
+                    />
+                ) : (
+                    <div className="max-h-[600px] overflow-y-auto">
+                        <table className="w-full min-w-[1280px] text-sm">
+                            <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
+                                <tr className="border-b border-bo-border">
+                                    <th className={`${TH_CLASS} text-center`}>STT</th>
+                                    <th className={`${TH_CLASS} text-left`}>Mã SP / SKU</th>
+                                    <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; Biến thể</th>
+                                    <th className={`${TH_CLASS} text-left`}>Kho</th>
+                                    <th className={`${TH_CLASS} text-center`}>On Hand</th>
+                                    <th className={`${TH_CLASS} text-center`}>↓ Incoming</th>
+                                    <th className={`${TH_CLASS} text-center`}>↑ Outgoing</th>
+                                    <th className={`${TH_CLASS} text-center`}>Free to Use</th>
+                                    <th className={`${TH_CLASS} text-right`}>Tồn tối thiểu</th>
+                                    <th className={`${TH_CLASS} text-right`}>Giá trị tồn</th>
+                                    <th className={`${TH_CLASS} text-center`}>Tình trạng</th>
+                                    <th className={`${TH_CLASS} text-center`}>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-bo-border">
+                                {filteredData.map((item, idx) => {
+                                    const statusKey = trangThaiTon(item);
+                                    const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
+                                    const isLow = statusKey === "het_hang" || statusKey === "thieu_hang";
+
+                                    const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
+                                    const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
+                                    const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
+                                    const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
+                                    const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
+
+                                    return (
+                                        <tr
+                                            key={`${item.bienTheId}-${item.khoId}-${idx}`}
+                                            className={`transition-colors ${isLow ? "bg-bo-warning-soft" : "bg-white hover:bg-bo-surface-subtle"}`}
+                                        >
+                                            <td className="px-3 py-3 text-center text-xs text-bo-muted">{idx + 1}</td>
+
+                                            <td className="px-3 py-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-semibold uppercase text-bo-muted">{item.maSanPham}</span>
+                                                    <span className="w-fit rounded border border-bo-primary/20 bg-bo-primary-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-bo-primary">
+                                                        {item.maSku}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td className="max-w-[250px] px-3 py-3">
+                                                <p className="mb-1 truncate font-semibold text-bo-foreground">{item.tenSanPham}</p>
+                                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
+                                                    {item.maMauHex && (
+                                                        <svg className="size-3 shrink-0" viewBox="0 0 12 12" aria-hidden="true">
+                                                            <circle cx="6" cy="6" r="6" fill={item.maMauHex} />
+                                                        </svg>
+                                                    )}
+                                                    <span className="font-medium">{item.tenMau}</span>
+                                                    <span className="text-slate-300">|</span>
+                                                    <span className="rounded border border-bo-border bg-bo-surface-subtle px-1.5 py-0 font-mono text-[10px] font-semibold text-slate-600">
+                                                        {item.tenSize ?? item.maSize}
+                                                    </span>
+                                                    <span className="text-slate-300">|</span>
+                                                    <span>{item.tenChatLieu}</span>
+                                                </div>
+                                            </td>
+
+                                            <td className="px-3 py-3">
+                                                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-bo-border bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                                                    <Warehouse className="size-3" /> {item.tenKho}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                <NumBadge value={onHand} colorClass={isLow ? "bg-bo-danger text-white" : "bg-bo-success text-white"} />
+                                            </td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                <NumBadge value={incoming} colorClass={incoming > 0 ? "bg-bo-primary text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                            </td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                <NumBadge value={outgoing} colorClass={outgoing > 0 ? "bg-bo-warning text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                            </td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                <NumBadge value={freeToUse} colorClass={freeToUse < 0 ? "bg-bo-danger text-white" : freeToUse === 0 ? "border border-bo-border bg-white text-slate-400" : "bg-slate-700 text-white"} />
+                                            </td>
+
+                                            <td className="px-3 py-3 text-right text-xs font-semibold text-slate-600">{fmt(item.mucTonToiThieu)}</td>
+                                            <td className="px-3 py-3 text-right text-xs font-bold text-bo-foreground">{formatCurrency(giaTri)}</td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                <StatusBadge label={statusCfg.label} tone={statusCfg.tone} />
+                                            </td>
+
+                                            <td className="px-3 py-3 text-center">
+                                                {showNhapKho && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
+                                                        className="h-8 gap-1.5 border-bo-primary/20 bg-bo-primary-soft px-3 text-[11px] font-medium text-bo-primary hover:bg-bo-primary hover:text-white"
+                                                        title="Tạo yêu cầu nhập kho"
+                                                    >
+                                                        <PackagePlus className="size-3.5" /> Nhập
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </TableShell>
+        </PageContainer>
     );
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function NumBadge({ value, colorClass }) {
     return (
-        <span className={`inline-flex items-center justify-center min-w-[36px] rounded px-1.5 py-0.5 font-mono text-[12px] font-bold ${colorClass}`}>
+        <span className={`inline-flex min-w-[36px] items-center justify-center rounded px-1.5 py-0.5 font-mono text-xs font-bold ${colorClass}`}>
             {Number(value).toLocaleString("vi-VN")}
         </span>
     );
 }
 
-function SummaryItem({ label, value, valueClass = "text-[#1a1612]" }) {
+function SummaryItem({ label, value, valueClass = "text-bo-foreground" }) {
     return (
         <div className="flex items-baseline gap-2">
-            <span className="font-mono text-[10px] font-bold text-[#b8860b] uppercase tracking-wider">{label}:</span>
-            <span className={`font-bold text-[15px] ${valueClass}`}>{value}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-bo-muted">{label}:</span>
+            <span className={`text-sm font-bold ${valueClass}`}>{value}</span>
         </div>
     );
 }
 
 function Divider() {
-    return <span className="text-[#b8860b]/20 select-none text-lg leading-none">|</span>;
+    return <span className="h-4 w-px bg-bo-border" aria-hidden="true" />;
 }

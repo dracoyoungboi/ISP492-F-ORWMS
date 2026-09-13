@@ -1,23 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
     FileText, ArrowLeft, Loader2, ClipboardList, Truck,
-    Send, Building2, Package, CheckCircle, Calendar, DollarSign
+    Building2, Package, CheckCircle, DollarSign
 } from "lucide-react";
 
 import apiClient from "@/services/apiClient";
 
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
+import FormSection from "@/components/shared/FormSection";
+import FormActions from "@/components/shared/FormActions";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '—';
 
 export default function PurchaseOrderCreateManual() {
     const navigate = useNavigate();
@@ -37,11 +43,27 @@ export default function PurchaseOrderCreateManual() {
         ghiChu: "",
     });
 
-    useEffect(() => {
-        fetchInitialData();
+    const loadQuotationDetails = useCallback(async (id) => {
+        setActionLoading(true);
+        try {
+            const res = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
+            const data = res.data?.data || res.data;
+
+            setSelectedQuotation(data);
+            setForm(prev => ({
+                ...prev,
+                quotationId: data.id,
+            }));
+        } catch {
+            toast.error("Không thể tải chi tiết Báo giá");
+            setSelectedQuotation(null);
+            setForm(prev => ({ ...prev, quotationId: "" }));
+        } finally {
+            setActionLoading(false);
+        }
     }, []);
 
-    async function fetchInitialData() {
+    const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
             // Lấy trực tiếp danh sách Đơn mua hàng (Báo giá) có trạng thái = 2 (Đã nhận báo giá)
@@ -58,32 +80,17 @@ export default function PurchaseOrderCreateManual() {
             if (initialId) {
                 await loadQuotationDetails(initialId);
             }
-        } catch (error) {
+        } catch {
             toast.error("Không thể tải danh sách báo giá");
         } finally {
             setLoading(false);
         }
-    }
+    }, [loadQuotationDetails, searchParams]);
 
-    const loadQuotationDetails = async (id) => {
-        setActionLoading(true);
-        try {
-            const res = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
-            const data = res.data?.data || res.data;
-
-            setSelectedQuotation(data);
-            setForm(prev => ({
-                ...prev,
-                quotationId: data.id,
-            }));
-        } catch (error) {
-            toast.error("Không thể tải chi tiết Báo giá");
-            setSelectedQuotation(null);
-            setForm(prev => ({ ...prev, quotationId: "" }));
-        } finally {
-            setActionLoading(false);
-        }
-    };
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    useEffect(() => {
+        queueMicrotask(() => fetchInitialData());
+    }, [fetchInitialData]);
 
     const handleSelectQuotation = (id) => {
         if (!id) {
@@ -117,45 +124,49 @@ export default function PurchaseOrderCreateManual() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50/50">
-                <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                    <span className="text-slate-500 font-medium text-[14px]">Đang tải dữ liệu...</span>
-                </div>
-            </div>
+            <PageContainer>
+                <SurfaceCard title="Tạo đơn mua hàng" description="Đang chuẩn bị dữ liệu">
+                    <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
+                </SurfaceCard>
+            </PageContainer>
         );
     }
 
     return (
-        <div className="lux-sync p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 min-h-[calc(100vh-64px)] pb-24 space-y-6">
-
-            {/* ── Header ── */}
-            <div className="flex flex-col gap-4 mb-2">
-                <button type="button" onClick={() => navigate('/purchase-orders')}
-                    className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 hover:text-blue-600 transition-colors duration-200 w-fit">
-                    <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
-                </button>
-            </div>
+        <PageContainer className="space-y-5">
+            <PageHeader
+                eyebrow="Mua hàng"
+                title="Tạo đơn mua hàng"
+                description="Chọn một báo giá đã nhận để chốt giá với nhà cung cấp và khởi tạo đơn mua hàng."
+                actions={
+                    <Link
+                        to="/purchase-orders"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-bo-border bg-white px-3 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
+                    >
+                        <ArrowLeft className="size-4" />
+                        Quay lại danh sách
+                    </Link>
+                }
+            />
 
             {/* ── Main Layout: 2 Columns ── */}
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
-                
-                {/* ════ LEFT COLUMN (Settings) ════ */}
-                <div className="w-full lg:w-[400px] shrink-0 space-y-6">
-                    <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                            <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-                                <FileText className="h-4 w-4" />
-                            </div>
-                            <h2 className="font-bold text-[15px] text-slate-800">Thông tin báo giá</h2>
-                        </div>
+            <div className="flex flex-col items-start gap-5 lg:flex-row">
 
-                        <div className="p-5 space-y-5">
+                {/* ════ LEFT COLUMN (Settings) ════ */}
+                <aside className="w-full shrink-0 lg:w-[400px]">
+                    <FormSection
+                        title="Thông tin báo giá"
+                        description="Chọn báo giá cần chốt để tạo đơn mua hàng."
+                    >
+                        <div className="space-y-5">
                             {/* Chọn Báo Giá */}
                             <div className="space-y-1.5">
-                                <Label className="text-[13px] font-bold text-slate-700">Chọn Báo giá (PO) <span className="text-rose-500">*</span></Label>
+                                <label htmlFor="quotationId" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
+                                    Chọn Báo giá (PO) <span className="text-bo-danger">*</span>
+                                </label>
                                 <select
-                                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 text-[14px] font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                                    id="quotationId"
+                                    className="h-10 w-full cursor-pointer rounded-md border border-bo-border bg-white px-3 text-sm font-semibold text-bo-foreground transition-colors focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
                                     value={form.quotationId}
                                     onChange={(e) => handleSelectQuotation(e.target.value)}
                                     disabled={actionLoading}
@@ -171,168 +182,178 @@ export default function PurchaseOrderCreateManual() {
 
                             {/* Mã đơn */}
                             <div className="space-y-1.5">
-                                <Label className="text-[13px] font-bold text-slate-700">Mã Đơn mua hàng</Label>
+                                <label htmlFor="soDonMua" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
+                                    Mã Đơn mua hàng
+                                </label>
                                 <Input
+                                    id="soDonMua"
                                     value={selectedQuotation ? selectedQuotation.soDonMua : ''}
                                     readOnly
                                     placeholder="Sẽ tự động điền khi chọn báo giá"
-                                    className="h-11 font-mono font-bold text-blue-700 bg-blue-50/50 rounded-xl border-slate-200 text-[15px]"
+                                    className="h-10 border-bo-border bg-bo-surface-subtle font-mono text-sm font-semibold text-bo-primary"
                                 />
                             </div>
 
                             {/* Info NCC rút gọn */}
                             {selectedQuotation && (
-                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Building2 className="h-4 w-4 text-slate-400" />
-                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhà cung cấp</p>
+                                <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <Building2 className="size-4 text-bo-muted" />
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</p>
                                     </div>
-                                    <p className="font-bold text-[14px] text-slate-900">{selectedQuotation.nhaCungCap?.tenNhaCungCap}</p>
-                                    <p className="text-[12px] text-slate-500 font-mono mt-0.5">{selectedQuotation.nhaCungCap?.maNhaCungCap}</p>
+                                    <p className="text-sm font-semibold text-bo-foreground">{selectedQuotation.nhaCungCap?.tenNhaCungCap}</p>
+                                    <p className="mt-0.5 font-mono text-xs text-bo-muted">{selectedQuotation.nhaCungCap?.maNhaCungCap}</p>
 
-                                    <div className="mt-3 pt-3 border-t border-slate-200/60">
-                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tổng tiền báo giá</p>
-                                        <p className="text-xl font-black text-emerald-600 tracking-tight">
+                                    <div className="mt-3 border-t border-bo-border pt-3">
+                                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền báo giá</p>
+                                        <p className="text-xl font-bold tracking-tight text-bo-primary">
                                             {formatCurrency(selectedQuotation.tongTien)}
                                         </p>
                                     </div>
                                 </div>
                             )}
                         </div>
-
-                        <div className="p-5 border-t border-slate-100 bg-slate-50/50">
-                            <Button
-                                onClick={handleCreate}
-                                disabled={actionLoading || !form.quotationId}
-                                className="w-full h-12 rounded-xl gap-2 bg-slate-900 hover:bg-white hover:text-slate-900 font-bold text-[14px] shadow-md transition-all"
-                            >
-                                {actionLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle className="h-5 w-5" />}
-                                Chấp nhận & Tạo Đơn
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+                    </FormSection>
+                </aside>
 
                 {/* ════ RIGHT COLUMN (Preview) ════ */}
-                <div className="flex-1 min-w-0">
-                    <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full">
-                        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                                    <ClipboardList className="h-5 w-5" />
+                <div className="min-w-0 flex-1">
+                    <TableShell
+                        title="Chi tiết sản phẩm"
+                        description="Sản phẩm thuộc báo giá đã chọn."
+                        toolbar={
+                            selectedQuotation ? (
+                                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-2.5 sm:px-5">
+                                    <span className="text-xs font-medium text-bo-muted">Từ Yêu Cầu Gốc:</span>
+                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
+                                        <FileText className="size-3.5" />
+                                        #{selectedQuotation.yeuCauMuaHang?.soYeuCauMuaHang || selectedQuotation.yeuCauMuaHang?.id}
+                                    </span>
                                 </div>
-                                <h2 className="text-[16px] font-bold text-slate-800">Chi tiết sản phẩm</h2>
-                            </div>
-                            {selectedQuotation && (
-                                <span className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-lg text-[12px] border border-emerald-200">
-                                    Từ Yêu Cầu Gốc: #{selectedQuotation.yeuCauMuaHang?.soYeuCauMuaHang || selectedQuotation.yeuCauMuaHang?.id}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="flex-1 overflow-x-auto custom-scrollbar min-h-[450px]">
-                            {!selectedQuotation ? (
-                                <div className="h-full flex flex-col items-center justify-center opacity-40 gap-4 py-24">
-                                    <Truck size={56} className="text-slate-400" />
-                                    <p className="font-bold text-[14px] uppercase tracking-widest text-slate-500">Vui lòng chọn báo giá bên trái</p>
-                                </div>
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead className="bg-white sticky top-0 z-10 border-b border-slate-200">
-                                        <tr>
-                                            <th className="h-12 px-6 text-left font-bold text-slate-500 text-[11px] uppercase tracking-widest w-[350px]">Sản phẩm</th>
-                                            <th className="h-12 px-4 text-center font-bold text-slate-500 text-[11px] uppercase tracking-widest">SL Duyệt</th>
-                                            <th className="h-12 px-4 text-right font-bold text-slate-500 text-[11px] uppercase tracking-widest">Đơn giá</th>
-                                            <th className="h-12 px-6 text-right font-bold text-slate-500 text-[11px] uppercase tracking-widest">Thành tiền</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {selectedQuotation.chiTietDonMuaHangs?.map((ct, idx) => (
-                                            <tr key={ct.id || idx} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-4">
-                                                        {ct.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
-                                                            <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200/60 overflow-hidden shadow-sm shrink-0">
-                                                                <img src={ct.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product" className="h-full w-full object-cover" />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200/60 flex items-center justify-center shrink-0">
-                                                                <Package className="h-5 w-5 text-slate-300" />
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <p className="font-bold text-[14px] text-slate-900 leading-tight">
-                                                                {ct.bienTheSanPham?.tenSanPham || ct.bienTheSanPham?.tenBienThe || 'Sản phẩm'}
-                                                            </p>
-                                                            <div className="font-mono text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-                                                                <span>{ct.bienTheSanPham?.maSku}</span>
-                                                                <span className="text-slate-300">|</span>
-                                                                <span>{ct.bienTheSanPham?.mauSac?.tenMau} - {ct.bienTheSanPham?.size?.maSize}</span>
-                                                            </div>
+                            ) : null
+                        }
+                    >
+                        {!selectedQuotation ? (
+                            <EmptyState
+                                icon={Truck}
+                                title="Vui lòng chọn báo giá bên trái"
+                                description="Danh sách sản phẩm của báo giá sẽ hiển thị tại đây sau khi bạn chọn."
+                            />
+                        ) : (
+                            <table className="w-full min-w-[720px] text-sm">
+                                <thead>
+                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                        <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
+                                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Duyệt</th>
+                                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
+                                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-bo-border">
+                                    {selectedQuotation.chiTietDonMuaHangs?.map((ct, idx) => (
+                                        <tr key={ct.id || idx} className="transition-colors hover:bg-bo-surface-subtle">
+                                            <td className="px-3 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    {ct.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
+                                                        <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
+                                                            <img src={ct.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product" className="size-full object-cover" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-slate-100">
+                                                            <Package className="size-5 text-slate-300" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold leading-tight text-bo-foreground">
+                                                            {ct.bienTheSanPham?.tenSanPham || ct.bienTheSanPham?.tenBienThe || 'Sản phẩm'}
+                                                        </p>
+                                                        <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-bo-muted">
+                                                            <span>{ct.bienTheSanPham?.maSku}</span>
+                                                            <span className="text-slate-300">|</span>
+                                                            <span>{ct.bienTheSanPham?.mauSac?.tenMau} - {ct.bienTheSanPham?.size?.maSize}</span>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="px-4 py-4 text-center">
-                                                    <span className="font-black text-blue-700 text-[14px] bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                                        {ct.soLuongDat || 0}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-4 text-right">
-                                                    <span className="font-semibold text-slate-800 text-[14px]">
-                                                        {formatCurrency(ct.donGia)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className="font-black text-emerald-600 text-[15px]">
-                                                        {formatCurrency(ct.thanhTien)}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {(!selectedQuotation.chiTietDonMuaHangs || selectedQuotation.chiTietDonMuaHangs.length === 0) && (
-                                            <tr>
-                                                <td colSpan="4" className="text-center py-10 text-[13px] text-slate-400 italic">
-                                                    Báo giá này chưa có sản phẩm chi tiết
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 text-center">
+                                                <span className="inline-flex items-center rounded-md border border-blue-200 bg-bo-primary-soft px-3 py-1 text-sm font-bold text-bo-primary">
+                                                    {ct.soLuongDat || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-3 text-right">
+                                                <span className="text-sm font-semibold text-bo-foreground">
+                                                    {formatCurrency(ct.donGia)}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-3 text-right">
+                                                <span className="text-[15px] font-bold tracking-tight text-bo-success">
+                                                    {formatCurrency(ct.thanhTien)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!selectedQuotation.chiTietDonMuaHangs || selectedQuotation.chiTietDonMuaHangs.length === 0) && (
+                                        <tr>
+                                            <td colSpan={4}>
+                                                <EmptyState
+                                                    icon={Package}
+                                                    title="Báo giá này chưa có sản phẩm chi tiết"
+                                                    description="Nhà cung cấp chưa cập nhật chi tiết sản phẩm cho báo giá."
+                                                    className="min-h-0 py-10"
+                                                />
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </TableShell>
                 </div>
             </div>
 
+            {/* ── Footer Actions ── */}
+            <FormActions>
+                <Button
+                    onClick={handleCreate}
+                    disabled={actionLoading || !form.quotationId}
+                    className="h-10 gap-2 bg-bo-primary px-6 font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
+                    Chấp nhận &amp; Tạo Đơn
+                </Button>
+            </FormActions>
+
             {/* ── Confirm Dialog ── */}
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="rounded-3xl sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl">
-                    <div className="bg-emerald-600 p-6 flex items-center gap-4">
-                        <div className="h-12 w-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-                            <CheckCircle className="h-6 w-6 text-white" />
+                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 shadow-lg sm:max-w-md">
+                    <div className="flex items-center gap-3 border-b border-bo-border bg-white p-5">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-bo-success-soft text-bo-success">
+                            <CheckCircle className="size-5" />
                         </div>
                         <div>
-                            <DialogTitle className="text-xl font-black text-white m-0">Xác nhận tạo đơn hàng</DialogTitle>
-                            <DialogDescription className="text-emerald-100 text-[13px] mt-1">
+                            <DialogTitle className="m-0 text-lg font-semibold text-bo-foreground">Xác nhận tạo đơn hàng</DialogTitle>
+                            <DialogDescription className="mt-1 text-[13px] text-slate-500">
                                 Hành động này sẽ chốt báo giá với nhà cung cấp.
                             </DialogDescription>
                         </div>
                     </div>
 
-                    <div className="p-6 space-y-5">
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3 text-[14px]">
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium">Mã đơn mua (PO):</span>
-                                <span className="font-mono font-bold text-blue-600 text-[15px]">{selectedQuotation?.soDonMua}</span>
+                    <div className="space-y-5 bg-white p-5">
+                        <div className="space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-bo-muted">Mã đơn mua (PO):</span>
+                                <span className="font-mono text-[15px] font-semibold text-bo-primary">{selectedQuotation?.soDonMua}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium">Nhà cung cấp:</span>
-                                <span className="font-bold text-slate-800">{selectedQuotation?.nhaCungCap?.tenNhaCungCap}</span>
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-bo-muted">Nhà cung cấp:</span>
+                                <span className="font-semibold text-bo-foreground">{selectedQuotation?.nhaCungCap?.tenNhaCungCap}</span>
                             </div>
-                            <div className="h-px bg-slate-200 my-2" />
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium flex items-center gap-1.5"><DollarSign className="h-4 w-4" /> Tổng tiền chốt:</span>
-                                <span className="font-black text-emerald-600 text-[18px]">{formatCurrency(selectedQuotation?.tongTien)}</span>
+                            <div className="h-px bg-bo-border" />
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 font-medium text-bo-muted">
+                                    <DollarSign className="size-4" /> Tổng tiền chốt:
+                                </span>
+                                <span className="text-lg font-bold text-bo-success">{formatCurrency(selectedQuotation?.tongTien)}</span>
                             </div>
                         </div>
 
@@ -341,21 +362,21 @@ export default function PurchaseOrderCreateManual() {
                                 variant="outline"
                                 onClick={() => setShowConfirmDialog(false)}
                                 disabled={submitting}
-                                className="flex-1 h-12 rounded-xl font-bold border-slate-200 text-slate-700"
+                                className="h-10 flex-1 border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 Hủy bỏ
                             </Button>
                             <Button
                                 onClick={confirmCreate}
                                 disabled={submitting}
-                                className="flex-1 h-12 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all gap-2"
+                                className="h-10 flex-1 gap-2 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
                             >
-                                {submitting ? <><Loader2 className="h-5 w-5 animate-spin" />Đang xử lý...</> : <><CheckCircle className="h-4 w-4" />Xác nhận</>}
+                                {submitting ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</> : <><CheckCircle className="size-4" />Xác nhận</>}
                             </Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </PageContainer>
     );
 }
