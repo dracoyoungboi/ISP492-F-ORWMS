@@ -64,7 +64,7 @@ export default function BackofficeSidebar() {
         <NavLink
           to="/dashboard"
           onClick={handleNavigate}
-          aria-label="FS WMS — Trang tổng quan"
+          aria-label="F Centric — Trang tổng quan"
           className="flex min-w-0 items-center gap-3 rounded-md px-1"
         >
           <img
@@ -75,10 +75,10 @@ export default function BackofficeSidebar() {
           {isExpanded ? (
             <span className="min-w-0 leading-tight">
               <span className="block truncate text-sm font-bold tracking-wide text-white">
-                FS WMS
+                F Centric
               </span>
               <span className="block truncate text-[10px] font-medium text-bo-sidebar-muted">
-                Warehouse Management
+                Fashion Warehouse Management
               </span>
             </span>
           ) : null}

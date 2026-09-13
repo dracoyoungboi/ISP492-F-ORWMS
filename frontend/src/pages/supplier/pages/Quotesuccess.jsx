@@ -233,9 +233,9 @@ export default function QuoteSuccess() {
                             <div className="qs-logo-box">
                                 <Boxes size={18} strokeWidth={1.8} style={{ color: '#fff' }} />
                             </div>
-                            <span className="qs-logo-fs">FS</span>
+                            <span className="qs-logo-fs">FC</span>
                             <span className="qs-logo-sep" />
-                            <span className="qs-logo-wms">WMS · Supplier Portal</span>
+                            <span className="qs-logo-wms">Centric · Supplier Portal</span>
                         </div>
 
                         {/* Success icon */}

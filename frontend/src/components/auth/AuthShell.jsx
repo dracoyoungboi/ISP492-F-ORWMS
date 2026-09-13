@@ -22,7 +22,7 @@ export default function AuthShell({ children }) {
                         <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center">
                             <Box className="w-5 h-5" />
                         </div>
-                        FS WMS
+                        F Centric
                     </div>
 
                     {children}

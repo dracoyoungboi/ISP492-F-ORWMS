@@ -61,7 +61,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
 
   const sidebarOpen = isMobile ? openMobile : open;
   const displayTitle =
-    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "FS WMS";
+    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "F Centric";
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
   const avatarLabel = username?.charAt(0).toUpperCase() || "A";
 
@@ -88,7 +88,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-              <span className="hidden sm:inline">FS WMS</span>
+              <span className="hidden sm:inline">F Centric</span>
               <span className="hidden sm:inline" aria-hidden="true">
                 /
               </span>

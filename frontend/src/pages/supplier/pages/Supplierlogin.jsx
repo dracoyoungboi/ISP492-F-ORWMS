@@ -107,9 +107,9 @@ function LoginForm() {
                             <Boxes size={22} strokeWidth={1.8} style={{ color: '#fff' }} />
                         </div>
                         <div className="lf-logo-text">
-                            <span className="lf-logo-fs">FS</span>
+                            <span className="lf-logo-fs">FC</span>
                             <span className="lf-logo-sep" />
-                            <span className="lf-logo-wms">WMS</span>
+                            <span className="lf-logo-wms">Centric</span>
                         </div>
                     </div>
 
@@ -117,11 +117,11 @@ function LoginForm() {
                     <div className="lf-headline">
                         <div className="lf-eyebrow">
                             <TrendingUp size={10} style={{ color: '#b8860b' }} />
-                            FS · Warehouse Management
+                            F Centric · Fashion Warehouse Management
                         </div>
                         <h1 className="lf-title">Supplier<br />Portal</h1>
                         <p className="lf-desc">
-                            Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của FS Fashion Group.
+                            Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của F Centric.
                         </p>
                     </div>
 
@@ -291,7 +291,7 @@ function LoginForm() {
                             Liên hệ bộ phận kỹ thuật
                         </a>
                     </p>
-                    <p className="lf-copy">© 2026 FS Fashion Group · All rights reserved</p>
+                    <p className="lf-copy">© 2026 F Centric · All rights reserved</p>
                 </div>
             </div>
         </div>

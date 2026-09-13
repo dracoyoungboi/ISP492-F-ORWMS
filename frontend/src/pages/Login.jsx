@@ -165,7 +165,7 @@ export default function AuthPage() {
                 </h1>
                 <p className="text-gray-500 text-base fade-in-up delay-2">
                     {isLogin
-                        ? 'Chào mừng trở lại hệ thống FS WMS.'
+                        ? 'Chào mừng trở lại hệ thống F Centric.'
                         : 'Điền đầy đủ thông tin để bắt đầu.'}
                 </p>
             </div>

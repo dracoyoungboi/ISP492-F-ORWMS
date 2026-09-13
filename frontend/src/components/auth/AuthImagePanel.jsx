@@ -145,7 +145,7 @@ export default function AuthImagePanel() {
                     <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
                         <Box className="w-6 h-6" />
                     </div>
-                    FS WMS
+                    F Centric
                 </div>
 
                 <div className="max-w-lg mb-12">

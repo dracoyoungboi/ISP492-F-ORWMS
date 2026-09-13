@@ -725,7 +725,7 @@ export default function SupplierQuotation() {
                             <div>
                                 <p className="sq-banner-eyebrow">Cổng báo giá nhà cung cấp</p>
                                 <p className="sq-banner-title">
-                                    <span>FS</span> Warehouse Management
+                                    <span>F Centric</span> · Fashion Warehouse Management
                                 </p>
                             </div>
                         </div>
@@ -754,7 +754,7 @@ export default function SupplierQuotation() {
                             </h1>
                             <p className="sq-page-sub">
                                 {isQuoted
-                                    ? 'Báo giá này đã được gửi cho hệ thống FS Warehouse Management'
+                                    ? 'Báo giá này đã được gửi cho hệ thống F Centric'
                                     : 'Vui lòng cung cấp đơn giá và thông tin giao hàng chi tiết'}
                             </p>
                         </div>
