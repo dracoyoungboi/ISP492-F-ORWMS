@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import UserAvatar from "@/components/UserAvatar";
 import FilterBar from "@/components/shared/FilterBar";
 import SearchInput from "@/components/shared/SearchInput";
 import TableShell from "@/components/shared/TableShell";
@@ -85,13 +86,6 @@ function buildUserFilterPayload(filters) {
 
 const formatRole = (role) =>
     ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
-
-const getInitials = (user) => {
-    const source = (user?.hoTen || user?.tenDangNhap || "U").trim();
-    const parts = source.split(/\s+/).filter(Boolean);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
-};
 
 export default function ViewUserListByAdmin() {
     const [users, setUsers] = useState([]);
@@ -485,9 +479,7 @@ export default function ViewUserListByAdmin() {
 
                                     <td className="px-3 py-3 font-semibold text-bo-foreground">
                                         <div className="flex items-center gap-2.5">
-                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-xs font-bold text-bo-primary">
-                                                {getInitials(u)}
-                                            </span>
+                                            <UserAvatar userId={u.id} name={u.hoTen || u.tenDangNhap} size="xs" />
                                             <span>{u.tenDangNhap}</span>
                                         </div>
                                     </td>

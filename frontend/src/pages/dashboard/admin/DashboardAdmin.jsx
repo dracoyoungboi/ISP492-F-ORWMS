@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import UserAvatar from "@/components/UserAvatar";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -396,9 +397,7 @@ export default function DashboardAdmin() {
                                         </td>
                                         <td className="px-3 py-3">
                                             <div className="flex items-center gap-2.5">
-                                                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-xs font-bold text-bo-primary">
-                                                    {user.hoTen?.charAt(0) || "U"}
-                                                </span>
+                                                <UserAvatar userId={user.id} name={user.hoTen} size="xs" />
                                                 <span>{user.hoTen}</span>
                                             </div>
                                         </td>

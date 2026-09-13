@@ -10,7 +10,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -63,7 +63,6 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
   const displayTitle =
     routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "F Centric";
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
-  const avatarLabel = username?.charAt(0).toUpperCase() || "A";
 
   return (
     <header className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
@@ -112,12 +111,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
               className="h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100"
               aria-label="Mở menu tài khoản"
             >
-              <Avatar className="size-8">
-                <AvatarImage src="" alt="" />
-                <AvatarFallback className="bg-bo-primary-soft text-sm font-bold text-bo-primary">
-                  {avatarLabel}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar userId={userId} name={username} size="xs" />
 
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block truncate text-sm font-semibold leading-4">

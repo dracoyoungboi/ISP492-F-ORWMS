@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { nguoiDungService } from "@/services/nguoiDungService";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
+import AvatarEditorModal from "@/components/AvatarEditorModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import EmptyState from "@/components/shared/EmptyState";
@@ -15,6 +17,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import {
     ArrowLeft,
     Calendar,
+    Camera,
     CheckCircle2,
     Clock,
     Clock3,
@@ -40,6 +43,7 @@ export default function UserDetail() {
     const [isEditing, setIsEditing] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const [editorOpen, setEditorOpen] = useState(false);
 
     // User data
     const [userData, setUserData] = useState({
@@ -71,12 +75,18 @@ export default function UserDetail() {
     const getVaiTroLabel = (value) => vaiTroOptions.find((opt) => opt.value === value)?.label || value || "—";
     const isActive = useMemo(() => Number(userData.trangThai) === 1, [userData.trangThai]);
 
-    const initials = useMemo(() => {
-        const name = userData.hoTen?.trim();
-        if (!name) return "U";
-        const parts = name.split(/\s+/).slice(0, 2);
-        return parts.map((p) => p[0]?.toUpperCase()).join("") || "U";
-    }, [userData.hoTen]);
+    // Avatar editor is only for the logged-in user's own profile.
+    const loggedInUserId = useMemo(() => {
+        try {
+            const token = localStorage.getItem("access_token");
+            if (!token) return null;
+            const payload = jwtDecode(token);
+            return payload?.userId ?? payload?.id ?? payload?.sub ?? null;
+        } catch {
+            return null;
+        }
+    }, []);
+    const isSelf = loggedInUserId != null && String(loggedInUserId) === String(id);
 
     const formatDateTime = (iso) => {
         if (!iso) return "—";
@@ -277,11 +287,21 @@ export default function UserDetail() {
                     <div className="space-y-5 lg:col-span-1">
                         <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             <div className="flex flex-col items-center p-6 text-center">
-                                <Avatar className="mb-4 h-24 w-24">
-                                    <AvatarFallback className="bg-bo-primary-soft text-2xl font-bold text-bo-primary">
-                                        {initials}
-                                    </AvatarFallback>
-                                </Avatar>
+                                {isSelf ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditorOpen(true)}
+                                        aria-label="Thay đổi ảnh đại diện"
+                                        className="group relative mb-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
+                                    >
+                                        <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
+                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                            <Camera className="size-6 text-white" />
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" className="mb-4" />
+                                )}
 
                                 <h3 className="break-all text-xl font-bold text-bo-foreground">
                                     {loadingUser ? "Loading..." : userData.hoTen || "—"}
@@ -473,6 +493,12 @@ export default function UserDetail() {
                         </Tabs>
                     </div>
                 </div>
+
+                <AvatarEditorModal
+                    open={editorOpen}
+                    onOpenChange={setEditorOpen}
+                    userId={userData.id}
+                />
         </PageContainer>
     );
 }

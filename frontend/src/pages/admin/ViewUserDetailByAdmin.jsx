@@ -8,7 +8,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
 
 import {
     Table,
@@ -100,13 +100,6 @@ export default function ViewUserDetailByAdmin() {
 
     const isActive = user.trangThai === 1;
     const roleLabel = ROLE_LABELS[user.vaiTro] || user.vaiTro?.replaceAll("_", " ") || "Không xác định";
-    const initials =
-        user.hoTen
-            ?.trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((x) => x[0]?.toUpperCase())
-            .join("") || "U";
     const warehouseCount = user.khoPhuTrach?.length || 0;
 
     return (
@@ -190,11 +183,7 @@ export default function ViewUserDetailByAdmin() {
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <div className="flex flex-col items-center gap-4 p-6 text-center">
 
-                        <Avatar className="h-24 w-24">
-                            <AvatarFallback className="bg-bo-primary-soft text-3xl font-bold text-bo-primary">
-                                {initials}
-                            </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar userId={user.id} name={user.hoTen} size="lg" />
 
                         <div className="min-w-0">
                             <h2
