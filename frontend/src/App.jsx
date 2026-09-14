@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { Toaster } from "@/components/ui/sonner";
 import Login from "./pages/Login";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -80,6 +82,9 @@ import QuotationDetail from "./pages/order/QuotationDetail";
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Toaster global: dùng chung cho mọi trang (kể cả auth — toast từ ProtectedRoute
+          cần sống sót khi chuyển sang /login, nơi BackofficeLayout không còn mount) */}
+      <Toaster position="top-center" richColors />
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
         <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
@@ -91,7 +96,8 @@ export default function App() {
         <Route path="/supplier/login" element={<SupplierLogin />} />
 
         {/* ========== BACKOFFICE ROUTES (CÓ SIDEBAR + HEADER) ========== */}
-        <Route element={<BackofficeLayout />}>
+        <Route element={<ProtectedRoute />}>
+          <Route element={<BackofficeLayout />}>
           {/* Dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
 
@@ -201,6 +207,7 @@ export default function App() {
           {/*Lịch sử giao dịch kho */}
           <Route path="/lich-su-giao-dich-kho" element={<LichSuGiaoDichKhoList />} />
 
+          </Route>
         </Route>
 
         {/* ========== 404 ========== */}
