@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import StoreNavbar from './StoreNavbar';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 export default function StoreLayout() {
     return (
@@ -14,13 +15,8 @@ export default function StoreLayout() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                         <div className="col-span-1 md:col-span-1">
-                            <div className="flex items-center space-x-2 mb-8">
-                                <div className="bg-white p-2 rounded-xl">
-                                    <h1 className="w-6 h-6 text-black font-black flex items-center justify-center">FF</h1>
-                                </div>
-                                <span className="text-2xl font-black tracking-tighter">
-                                    FASHIONFLOW
-                                </span>
+                            <div className="mb-8">
+                                <BrandLogo variant="sidebar" />
                             </div>
                             <p className="text-gray-400 text-sm leading-relaxed mb-6">
                                 Chúng tôi mang đến những giải pháp thời trang hiện đại, kết hợp giữa công nghệ và phong cách sống.
@@ -64,7 +60,7 @@ export default function StoreLayout() {
                     </div>
 
                     <div className="border-t border-zinc-800 pt-10 flex flex-col md:row items-center justify-between gap-6 text-gray-500 text-xs font-bold uppercase tracking-widest">
-                        <p>© 2026 FASHIONFLOW. ALL RIGHTS RESERVED.</p>
+                        <p>© 2026 F Centric. ALL RIGHTS RESERVED.</p>
                         <div className="flex gap-8">
                             <a href="#" className="hover:text-white transition-colors">Facebook</a>
                             <a href="#" className="hover:text-white transition-colors">Instagram</a>

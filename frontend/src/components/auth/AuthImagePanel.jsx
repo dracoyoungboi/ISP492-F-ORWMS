@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, Box, Cpu, Package } from 'lucide-react';
+import { Activity, Cpu, Package } from 'lucide-react';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 const SLIDES = [
     {
@@ -141,11 +142,8 @@ export default function AuthImagePanel() {
 
             {/* Nội dung overlay */}
             <div className="absolute inset-0 z-30 flex flex-col p-12 text-white pointer-events-none">
-                <div className="flex items-center gap-3 font-bold text-2xl tracking-tight mb-auto">
-                    <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
-                        <Box className="w-6 h-6" />
-                    </div>
-                    F Centric
+                <div className="mb-auto">
+                    <BrandLogo variant="auth" className="drop-shadow-sm lg:h-14" />
                 </div>
 
                 <div className="max-w-lg mb-12">

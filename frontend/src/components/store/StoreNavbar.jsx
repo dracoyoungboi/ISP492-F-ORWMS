@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { productService } from '@/services/productService';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 export default function StoreNavbar() {
     const navigate = useNavigate();
@@ -47,13 +48,8 @@ export default function StoreNavbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-20">
                     {/* Logo */}
-                    <Link to="/login" className="flex items-center space-x-2 flex-shrink-0">
-                        <div className="bg-black p-2 rounded-xl">
-                            <ShoppingBag className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-2xl font-black tracking-tighter text-black">
-                            FASHION<span className="text-purple-600">FLOW</span>
-                        </span>
+                    <Link to="/login" className="flex-shrink-0">
+                        <BrandLogo variant="compact" />
                     </Link>
 
                     {/* Desktop Categories */}

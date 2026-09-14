@@ -11,9 +11,10 @@ import {
 import {
     Building2, Package, Calendar, AlertCircle, CheckCircle,
     Loader2, Send, FileText, Clock, DollarSign, Mail, Phone,
-    User, MapPin, ChevronRight, ShieldCheck, Info, Boxes, TrendingUp,
+    User, MapPin, ChevronRight, ShieldCheck, Info, TrendingUp,
 } from "lucide-react";
 import supplierQuotationService from '@/services/supplierQuotationService';
+import BrandLogo from '@/components/brand/BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /* ─── MOCK DATA (remove in production) ─── */
@@ -719,9 +720,7 @@ export default function SupplierQuotation() {
                     <div className="sq-banner">
                         <div className="sq-banner-grid" />
                         <div className="sq-banner-left">
-                            <div className="sq-banner-logo">
-                                <Boxes size={22} strokeWidth={1.8} style={{ color: '#fff' }} />
-                            </div>
+                            <BrandLogo variant="sidebar-collapsed" />
                             <div>
                                 <p className="sq-banner-eyebrow">Cổng báo giá nhà cung cấp</p>
                                 <p className="sq-banner-title">

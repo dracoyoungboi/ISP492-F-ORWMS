@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 import { Label } from "@/components/ui/label";
 import {
     Building2, Mail, Loader2, Package,
-    TrendingUp, CheckCircle, ShieldCheck, Boxes,
+    TrendingUp, CheckCircle, ShieldCheck,
     ChevronRight,
 } from "lucide-react";
 import supplierQuotationService from '@/services/supplierQuotationService';
 import purchaseOrderService from '@/services/purchaseOrderService';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 /* ══════════════════════════════════════════
    LOGIN FORM
@@ -102,23 +103,10 @@ function LoginForm() {
 
                 <div className="lf-left-content">
                     {/* Logo */}
-                    <div className="lf-logo">
-                        <div className="lf-logo-box">
-                            <Boxes size={22} strokeWidth={1.8} style={{ color: '#fff' }} />
-                        </div>
-                        <div className="lf-logo-text">
-                            <span className="lf-logo-fs">FC</span>
-                            <span className="lf-logo-sep" />
-                            <span className="lf-logo-wms">Centric</span>
-                        </div>
-                    </div>
+                    <BrandLogo variant="sidebar" />
 
                     {/* Headline */}
                     <div className="lf-headline">
-                        <div className="lf-eyebrow">
-                            <TrendingUp size={10} style={{ color: '#b8860b' }} />
-                            F Centric · Fashion Warehouse Management
-                        </div>
                         <h1 className="lf-title">Supplier<br />Portal</h1>
                         <p className="lf-desc">
                             Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của F Centric.
