@@ -60,7 +60,7 @@ export default function StoreLayout() {
                     </div>
 
                     <div className="border-t border-zinc-800 pt-10 flex flex-col md:row items-center justify-between gap-6 text-gray-500 text-xs font-bold uppercase tracking-widest">
-                        <p>© 2026 F Centric. ALL RIGHTS RESERVED.</p>
+                        <p>© 2026 FCentric. ALL RIGHTS RESERVED.</p>
                         <div className="flex gap-8">
                             <a href="#" className="hover:text-white transition-colors">Facebook</a>
                             <a href="#" className="hover:text-white transition-colors">Instagram</a>

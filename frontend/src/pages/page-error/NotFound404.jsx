@@ -454,7 +454,7 @@ export default function NotFound404() {
                             animation: "fadeUp 0.6s ease 1s both",
                         }}
                     >
-                        F Centric — Backoffice System
+                        FCentric — Backoffice System
                     </div>
                 </div>
             </div>

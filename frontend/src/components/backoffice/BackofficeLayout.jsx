@@ -84,7 +84,7 @@ export default function BackofficeLayout() {
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "F Centric · INVENTORY",
+            title: "FCentric · INVENTORY",
             subtitle: "Quản lý kho hàng",
         },
         {

@@ -109,7 +109,7 @@ function LoginForm() {
                     <div className="lf-headline">
                         <h1 className="lf-title">Supplier<br />Portal</h1>
                         <p className="lf-desc">
-                            Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của F Centric.
+                            Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của FCentric.
                         </p>
                     </div>
 
@@ -279,7 +279,7 @@ function LoginForm() {
                             Liên hệ bộ phận kỹ thuật
                         </a>
                     </p>
-                    <p className="lf-copy">© 2026 F Centric · All rights reserved</p>
+                    <p className="lf-copy">© 2026 FCentric · All rights reserved</p>
                 </div>
             </div>
         </div>

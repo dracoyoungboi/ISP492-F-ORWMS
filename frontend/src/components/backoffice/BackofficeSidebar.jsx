@@ -70,12 +70,12 @@ export default function BackofficeSidebar() {
           <NavLink
             to="/dashboard"
             onClick={handleNavigate}
-            aria-label="F Centric — Trang tổng quan"
+            aria-label="FCentric — Trang tổng quan"
             className="flex min-w-0 items-center rounded-md px-1"
           >
             <img
               src="/branding/f-centric-logo.svg"
-              alt="F Centric – Fashion Warehouse Management"
+              alt="FCentric – Fashion Warehouse Management"
               className="h-10 w-auto max-w-full shrink-0 object-contain object-left"
               draggable={false}
             />
@@ -86,18 +86,18 @@ export default function BackofficeSidebar() {
               <NavLink
                 to="/dashboard"
                 onClick={handleNavigate}
-                aria-label="F Centric — Trang tổng quan"
+                aria-label="FCentric — Trang tổng quan"
                 className="flex items-center justify-center rounded-md px-1"
               >
                 <img
                   src="/branding/f-centric-icon.svg"
-                  alt="F Centric – Fashion Warehouse Management"
+                  alt="FCentric – Fashion Warehouse Management"
                   className="size-10 shrink-0 object-contain"
                   draggable={false}
                 />
               </NavLink>
             </TooltipTrigger>
-            <TooltipContent side="right">F Centric</TooltipContent>
+            <TooltipContent side="right">FCentric</TooltipContent>
           </Tooltip>
         )}
       </SidebarHeader>
