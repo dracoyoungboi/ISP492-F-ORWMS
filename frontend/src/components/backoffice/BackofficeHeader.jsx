@@ -1,6 +1,5 @@
 import {
   ChevronDown,
-  KeyRound,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -145,11 +144,6 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
                 <UserRound className="size-4 text-slate-500" />
                 Hồ sơ
               </Link>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
-              <KeyRound className="size-4 text-slate-500" />
-              Đổi mật khẩu
             </DropdownMenuItem>
 
             <DropdownMenuSeparator className="bg-bo-border" />
