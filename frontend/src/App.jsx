@@ -53,11 +53,6 @@ import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
 import StockTakeList from "./pages/stock-take/StockTakeList";
 import StockTakeCreate from "./pages/stock-take/StockTakeCreate";
-import StoreLayout from "@/components/store/StoreLayout";
-import StoreHome from "./pages/store/StoreHome";
-import ProductCategory from "./pages/store/ProductCategory";
-import ProductSearch from "./pages/store/ProductSearch";
-import PublicProductDetail from "./pages/store/PublicProductDetail";
 import BaoCaoDoanhThu from "./pages/bao-cao/BaoCaoDoanhThu";
 import KhachHangReport from "./pages/bao-cao/KhachHangReport";
 import NhatKyNhapXuat from "./pages/bao-cao/NhatKyNhapXuat";
@@ -94,14 +89,6 @@ export default function App() {
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
         <Route path="/quote-success" element={<QuoteSuccess />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
-
-        {/* ========== STOREFRONT ROUTES (CÓ NAVBAR + FOOTER CỦA KHÁCH) ========== */}
-        <Route element={<StoreLayout />}>
-          <Route path="/store" element={<StoreHome />} />
-          <Route path="/category/:id" element={<ProductCategory />} />
-          <Route path="/search" element={<ProductSearch />} />
-          <Route path="/product/:id" element={<PublicProductDetail />} />
-        </Route>
 
         {/* ========== BACKOFFICE ROUTES (CÓ SIDEBAR + HEADER) ========== */}
         <Route element={<BackofficeLayout />}>

@@ -4,7 +4,6 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  ShoppingBag,
   UserRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -151,18 +150,6 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
             <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
               <KeyRound className="size-4 text-slate-500" />
               Đổi mật khẩu
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator className="bg-bo-border" />
-
-            <DropdownMenuItem
-              asChild
-              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950"
-            >
-              <Link to="/store">
-                <ShoppingBag className="size-4 text-slate-500" />
-                Về cửa hàng
-              </Link>
             </DropdownMenuItem>
 
             <DropdownMenuSeparator className="bg-bo-border" />
