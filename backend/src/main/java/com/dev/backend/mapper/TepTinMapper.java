@@ -15,14 +15,14 @@ public interface TepTinMapper {
         // ==============================================================
         // OPTION: CHẠY LOCAL (Chuyển tất cả link về localhost:9000)
         // ==============================================================
-        // String duongDan = tepTin.getDuongDan();
-        //     if (duongDan != null) {
-        // if (duongDan.startsWith("http://171.244.142.43:9000")) {
-        //     duongDan = "http://localhost:9000" + duongDan.substring(26);
-        // } else if (duongDan.startsWith("https://minio.slmglobal.vn")) {
-       // Cắt bỏ "https://minio.slmglobal.vn" (dài 26 ký tự), thay bằng localhost
-       //     duongDan = "http://localhost:9000" + duongDan.substring(26);
-       // }
+    //     String duongDan = tepTin.getDuongDan();
+    //         if (duongDan != null) {
+    //     if (duongDan.startsWith("http://171.244.142.43:9000")) {
+    //         duongDan = "http://localhost:9000" + duongDan.substring(26);
+    //     } else if (duongDan.startsWith("https://minio.slmglobal.vn")) {
+    //        duongDan = "http://localhost:9000" + duongDan.substring(26);
+    //    }
+    // }
 
          String duongDan = tepTin.getDuongDan();
         // nếu đường dẫn bắt đầu bằng http://171.244.142.43 thay bằng https://v2.slmglobal.vn

@@ -434,7 +434,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                                 .loaiTepTin(FileType.IMAGE.toString())
                                                 .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
                                                 .trangThai(1)
-                                                .ngayTao(sanPhamQuanAo.getNgayCapNhat())
+                                                .ngayTao(Instant.now())
                                                 .build()
                                         );
 
@@ -481,6 +481,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                                 .duongDan(minioService.getPublicUrl(objectName))
                                                 .loaiTepTin(FileType.IMAGE.toString())
                                                 .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
+                                                .ngayTao(Instant.now())
                                                 .trangThai(1)
                                                 .build();
                                         tepTin = tepTinService.create(tepTin);
@@ -490,6 +491,16 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                                 bienThe.getAnhBienThe().setTepTin(tepTin);
                                                 anhBienTheService.update(bienThe.getAnhBienThe().getId(), bienThe.getAnhBienThe());
                                                 tepTinService.hardDeleteNoMessage(idTepCu);
+                                        } else {
+                                                AnhBienThe anhBienThe = anhBienTheService.create(
+                                                        AnhBienThe.builder()
+                                                                .bienThe(bienThe)
+                                                                .tepTin(tepTin)
+                                                                .trangThai(1)
+                                                                .ngayTao(Instant.now())
+                                                                .build()
+                                                );
+                                                bienThe.setAnhBienThe(anhBienThe);
                                         }
                                 } else {
                                         imageCount++;
