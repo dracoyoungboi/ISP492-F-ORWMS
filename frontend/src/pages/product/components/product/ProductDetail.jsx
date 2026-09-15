@@ -1,15 +1,20 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    Loader2, Package, ChevronRight, Info, Tag, Box, ArrowLeft, ChevronLeft
+    Package, ChevronRight, Info, Tag, Box, ArrowLeft, ChevronLeft
 } from "lucide-react";
 import { toast } from "sonner";
 import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import { formatCurrency } from "@/utils/formatters";
 import { Button } from "@/components/ui/button";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import StatusBadge from "@/components/shared/StatusBadge";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -31,34 +36,38 @@ export default function ProductDetail() {
         }
     }, [totalImages, selectedImageIndex]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setIsLoading(true);
-                // Luong tai du lieu chi tiet san pham:
-                // Frontend -> productService.getProductById
-                // -> ProductController.getById -> ProductService.getById -> ProductRepository.findById.
-                // Dong thoi tai cay danh muc de dung breadcrumb cha-con.
-                const [productRes, categoryRes] = await Promise.all([
-                    productService.getProductById(id),
-                    danhMucQuanAoService.getCayDanhMuc()
-                ]);
+    const fetchData = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            // Luong tai du lieu chi tiet san pham:
+            // Frontend -> productService.getProductById
+            // -> ProductController.getById -> ProductService.getById -> ProductRepository.findById.
+            // Dong thoi tai cay danh muc de dung breadcrumb cha-con.
+            const [productRes, categoryRes] = await Promise.all([
+                productService.getProductById(id),
+                danhMucQuanAoService.getCayDanhMuc()
+            ]);
 
-                if (productRes.data?.status === 200) {
-                    setProduct(productRes.data.data);
-                }
-                if (categoryRes.data?.data) {
-                    setAllCategories(categoryRes.data.data);
-                }
-            } catch (error) {
-                console.error("Lỗi fetch dữ liệu:", error);
-                toast.error("Không thể tải thông tin sản phẩm");
-            } finally {
-                setIsLoading(false);
+            if (productRes.data?.status === 200) {
+                setProduct(productRes.data.data);
             }
-        };
-        if (id) fetchData();
+            if (categoryRes.data?.data) {
+                setAllCategories(categoryRes.data.data);
+            }
+        } catch (error) {
+            console.error("Lỗi fetch dữ liệu:", error);
+            toast.error("Không thể tải thông tin sản phẩm");
+        } finally {
+            setIsLoading(false);
+        }
     }, [id]);
+
+    useEffect(() => {
+        // Hoãn qua microtask để tránh setState đồng bộ trong effect
+        // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount,
+        // giữ nguyên hành vi cũ là chỉ tải khi có id.
+        if (id) queueMicrotask(() => fetchData());
+    }, [id, fetchData]);
 
     const handlePrevImage = () => setSelectedImageIndex((prev) => Math.max(prev - 1, 0));
     const handleNextImage = () => setSelectedImageIndex((prev) => Math.min(prev + 1, totalImages - 1));
@@ -86,23 +95,11 @@ export default function ProductDetail() {
     }, [product, allCategories]);
 
     const statusMeta = useMemo(() => {
-        // Map trang thai backend sang giao dien badge/trang thai mau.
+        // Map trang thai backend sang nhan + tone hien thi tren StatusBadge.
         const configs = {
-            1: {
-                label: "Còn hàng",
-                container: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                dot: "bg-emerald-500"
-            },
-            0: {
-                label: "Hết hàng",
-                container: "bg-rose-50 text-rose-700 border-rose-200",
-                dot: "bg-rose-500"
-            },
-            2: {
-                label: "Ngừng hoạt động",
-                container: "bg-slate-100 text-slate-600 border-slate-200",
-                dot: "bg-slate-400"
-            }
+            1: { label: "Còn hàng", tone: "success" },
+            0: { label: "Hết hàng", tone: "danger" },
+            2: { label: "Ngừng hoạt động", tone: "neutral" }
         };
         return configs[product?.trangThai] || configs[2];
     }, [product?.trangThai]);
@@ -110,234 +107,251 @@ export default function ProductDetail() {
     const variantCount = product?.bienTheSanPhams?.length || 0;
 
     if (isLoading) return (
-        <div className="min-h-screen flex items-center justify-center bg-white">
-            <Loader2 className="h-10 w-10 animate-spin text-amber-600" />
-        </div>
+        <PageContainer>
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <LoadingState label="Đang tải thông tin sản phẩm" />
+            </div>
+        </PageContainer>
     );
 
     if (!product) return (
-        <div className="min-h-screen flex items-center justify-center flex-col gap-4">
-            <Package className="w-16 h-16 text-gray-200" />
-            <p className="font-medium text-gray-500">Sản phẩm không tồn tại trong hệ thống.</p>
-        </div>
+        <PageContainer>
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <EmptyState
+                    icon={Package}
+                    title="Sản phẩm không tồn tại trong hệ thống."
+                    description="Sản phẩm có thể đã bị xóa hoặc đường dẫn không còn hợp lệ."
+                />
+            </div>
+        </PageContainer>
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50 pb-16">
-            <div className="border-b border-amber-100 bg-white/90 backdrop-blur">
-                <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-4">
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => navigate("/products")}
-                            className="h-9 px-3 rounded-lg border-amber-200 bg-white text-amber-900 hover:bg-amber-50"
-                        >
-                            <ArrowLeft className="w-4 h-4 mr-1" />
-                            Quay lại danh sách
-                        </Button>
+        <PageContainer className="space-y-5">
+            {/* ── ĐIỀU HƯỚNG + BREADCRUMB ── */}
+            <div className="flex flex-wrap items-center gap-3">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate("/products")}
+                    className="h-9 gap-1.5 border-bo-border bg-white px-3 text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                    <ArrowLeft className="size-4" />
+                    Quay lại danh sách
+                </Button>
 
-                        <div className="hidden sm:block h-4 w-px bg-amber-200" />
+                <div className="hidden h-4 w-px bg-bo-border sm:block" />
 
-                        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
-                            {breadcrumbs.map((cat) => (
-                                <div key={cat.id} className="flex items-center gap-2">
-                                    <ChevronRight className="w-4 h-4 text-amber-300" />
-                                    <span>{cat.tenDanhMuc}</span>
-                                </div>
-                            ))}
-                            <ChevronRight className="w-4 h-4 text-amber-300" />
-                            <span className="font-semibold text-amber-900 truncate max-w-[240px]">{product.tenSanPham}</span>
+                <nav className="flex items-center gap-2 overflow-x-auto whitespace-nowrap text-sm text-bo-muted">
+                    {breadcrumbs.map((cat) => (
+                        <div key={cat.id} className="flex items-center gap-2">
+                            <ChevronRight className="size-4 shrink-0 text-slate-300" />
+                            <span>{cat.tenDanhMuc}</span>
                         </div>
-                    </div>
-                </div>
+                    ))}
+                    <ChevronRight className="size-4 shrink-0 text-slate-300" />
+                    <span className="max-w-[240px] truncate font-semibold text-bo-foreground">
+                        {product.tenSanPham}
+                    </span>
+                </nav>
             </div>
 
-            <main className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 space-y-8">
-                <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-                    <section className="rounded-2xl border border-amber-200 bg-white p-4 sm:p-5 shadow-sm">
-                        <div className="relative aspect-square bg-amber-50 rounded-2xl overflow-hidden border border-amber-100 group">
-                            {product.anhQuanAos?.[selectedImageIndex] ? (
-                                <img
-                                    src={product.anhQuanAos[selectedImageIndex].tepTin?.duongDan}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                    alt={product.tenSanPham}
-                                />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-amber-300 bg-amber-50">
-                                    <Package className="w-20 h-20 mb-4 stroke-[1.5]" />
-                                    <p className="text-amber-500">Ảnh sản phẩm chưa được cập nhật</p>
-                                </div>
-                            )}
+            <div className="grid gap-5 xl:grid-cols-2">
+                {/* ── THƯ VIỆN ẢNH ── */}
+                <SurfaceCard>
+                    <div className="group relative aspect-square overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle">
+                        {product.anhQuanAos?.[selectedImageIndex] ? (
+                            <img
+                                src={product.anhQuanAos[selectedImageIndex].tepTin?.duongDan}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                alt={product.tenSanPham}
+                            />
+                        ) : (
+                            <div className="flex h-full flex-col items-center justify-center text-bo-muted">
+                                <Package className="mb-4 size-16 stroke-[1.5] text-slate-300" />
+                                <p>Ảnh sản phẩm chưa được cập nhật</p>
+                            </div>
+                        )}
 
-                            {showImageControls && (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={handlePrevImage}
-                                        disabled={!canGoPrev}
-                                        className={`absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full shadow-sm bg-white border border-amber-200 transition-all ${canGoPrev ? "hover:-translate-x-0.5" : "opacity-50 cursor-not-allowed"}`}
-                                    >
-                                        <ChevronLeft className="w-5 h-5 text-amber-900" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNextImage}
-                                        disabled={!canGoNext}
-                                        className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full shadow-sm bg-white border border-amber-200 transition-all ${canGoNext ? "hover:translate-x-0.5" : "opacity-50 cursor-not-allowed"}`}
-                                    >
-                                        <ChevronRight className="w-5 h-5 text-amber-900" />
-                                    </button>
-                                </>
-                            )}
-                        </div>
-
-                        <div className="flex gap-3 overflow-x-auto py-3 mt-2">
-                            {product.anhQuanAos?.map((img, idx) => (
+                        {showImageControls && (
+                            <>
                                 <button
-                                    key={idx}
-                                    onClick={() => setSelectedImageIndex(idx)}
-                                    className={`relative w-20 h-20 rounded-xl border-2 flex-shrink-0 overflow-hidden transition-all
-                                    ${selectedImageIndex === idx ? "border-amber-500" : "border-transparent hover:border-amber-300"}`}
+                                    type="button"
+                                    onClick={handlePrevImage}
+                                    disabled={!canGoPrev}
+                                    aria-label="Ảnh trước"
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-white p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    <img src={img.tepTin?.duongDan} className="w-full h-full object-cover" alt="thumbnail" />
+                                    <ChevronLeft className="size-5" />
                                 </button>
-                            ))}
-                        </div>
-                    </section>
+                                <button
+                                    type="button"
+                                    onClick={handleNextImage}
+                                    disabled={!canGoNext}
+                                    aria-label="Ảnh kế tiếp"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-white p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <ChevronRight className="size-5" />
+                                </button>
+                            </>
+                        )}
+                    </div>
 
-                    <section className="rounded-2xl border border-amber-200 bg-white p-4 sm:p-6 shadow-sm space-y-6">
+                    <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+                        {product.anhQuanAos?.map((img, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSelectedImageIndex(idx)}
+                                aria-label={`Xem ảnh ${idx + 1}`}
+                                className={`relative size-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                                    selectedImageIndex === idx
+                                        ? "border-bo-primary"
+                                        : "border-transparent hover:border-bo-border"
+                                }`}
+                            >
+                                <img src={img.tepTin?.duongDan} className="h-full w-full object-cover" alt="thumbnail" />
+                            </button>
+                        ))}
+                    </div>
+                </SurfaceCard>
+
+                {/* ── THÔNG TIN SẢN PHẨM ── */}
+                <SurfaceCard>
+                    <div className="space-y-6">
                         <div className="space-y-3">
                             <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="secondary" className="px-3 py-1 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-200 hover:bg-amber-100">
+                                <span className="inline-flex h-6 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 text-xs font-medium text-bo-muted">
                                     {product.danhMuc?.tenDanhMuc}
-                                </Badge>
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${statusMeta.container}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
-                                    {statusMeta.label}
-                                </div>
+                                </span>
+                                <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
                             </div>
 
-                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                            <h1 className="text-2xl font-bold leading-tight tracking-tight text-bo-foreground sm:text-3xl">
                                 {product.tenSanPham}
                             </h1>
 
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-bo-muted">
                                 <span className="inline-flex items-center gap-2">
-                                    <Box className="w-4 h-4" />
-                                    Mã sản phẩm: <b className="text-slate-900">{product.maSanPham || id}</b>
+                                    <Box className="size-4" />
+                                    Mã sản phẩm: <b className="text-bo-foreground">{product.maSanPham || id}</b>
                                 </span>
                                 <span className="inline-flex items-center gap-2">
-                                    <Tag className="w-4 h-4" />
-                                    Mã vạch: <b className="text-slate-900">{product.maVach || "Chưa cập nhật"}</b>
+                                    <Tag className="size-4" />
+                                    Mã vạch: <b className="text-bo-foreground">{product.maVach || "Chưa cập nhật"}</b>
                                 </span>
                             </div>
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                                <p className="text-xs text-amber-700 font-medium">Giá bán mặc định</p>
-                                <p className="text-lg font-bold text-amber-900 mt-1">{formatCurrency(product.giaBanMacDinh)}</p>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                                <p className="text-xs font-medium text-bo-muted">Giá bán mặc định</p>
+                                <p className="mt-1 text-lg font-bold text-bo-foreground">{formatCurrency(product.giaBanMacDinh)}</p>
                             </div>
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                                <p className="text-xs text-amber-700 font-medium">Giá vốn mặc định</p>
-                                <p className="text-lg font-bold text-amber-900 mt-1">{formatCurrency(product.giaVonMacDinh)}</p>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                                <p className="text-xs font-medium text-bo-muted">Giá vốn mặc định</p>
+                                <p className="mt-1 text-lg font-bold text-bo-foreground">{formatCurrency(product.giaVonMacDinh)}</p>
                             </div>
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                                <p className="text-xs text-amber-700 font-medium">Biến thể hiện có</p>
-                                <p className="text-lg font-bold text-amber-900 mt-1">{variantCount}</p>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                                <p className="text-xs font-medium text-bo-muted">Biến thể hiện có</p>
+                                <p className="mt-1 text-lg font-bold text-bo-foreground">{variantCount}</p>
                             </div>
                         </div>
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-slate-900">Danh sách biến thể</h3>
-                                <span className="text-xs text-slate-500">{variantCount} tùy chọn</span>
+                                <h3 className="text-sm font-semibold text-bo-foreground">Danh sách biến thể</h3>
+                                <span className="text-xs text-bo-muted">{variantCount} tùy chọn</span>
                             </div>
 
-                            <div className="rounded-xl border border-amber-200 overflow-hidden bg-white">
+                            <div className="overflow-hidden rounded-lg border border-bo-border bg-white">
                                 <div className="max-h-[340px] overflow-y-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="sticky top-0 bg-amber-50 border-b border-amber-200 text-slate-600">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left font-semibold">Chi tiết màu sắc & size</th>
-                                            <th className="px-4 py-3 text-right font-semibold">Giá bán lẻ</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-amber-100">
-                                        {product.bienTheSanPhams?.map((variant) => (
-                                            <tr key={variant.id} className="hover:bg-amber-50/50 transition-colors">
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div
-                                                            className="w-5 h-5 rounded-full border border-white ring-2 ring-amber-100 shadow-sm flex-shrink-0"
-                                                            style={{ backgroundColor: variant.mauSac?.maMauHex || variant.mauSac?.maMau }}
-                                                        />
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold text-slate-800">{variant.mauSac?.tenMau || "-"}</span>
-                                                            <span className="text-xs text-slate-500">Kích cỡ: {variant.size?.tenSize || "-"}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <span className="font-bold text-slate-900">{formatCurrency(variant.giaBan)}</span>
-                                                </td>
+                                        <thead className="sticky top-0 z-10 border-b border-bo-border bg-bo-surface-subtle">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                                    Chi tiết màu sắc &amp; size
+                                                </th>
+                                                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                                    Giá bán lẻ
+                                                </th>
                                             </tr>
-                                        ))}
+                                        </thead>
+                                        <tbody className="divide-y divide-bo-border">
+                                            {product.bienTheSanPhams?.map((variant) => (
+                                                <tr key={variant.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div
+                                                                className="size-5 flex-shrink-0 rounded-full border border-white shadow-sm ring-2 ring-bo-border"
+                                                                style={{ backgroundColor: variant.mauSac?.maMauHex || variant.mauSac?.maMau }}
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-semibold text-bo-foreground">{variant.mauSac?.tenMau || "-"}</span>
+                                                                <span className="text-xs text-bo-muted">Kích cỡ: {variant.size?.tenSize || "-"}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <span className="font-bold text-bo-foreground">{formatCurrency(variant.giaBan)}</span>
+                                                    </td>
+                                                </tr>
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                         </div>
-                    </section>
-                </div>
+                    </div>
+                </SurfaceCard>
+            </div>
 
-                <section className="rounded-2xl border border-amber-200 bg-white p-4 sm:p-6 shadow-sm">
-                    <Tabs defaultValue="desc" className="w-full">
-                        <TabsList className="bg-amber-50 border border-amber-200 w-full sm:w-auto justify-start h-auto p-1 gap-1 rounded-xl mb-6">
-                            <TabsTrigger
-                                value="desc"
-                                className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-amber-800"
-                            >
-                                Mô tả chi tiết
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="spec"
-                                className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-amber-800"
-                            >
-                                Thông số kỹ thuật
-                            </TabsTrigger>
-                        </TabsList>
+            {/* ── MÔ TẢ / THÔNG SỐ ── */}
+            <SurfaceCard>
+                <Tabs defaultValue="desc" className="w-full">
+                    <TabsList className="mb-5 h-auto w-full justify-start gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1 sm:w-auto">
+                        <TabsTrigger
+                            value="desc"
+                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                        >
+                            Mô tả chi tiết
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="spec"
+                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                        >
+                            Thông số kỹ thuật
+                        </TabsTrigger>
+                    </TabsList>
 
-                        <TabsContent value="desc" className="mt-0 outline-none">
-                            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 text-slate-700 leading-relaxed">
-                                {product.moTa || "Hiện tại chưa có mô tả chi tiết cho sản phẩm này."}
+                    <TabsContent value="desc" className="mt-0 outline-none">
+                        <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4 leading-relaxed text-bo-foreground">
+                            {product.moTa || "Hiện tại chưa có mô tả chi tiết cho sản phẩm này."}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="spec" className="mt-0 outline-none">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
+                                <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
+                                    <Tag className="size-3.5" /> Chất liệu chính
+                                </p>
+                                <p className="mt-2 text-base font-semibold text-bo-foreground">
+                                    {product.bienTheSanPhams?.[0]?.chatLieu?.tenChatLieu || "Thông tin đang cập nhật"}
+                                </p>
                             </div>
-                        </TabsContent>
-
-                        <TabsContent value="spec" className="mt-0 outline-none">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4">
-                                    <p className="text-xs font-medium text-amber-700 flex items-center gap-2">
-                                        <Tag className="w-3.5 h-3.5" /> Chất liệu chính
-                                    </p>
-                                    <p className="font-semibold text-slate-900 text-base mt-2">
-                                        {product.bienTheSanPhams?.[0]?.chatLieu?.tenChatLieu || "Thông tin đang cập nhật"}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4">
-                                    <p className="text-xs font-medium text-amber-700 flex items-center gap-2">
-                                        <Info className="w-3.5 h-3.5" /> Phân loại ngành hàng
-                                    </p>
-                                    <p className="font-semibold text-slate-900 text-base mt-2">
-                                        {product.danhMuc?.tenDanhMuc}
-                                    </p>
-                                </div>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
+                                <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
+                                    <Info className="size-3.5" /> Phân loại ngành hàng
+                                </p>
+                                <p className="mt-2 text-base font-semibold text-bo-foreground">
+                                    {product.danhMuc?.tenDanhMuc}
+                                </p>
                             </div>
-                        </TabsContent>
-                    </Tabs>
-                </section>
-            </main>
-        </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </SurfaceCard>
+        </PageContainer>
     );
 }

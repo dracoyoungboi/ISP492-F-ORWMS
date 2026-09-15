@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import purchaseOrderService from "../../services/purchaseOrderService";
+import { Button } from "@/components/ui/button";
+import {
+    ArrowLeft, CheckCircle2, Check, Copy, Lightbulb,
+} from "lucide-react";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import StatusBadge from "@/components/shared/StatusBadge";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
 
 const buildVietQRUrl = (data) => {
   if (!data) return null;
@@ -53,7 +64,9 @@ export default function PurchaseOrderPayment() {
           clearInterval(intervalRef.current);
           setPaid(true);
         }
-      } catch (_) { }
+      } catch {
+        // Bỏ qua lỗi mạng tạm thời khi polling — giữ nguyên hành vi cũ
+      }
       setChecking(false);
     }, 20000);
 
@@ -89,270 +102,142 @@ export default function PurchaseOrderPayment() {
     : [];
 
   return (
-    <div style={styles.page}>
-      <div style={styles.noise} />
+    <PageContainer className="space-y-5">
+      <PageHeader
+        eyebrow="Thanh toán đơn mua hàng"
+        title={loading ? "Đang tải..." : data?.soDonMua ?? `#${orderId}`}
+        description="Quét mã VietQR hoặc chuyển khoản theo đúng nội dung để hệ thống tự động xác nhận."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => navigate(-1)}
+              className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            >
+              <ArrowLeft className="size-4" /> Quay lại
+            </Button>
+            <StatusBadge
+              label={checking ? "Đang kiểm tra..." : "Chờ thanh toán"}
+              tone={checking ? "info" : "warning"}
+            />
+          </>
+        }
+      />
 
       {/* ── SUCCESS OVERLAY ── */}
       {paid && (
-        <div style={styles.overlay}>
-          <div style={styles.successCard}>
-            <div style={styles.successIconWrap}>
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <circle cx="28" cy="28" r="28" fill="rgba(0,229,100,0.15)" />
-                <circle cx="28" cy="28" r="21" fill="rgba(0,229,100,0.2)" />
-                <path d="M17 28.5L24.5 36L39 21" stroke="#00e564" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <h2 style={styles.successTitle}>Thanh toán thành công!</h2>
-            <p style={styles.successSub}>
-              Giao dịch <strong style={{ color: "#00e5ff" }}>{data?.maGiaoDich}</strong> đã được xác nhận.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bo-foreground/60 p-4">
+          <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-lg border border-bo-border bg-white p-8 text-center shadow-lg">
+            <span className="flex size-14 items-center justify-center rounded-full bg-bo-success-soft text-bo-success">
+              <CheckCircle2 className="size-8" />
+            </span>
+            <h2 className="text-xl font-bold tracking-tight text-bo-foreground">Thanh toán thành công!</h2>
+            <p className="text-sm leading-6 text-bo-muted">
+              Giao dịch <strong className="text-bo-primary">{data?.maGiaoDich}</strong> đã được xác nhận.
             </p>
-            <div style={styles.successAmount}>{fmt(data?.tongTien)}</div>
-            <button style={styles.confirmBtn} onClick={handleConfirm}>
+            <div className="rounded-lg border border-green-200 bg-bo-success-soft px-6 py-2.5 text-2xl font-bold tracking-tight text-bo-success">
+              {fmt(data?.tongTien)}
+            </div>
+            <Button
+              className="mt-2 h-11 w-full bg-bo-primary text-sm font-semibold text-white hover:bg-bo-primary-hover"
+              onClick={handleConfirm}
+            >
               Xác nhận &amp; Đóng tab
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
-      <div style={{ ...styles.card, filter: paid ? "blur(4px)" : "none", transition: "filter 0.3s" }}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerAccent} />
-          <div>
-            <p style={styles.headerEyebrow}>Thanh toán đơn mua hàng</p>
-            <h1 style={styles.headerTitle}>
-              {loading ? "Đang tải..." : data?.soDonMua ?? `#${orderId}`}
-            </h1>
-          </div>
-          <div style={styles.statusBadge}>
-            <span style={styles.statusDot} />
-            {checking ? "Đang kiểm tra..." : "Chờ thanh toán"}
-          </div>
-        </div>
-
+      <div className={paid ? "pointer-events-none blur-sm" : ""}>
         {loading ? (
-          <div style={styles.loadingWrap}>
-            <div style={styles.spinner} />
-            <p style={styles.loadingText}>Đang tải thông tin thanh toán…</p>
-          </div>
+          <SurfaceCard title="Thông tin thanh toán" description="Đang tải dữ liệu">
+            <LoadingState rows={4} label="Đang tải thông tin thanh toán" />
+          </SurfaceCard>
         ) : !data ? (
-          <div style={styles.errorWrap}>
-            <p style={styles.errorText}>Không tìm thấy thông tin giao dịch.</p>
-          </div>
+          <SurfaceCard contentClassName="p-0 sm:p-0">
+            <ErrorState
+              title="Không tìm thấy thông tin giao dịch"
+              description="Giao dịch không tồn tại hoặc đã bị xoá khỏi hệ thống."
+            />
+            <div className="flex justify-center pb-10">
+              <Button
+                onClick={() => navigate("/purchase-orders")}
+                className="h-10 bg-bo-primary px-5 font-semibold text-white hover:bg-bo-primary-hover"
+              >
+                Quay lại danh sách
+              </Button>
+            </div>
+          </SurfaceCard>
         ) : (
-          <div style={styles.body}>
-            <div style={styles.qrSection}>
-              <div style={styles.qrFrame}>
-                {!qrLoaded && (
-                  <div style={styles.qrPlaceholder}>
-                    <div style={styles.spinner} />
-                  </div>
-                )}
-                {qrUrl && (
-                  <img
-                    src={qrUrl}
-                    alt="QR thanh toán"
-                    style={{ ...styles.qrImg, opacity: qrLoaded ? 1 : 0 }}
-                    onLoad={() => setQrLoaded(true)}
-                  />
-                )}
-              </div>
-              <p style={styles.qrHint}>Quét mã để thanh toán qua ứng dụng ngân hàng</p>
-              <div style={styles.amountBadge}>{fmt(data.tongTien)}</div>
-              {/* Polling indicator */}
-              <div style={styles.pollingRow}>
-                <div style={{ ...styles.pollingDot, background: checking ? "#ffc107" : "#00e564" }} />
-                <span style={styles.pollingText}>
-                  {checking ? "Đang xác minh giao dịch..." : "Tự động kiểm tra mỗi 20 giây"}
-                </span>
-              </div>
-            </div>
-
-            <div style={styles.infoSection}>
-              {fields.map((f) => (
-                <div
-                  key={f.key}
-                  style={{ ...styles.fieldRow, ...(f.highlight ? styles.fieldRowHighlight : {}) }}
-                  onClick={() => f.value && copy(f.value, f.key)}
-                  title="Click để sao chép"
-                >
-                  <span style={styles.fieldLabel}>{f.label}</span>
-                  <div style={styles.fieldRight}>
-                    <span style={{ ...styles.fieldValue, ...(f.money ? styles.fieldMoney : {}) }}>
-                      {f.value ?? "—"}
-                    </span>
-                    {f.value && (
-                      <span style={styles.copyIcon}>{copied === f.key ? "✓" : "⧉"}</span>
-                    )}
-                  </div>
+          <SurfaceCard contentClassName="p-0 sm:p-0">
+            <div className="flex flex-col lg:flex-row">
+              {/* ── QR Section ── */}
+              <div className="flex shrink-0 flex-col items-center gap-4 border-b border-bo-border p-6 lg:w-[300px] lg:border-b-0 lg:border-r">
+                <div className="relative flex size-[200px] items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-white">
+                  {!qrLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="size-7 animate-spin rounded-full border-[3px] border-bo-border border-t-bo-primary" />
+                    </div>
+                  )}
+                  {qrUrl && (
+                    <img
+                      src={qrUrl}
+                      alt="QR thanh toán"
+                      className={`size-full object-cover transition-opacity ${qrLoaded ? "opacity-100" : "opacity-0"}`}
+                      onLoad={() => setQrLoaded(true)}
+                    />
+                  )}
                 </div>
-              ))}
 
-              <div style={styles.noteBox}>
-                <span style={styles.noteIcon}>💡</span>
-                <p style={styles.noteText}>
-                  Vui lòng nhập <strong>{data.maGiaoDich}</strong> vào nội dung chuyển khoản để hệ thống tự động xác nhận.
-                </p>
+                <p className="text-center text-xs leading-5 text-bo-muted">Quét mã để thanh toán qua ứng dụng ngân hàng</p>
+
+                <div className="rounded-lg border border-blue-200 bg-bo-primary-soft px-5 py-2 text-lg font-bold tracking-tight text-bo-primary">
+                  {fmt(data.tongTien)}
+                </div>
+
+                {/* Polling indicator */}
+                <div className="flex items-center gap-2">
+                  <span className={`size-1.5 shrink-0 rounded-full ${checking ? "bg-bo-warning" : "bg-bo-success"}`} />
+                  <span className="text-[11px] text-bo-muted">
+                    {checking ? "Đang xác minh giao dịch..." : "Tự động kiểm tra mỗi 20 giây"}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Info Section ── */}
+              <div className="flex min-w-0 flex-1 flex-col gap-1 p-5 sm:p-6">
+                {fields.map((f) => (
+                  <div
+                    key={f.key}
+                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-md px-3.5 py-2.5 transition-colors hover:bg-bo-surface-subtle ${f.highlight ? "border border-blue-200 bg-bo-primary-soft" : ""}`}
+                    onClick={() => f.value && copy(f.value, f.key)}
+                    title="Click để sao chép"
+                  >
+                    <span className="shrink-0 text-xs font-medium text-bo-muted">{f.label}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={`break-all text-right text-sm font-medium ${f.money ? "text-base font-bold text-bo-primary" : "text-bo-foreground"}`}>
+                        {f.value ?? "—"}
+                      </span>
+                      {f.value && (
+                        copied === f.key
+                          ? <Check className="size-3.5 shrink-0 select-none text-bo-success" />
+                          : <Copy className="size-3.5 shrink-0 select-none text-bo-muted" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-blue-200 bg-bo-primary-soft px-4 py-3">
+                  <Lightbulb className="mt-0.5 size-4 shrink-0 text-bo-primary" />
+                  <p className="text-[13px] leading-6 text-slate-600">
+                    Vui lòng nhập <strong className="text-bo-foreground">{data.maGiaoDich}</strong> vào nội dung chuyển khoản để hệ thống tự động xác nhận.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </SurfaceCard>
         )}
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @keyframes fadeIn { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
-        @keyframes popIn { from{opacity:0;transform:translateY(24px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
-      `}</style>
-    </div>
+    </PageContainer>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #0d1b2a 100%)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "32px 16px",
-    fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
-    position: "relative", overflow: "hidden",
-  },
-  noise: {
-    position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")",
-    backgroundRepeat: "repeat", backgroundSize: "200px",
-  },
-  // Success overlay
-  overlay: {
-    position: "fixed", inset: 0, zIndex: 100,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
-    animation: "fadeIn 0.3s ease",
-  },
-  successCard: {
-    background: "linear-gradient(145deg, #0d1b2a, #1a1a3e)",
-    border: "1px solid rgba(0,229,100,0.3)",
-    borderRadius: 24,
-    padding: "48px 40px",
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
-    boxShadow: "0 0 80px rgba(0,229,100,0.15), 0 32px 80px rgba(0,0,0,0.6)",
-    animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
-    maxWidth: 360, width: "100%", textAlign: "center",
-  },
-  successIconWrap: { marginBottom: 4 },
-  successTitle: { margin: 0, fontSize: 24, fontWeight: 700, color: "#fff" },
-  successSub: { margin: 0, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 },
-  successAmount: {
-    fontSize: 28, fontWeight: 800, color: "#00e564",
-    background: "rgba(0,229,100,0.08)", border: "1px solid rgba(0,229,100,0.2)",
-    borderRadius: 12, padding: "10px 28px",
-  },
-  confirmBtn: {
-    marginTop: 8,
-    background: "linear-gradient(135deg, #00e564, #00b84d)",
-    border: "none", borderRadius: 12,
-    padding: "13px 32px", fontSize: 15, fontWeight: 700, color: "#fff",
-    cursor: "pointer", letterSpacing: "0.01em",
-    boxShadow: "0 8px 24px rgba(0,229,100,0.3)",
-    transition: "transform 0.15s, box-shadow 0.15s",
-  },
-  // Card
-  card: {
-    position: "relative", zIndex: 1,
-    width: "100%", maxWidth: 820,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 20,
-    backdropFilter: "blur(24px)",
-    boxShadow: "0 32px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex", alignItems: "center", gap: 16,
-    padding: "24px 32px",
-    borderBottom: "1px solid rgba(255,255,255,0.07)",
-    background: "rgba(255,255,255,0.02)",
-    position: "relative", overflow: "hidden",
-  },
-  headerAccent: {
-    position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
-    background: "linear-gradient(180deg, #00e5ff, #7b2ff7)",
-    borderRadius: "0 4px 4px 0",
-  },
-  headerEyebrow: { margin: 0, fontSize: 11, color: "#00e5ff", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600 },
-  headerTitle: { margin: "4px 0 0", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" },
-  statusBadge: {
-    marginLeft: "auto", display: "flex", alignItems: "center", gap: 7,
-    background: "rgba(255, 193, 7, 0.12)", border: "1px solid rgba(255,193,7,0.3)",
-    borderRadius: 20, padding: "5px 14px", fontSize: 12, color: "#ffc107", fontWeight: 600,
-  },
-  statusDot: {
-    width: 7, height: 7, borderRadius: "50%", background: "#ffc107",
-    boxShadow: "0 0 8px #ffc107", animation: "pulse 1.5s infinite",
-    display: "inline-block",
-  },
-  body: { display: "flex", gap: 0, flexWrap: "wrap" },
-  qrSection: {
-    flex: "0 0 280px",
-    display: "flex", flexDirection: "column", alignItems: "center",
-    padding: "32px 24px",
-    borderRight: "1px solid rgba(255,255,255,0.07)",
-    gap: 14,
-  },
-  qrFrame: {
-    width: 200, height: 200, background: "#fff", borderRadius: 12,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    boxShadow: "0 0 40px rgba(0,229,255,0.2), 0 8px 32px rgba(0,0,0,0.4)",
-    overflow: "hidden", position: "relative",
-  },
-  qrImg: { width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.4s" },
-  qrPlaceholder: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  qrHint: { margin: 0, fontSize: 12, color: "rgba(255,255,255,0.4)", textAlign: "center", lineHeight: 1.5 },
-  amountBadge: {
-    background: "linear-gradient(135deg, #00e5ff22, #7b2ff722)",
-    border: "1px solid rgba(0,229,255,0.3)",
-    borderRadius: 10, padding: "8px 20px",
-    fontSize: 18, fontWeight: 700, color: "#00e5ff", letterSpacing: "-0.01em",
-  },
-  pollingRow: { display: "flex", alignItems: "center", gap: 7 },
-  pollingDot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0, transition: "background 0.3s", boxShadow: "0 0 6px currentColor" },
-  pollingText: { fontSize: 11, color: "rgba(255,255,255,0.35)" },
-  infoSection: {
-    flex: 1, minWidth: 0,
-    padding: "28px 32px",
-    display: "flex", flexDirection: "column", gap: 4,
-  },
-  fieldRow: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "11px 14px", borderRadius: 8, cursor: "pointer",
-    transition: "background 0.15s", gap: 12,
-  },
-  fieldRowHighlight: {
-    background: "rgba(0, 229, 255, 0.06)",
-    border: "1px solid rgba(0,229,255,0.15)",
-  },
-  fieldLabel: { fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 500, flexShrink: 0 },
-  fieldRight: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 },
-  fieldValue: { fontSize: 14, color: "rgba(255,255,255,0.85)", fontWeight: 500, textAlign: "right", wordBreak: "break-all" },
-  fieldMoney: { color: "#00e5ff", fontWeight: 700, fontSize: 16 },
-  copyIcon: { fontSize: 13, color: "rgba(255,255,255,0.3)", flexShrink: 0, userSelect: "none" },
-  noteBox: {
-    marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start",
-    background: "rgba(123, 47, 247, 0.1)", border: "1px solid rgba(123,47,247,0.25)",
-    borderRadius: 10, padding: "12px 16px",
-  },
-  noteIcon: { fontSize: 16, flexShrink: 0 },
-  noteText: { margin: 0, fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 },
-  loadingWrap: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 64, gap: 16 },
-  loadingText: { color: "rgba(255,255,255,0.4)", fontSize: 14 },
-  errorWrap: { display: "flex", alignItems: "center", justifyContent: "center", padding: 64 },
-  errorText: { color: "#ff5c5c", fontSize: 14 },
-  spinner: {
-    width: 28, height: 28, borderRadius: "50%",
-    border: "3px solid rgba(255,255,255,0.1)",
-    borderTopColor: "#00e5ff",
-    animation: "spin 0.8s linear infinite",
-  },
-};

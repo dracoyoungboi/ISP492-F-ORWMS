@@ -1,31 +1,42 @@
 import {
   ChevronDown,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  ShoppingBag,
+  UserRound,
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
+import UserAvatar from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Link, useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { useSidebar } from "@/components/ui/sidebar";
 
-export default function BackofficeHeader({
-  title,
-  subtitle,
-  routeKey,
-}) {
-  const { toggleSidebar, open } = useSidebar();
+const ROLE_LABELS = {
+  quan_tri_vien: "Quản trị viên",
+  quan_ly_kho: "Quản lý kho",
+  nhan_vien_kho: "Nhân viên kho",
+  nhan_vien_mua_hang: "Nhân viên mua hàng",
+  nhan_vien_ban_hang: "Nhân viên bán hàng",
+};
+
+export default function BackofficeHeader({ title, subtitle, routeKey }) {
+  const {
+    toggleSidebar,
+    open,
+    isMobile,
+    openMobile,
+  } = useSidebar();
   const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
+  const role = localStorage.getItem("role");
 
   let userId = null;
   let username = "Admin";
@@ -35,8 +46,8 @@ export default function BackofficeHeader({
       const payload = jwtDecode(token);
       userId = payload.userId || payload.id || payload.sub;
       username = payload.tenDangNhap || payload.username || "Admin";
-    } catch (e) {
-      console.error("Invalid token", e);
+    } catch (error) {
+      console.error("Invalid token", error);
     }
   }
 
@@ -46,241 +57,106 @@ export default function BackofficeHeader({
     navigate("/login");
   };
 
-  const isWarehouseHeader = routeKey === "WAREHOUSE";
-
-  const luxuryDetailHeaderKeys = new Set([
-    "LOT_INPUT",
-    "GOODS_RECEIPTS_DETAIL",
-    "GOODS_ISSUES_CREATE",
-    "GOODS_ISSUES_DETAIL",
-    "PICK_LOT",
-    "CREATE_TRANSFER_TICKET",
-    "TRANSFER_TICKET_DETAIL",
-    "STOCK_TAKE_DETAIL",
-    "STOCK_TAKE_CREATE",
-    "CUSTOMER_DETAIL",
-    "CUSTOMER_EDIT",
-    "CREATE_SALES_ORDER",
-    "SALES_ORDER_DETAIL",
-    "SUPPLIER_DETAIL",
-    "SUPPLIER_EDIT",
-    "PURCHASE_ORDER_CREATE",
-    "GOODS_RECEIPTS_CREATE",
-    "SUPPLIER_CREATE",
-    "CHI_TIET_SAN_PHAM",
-    "INVENTORY_REPORT",
-    "SALES_INVOICE_PRINT",
-    "USER_DETAIL",
-    "PURCHASE_REQUEST_QUOTATION",
-    "QUOTATION_REQUEST",
-    "PURCHASE_REQUEST_CREATE",
-    "PURCHASE_ORDER_CREATE",
-    "QUOTATION_REQUEST_CREATE",
-    "PURCHASE_REQUEST_DETAIL",
-    "QUOTATION_REQUEST_DETAIL",
-    "QUOTATION_DETAIL",
-    "PURCHASE_ORDER_DETAIL",
-    "SALE_QUOTATION",
-    "SALE_QUOTATION_CREATE",
-    "SALE_QUOTATION_DETAIL"
-  ]);
-
-  const isLuxuryDetailHeader = routeKey ? luxuryDetailHeaderKeys.has(routeKey) : false;
-
-  const mainHeaderKeys = new Set([
-    "DASHBOARD",
-    "USER_LIST",
-    "ADD_USER",
-    "ATTRIBUTES",
-    "MATERIALS",
-    "PRODUCTS",
-    "SKU_BUILDER",
-    "SUPPLIERS",
-    "WAREHOUSE",
-    "GOODS_RECEIPTS",
-    "GOODS_ISSUES",
-    "PURCHASE_REQUESTS",
-    "PURCHASE_ORDERS",
-    "TRANSFER_TICKETS",
-    "STOCK_TAKE_LIST",
-    "DANH_MUC_QUAN_AO",
-    "SALES_ORDERS",
-    "CUSTOMERS",
-    "BAO_CAO_DOANH_THU",
-    "BAO_CAO_KHACH_HANG",
-    "BAO_CAO_NHAP_XUAT",
-    "LICH_SU_GIAO_DICH_KHO", // ← thêm vào đây
-  ]);
-
-  const isMainScreenHeader = routeKey ? mainHeaderKeys.has(routeKey) : false;
-
-  const headerEyebrow = isWarehouseHeader
-    ? "FS WMS · INVENTORY"
-    : "FS WMS - TECHNOLOGY SOLUTION";
-
-  const mainTitle = isWarehouseHeader ? "Quản lý kho hàng" : title;
-
-  const buildTwoToneTitle = (rawTitle, key) => {
-    if (!rawTitle || typeof rawTitle !== "string") {
-      return { base: "", accent: "" };
-    }
-
-    const words = rawTitle.trim().split(/\s+/).filter(Boolean);
-    const splitIndex = key === "ADD_USER" ? 1 : 2;
-
-    if (words.length <= splitIndex) {
-      return { base: words.join(" "), accent: "" };
-    }
-
-    return {
-      base: words.slice(0, splitIndex).join(" "),
-      accent: words.slice(splitIndex).join(" "),
-    };
-  };
-
-  // "Lịch sử giao dịch kho" → base: "Lịch sử" | accent: "giao dịch kho"
-  const { base: mainTitleBase, accent: mainTitleAccent } = buildTwoToneTitle(mainTitle, routeKey);
+  const sidebarOpen = isMobile ? openMobile : open;
+  const displayTitle =
+    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "FCentric";
+  const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#b8860b]/20 bg-[#fffaf0]">
-      <div className="h-16 px-6 flex items-center justify-between">
-        {/* Left */}
-        <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
+      <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Button
             variant="ghost"
             size="icon"
+            type="button"
             onClick={toggleSidebar}
-            className="text-[#5b4c36] hover:bg-[#f2e4bc] hover:text-[#7a5700]"
+            aria-label={sidebarOpen ? "Thu gọn menu" : "Mở menu"}
+            aria-expanded={sidebarOpen}
+            aria-controls="backoffice-navigation"
+            className="shrink-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
           >
-            {open ? (
-              <PanelLeftClose className="h-5 w-5" />
+            {sidebarOpen ? (
+              <PanelLeftClose className="size-5" />
             ) : (
-              <PanelLeftOpen className="h-5 w-5" />
+              <PanelLeftOpen className="size-5" />
             )}
           </Button>
 
-          {isMainScreenHeader ? (
-            <div className="flex flex-col gap-0.5">
-              <p
-                className="text-[9px] md:text-[10px] tracking-[0.18em] uppercase text-[#b8860b]/80"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
-                {headerEyebrow}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+              <span className="hidden sm:inline">FCentric</span>
+              <span className="hidden sm:inline" aria-hidden="true">
+                /
+              </span>
+              <span className="truncate normal-case tracking-normal text-bo-foreground">
+                {displayTitle}
+              </span>
+            </div>
+            {subtitle ? (
+              <p className="hidden max-w-[60vw] truncate text-xs text-bo-muted md:block">
+                {subtitle}
               </p>
-              <h1
-                className="text-[20px] md:text-[24px] lg:text-[26px] leading-tight font-black text-[#1a1612]"
-                style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}
-              >
-                {mainTitleBase}
-                {mainTitleAccent ? (
-                  <>
-                    {" "}
-                    <span className="text-[#b8860b]">{mainTitleAccent}</span>
-                  </>
-                ) : null}
-              </h1>
-            </div>
-          ) : isLuxuryDetailHeader ? (
-            <div className="flex flex-col gap-0.5">
-              <p
-                className="text-[9px] md:text-[10px] tracking-[0.18em] uppercase text-[#b8860b]/80"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
-                {headerEyebrow}
-              </p>
-              <h1
-                className="text-[20px] md:text-[24px] lg:text-[26px] leading-tight font-black text-[#1a1612]"
-                style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}
-              >
-                {mainTitleBase}
-                {mainTitleAccent ? (
-                  <>
-                    {" "}
-                    <span className="text-[#b8860b]">{mainTitleAccent}</span>
-                  </>
-                ) : null}
-              </h1>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-[#1a1612]">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="text-xs text-[#7a6e5f]">{subtitle}</p>
-              )}
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="flex items-center gap-2 px-2 hover:bg-[#f2e4bc]"
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="" alt="Admin Avatar" />
-                  <AvatarFallback className="bg-gradient-to-br from-[#d4a72b] to-[#b8860b] text-white text-sm font-semibold">
-                    {username ? username.charAt(0).toUpperCase() : "A"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium text-[#4a3f2f]">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              type="button"
+              className="h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100"
+              aria-label="Mở menu tài khoản"
+            >
+              <UserAvatar userId={userId} name={username} size="xs" />
+
+              <span className="hidden min-w-0 text-left sm:block">
+                <span className="block truncate text-sm font-semibold leading-4">
                   {username}
                 </span>
-                <ChevronDown className="h-4 w-4 text-[#7a6e5f]" />
-              </Button>
-            </DropdownMenuTrigger>
+                <span className="mt-0.5 block truncate text-[11px] font-normal leading-3 text-bo-muted">
+                  {roleLabel}
+                </span>
+              </span>
+              <ChevronDown className="hidden size-4 text-bo-muted sm:block" />
+            </Button>
+          </DropdownMenuTrigger>
 
-            <DropdownMenuContent
-              align="end"
-              sideOffset={4}
-              className="w-52 bg-gradient-to-b from-[#fffaf0] to-[#f7f0df] z-50 border border-[#b8860b]/25 shadow-[0_16px_40px_rgba(122,87,0,0.18)] rounded-xl p-1.5"
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            className="backoffice-user-menu z-50 w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
+          >
+            <div className="px-2 py-2">
+              <p className="truncate text-sm font-semibold">{username}</p>
+              <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>
+            </div>
+
+            <DropdownMenuSeparator className="bg-bo-border" />
+
+            <DropdownMenuItem
+              asChild
+              disabled={!userId}
+              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950"
             >
-              <DropdownMenuItem asChild disabled={!userId}>
-                <Link
-                  to={`/user/${userId}`}
-                  className="text-sm px-3 py-2 rounded-md focus:bg-[#f2e4bc] text-[#4a3f2f] cursor-pointer"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  Hồ sơ
-                </Link>
-              </DropdownMenuItem>
+              <Link to={`/user/${userId}`}>
+                <UserRound className="size-4 text-slate-500" />
+                Hồ sơ
+              </Link>
+            </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className="text-sm px-3 py-2 rounded-md focus:bg-[#f2e4bc] text-[#4a3f2f] cursor-pointer"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                Đổi mật khẩu
-              </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-bo-border" />
 
-              <DropdownMenuSeparator className="my-1 bg-[#b8860b]/20" />
-
-              <DropdownMenuItem asChild>
-                <Link
-                  to="/store"
-                  className="text-sm px-3 py-2 rounded-md focus:bg-[#f2e4bc] text-[#4a3f2f] cursor-pointer flex items-center gap-2"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  <ShoppingBag className="h-4 w-4 text-[#b8860b]" />
-                  Về cửa hàng
-                </Link>
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator className="my-1 bg-[#b8860b]/20" />
-
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-sm px-3 py-2 rounded-md text-[#b24a2d] focus:bg-[#fde9df] cursor-pointer"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                Đăng xuất
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger"
+            >
+              <LogOut className="size-4" />
+              Đăng xuất
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

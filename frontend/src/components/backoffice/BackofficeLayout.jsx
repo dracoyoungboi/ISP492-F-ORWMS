@@ -1,7 +1,6 @@
-import { Outlet, useLocation, useParams } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
-import { Toaster } from "@/components/ui/sonner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import "@/styles/print.css";
 
@@ -32,6 +31,12 @@ export default function BackofficeLayout() {
             match: (path) => path === "/users/add",
             title: "Thêm người dùng",
             subtitle: "Thêm người dùng mới",
+        },
+        {
+            key: "USER_PROFILE",
+            match: (path) => /^\/user\/\d+$/.test(path),
+            title: "Hồ sơ cá nhân",
+            subtitle: "Thông tin tài khoản của bạn",
         },
         {
             key: "USER_DETAIL",
@@ -78,7 +83,7 @@ export default function BackofficeLayout() {
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "FS WMS · INVENTORY",
+            title: "FCentric · INVENTORY",
             subtitle: "Quản lý kho hàng",
         },
         {
@@ -369,21 +374,32 @@ export default function BackofficeLayout() {
 
     return (
         <SidebarProvider defaultOpen>
-            <div className="flex h-screen w-full overflow-hidden">
+            <div
+                data-backoffice-shell
+                className="flex h-dvh min-h-0 w-full overflow-hidden bg-bo-canvas font-backoffice text-bo-foreground"
+            >
+                <a
+                    href="#backoffice-main-content"
+                    className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-bo-primary px-3 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0"
+                >
+                    Bỏ qua menu
+                </a>
                 {/* SIDEBAR */}
                 <BackofficeSidebar />
 
                 {/* MAIN CONTENT */}
-                <SidebarInset className="flex flex-col min-w-0 w-full">
-                    <Toaster position="top-center" richColors />
-
+                <SidebarInset className="flex min-w-0 flex-col bg-bo-canvas">
                     <BackofficeHeader
                         title={pageMeta?.title}
                         subtitle={pageMeta?.subtitle}
                         routeKey={pageMeta?.key}
                     />
 
-                    <main className="flex-1 min-w-0 overflow-y-auto bg-[#f8f4ea]">
+                    <main
+                        id="backoffice-main-content"
+                        tabIndex="-1"
+                        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas"
+                    >
                         <Outlet />
                     </main>
                 </SidebarInset>

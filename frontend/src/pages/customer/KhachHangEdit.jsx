@@ -1,5 +1,5 @@
 // src/pages/customer/KhachHangEdit.jsx
-import { useState, useEffect } from 'react';
+import { createElement, useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,12 @@ import {
 import { toast } from "sonner";
 import { getKhachHangById, updateKhachHang } from "@/services/khachHangService";
 
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import FormActions from "@/components/shared/FormActions";
+import FormSection from "@/components/shared/FormSection";
+import LoadingState from "@/components/shared/LoadingState";
+
 const formSchema = z.object({
   tenKhachHang: z.string().min(1, "Tên khách hàng không được để trống").max(200),
   nguoiLienHe: z.string().max(100).optional(),
@@ -32,6 +38,12 @@ const formSchema = z.object({
   trangThai: z.number().optional(),
 });
 
+const LOAI_OPTIONS = [
+  { value: "le",           label: "Cá nhân",     sub: "Khách lẻ",         Icon: User },
+  { value: "si",           label: "Sỉ",          sub: "Mua số lượng lớn", Icon: Users },
+  { value: "doanh_nghiep", label: "Doanh nghiệp", sub: "Công ty, đối tác", Icon: Building },
+];
+
 export default function KhachHangEdit() {
   const { id }   = useParams();
   const navigate = useNavigate();
@@ -45,29 +57,32 @@ export default function KhachHangEdit() {
     },
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const data = await getKhachHangById(id);
-        form.reset({
-          tenKhachHang: data.tenKhachHang || "",
-          nguoiLienHe:  data.nguoiLienHe  || "",
-          soDienThoai:  data.soDienThoai  || "",
-          email:        data.email        || "",
-          diaChi:       data.diaChi       || "",
-          loaiKhachHang: data.loaiKhachHang || "le",
-          trangThai:    data.trangThai    || 0,
-        });
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Không thể tải thông tin khách hàng");
-        navigate("/customers");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getKhachHangById(id);
+      form.reset({
+        tenKhachHang: data.tenKhachHang || "",
+        nguoiLienHe:  data.nguoiLienHe  || "",
+        soDienThoai:  data.soDienThoai  || "",
+        email:        data.email        || "",
+        diaChi:       data.diaChi       || "",
+        loaiKhachHang: data.loaiKhachHang || "le",
+        trangThai:    data.trangThai    || 0,
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Không thể tải thông tin khách hàng");
+      navigate("/customers");
+    } finally {
+      setLoading(false);
+    }
   }, [id, form, navigate]);
+
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
+  useEffect(() => {
+    queueMicrotask(() => fetchData());
+  }, [fetchData]);
 
   const onSubmit = async (values) => {
     setLoading(true);
@@ -83,183 +98,183 @@ export default function KhachHangEdit() {
   };
 
   return (
-    <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
-      <div className="space-y-6 w-full max-w-2xl mx-auto">
-
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => navigate(`/customers/${id}`)}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors duration-150"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Quay lại chi tiết
-          </button>
-        </div>
-
-        {/* ── Form panel ── */}
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-          {/* Panel header */}
-          <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100">
-              <User className="h-4 w-4 text-violet-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900 leading-snug">Chỉnh sửa khách hàng</p>
-              <p className="text-xs text-slate-500 mt-0.5">Cập nhật thông tin chi tiết</p>
-            </div>
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="p-8 space-y-6">
-                {loading ? (
-                  <div className="flex items-center justify-center py-12 gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-                    <span className="text-sm text-gray-600">Đang tải...</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Tên khách hàng */}
-                    <FormField control={form.control} name="tenKhachHang" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          <User className="h-4 w-4 text-slate-400" /> Tên khách hàng <span className="text-red-500">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input className="border-gray-200 focus:border-violet-500 focus:ring-violet-500 h-10" {...field} />
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Người liên hệ */}
-                    <FormField control={form.control} name="nguoiLienHe" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700">Người liên hệ</FormLabel>
-                        <FormControl>
-                          <Input className="border-gray-200 focus:border-violet-500 focus:ring-violet-500 h-10" {...field} />
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Số điện thoại */}
-                    <FormField control={form.control} name="soDienThoai" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-slate-400" /> Số điện thoại
-                        </FormLabel>
-                        <FormControl>
-                          <Input className="border-gray-200 focus:border-violet-500 focus:ring-violet-500 h-10" {...field} />
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Email */}
-                    <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-400" /> Email
-                        </FormLabel>
-                        <FormControl>
-                          <Input className="border-gray-200 focus:border-violet-500 focus:ring-violet-500 h-10" {...field} />
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Địa chỉ */}
-                    <FormField control={form.control} name="diaChi" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-slate-400" /> Địa chỉ
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea className="border-gray-200 focus:border-violet-500 focus:ring-violet-500 resize-none" rows={3} {...field} />
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Loại khách hàng */}
-                    <FormField control={form.control} name="loaiKhachHang" render={({ field }) => (
-                      <FormItem className="space-y-3">
-                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          <Users className="h-4 w-4 text-slate-400" /> Loại khách hàng
-                        </FormLabel>
-                        <FormControl>
-                          <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-3 gap-3">
-                            {[
-                              { value: "le",          label: "Cá nhân",    sub: "Khách lẻ",         Icon: User },
-                              { value: "si",          label: "Sỉ",         sub: "Mua số lượng lớn", Icon: Users },
-                              { value: "doanh_nghiep",label: "Doanh nghiệp",sub: "Công ty, đối tác", Icon: Building },
-                            ].map(({ value, label, sub, Icon }) => (
-                              <FormItem key={value}>
-                                <FormControl>
-                                  <RadioGroupItem value={value} id={value} className="peer sr-only" />
-                                </FormControl>
-                                <FormLabel
-                                  htmlFor={value}
-                                  className="flex flex-col items-center justify-center rounded-xl border-2 border-slate-200 bg-white p-4 text-center cursor-pointer transition-all duration-150 hover:border-violet-400 hover:bg-violet-50/30 peer-data-[state=checked]:border-violet-600 peer-data-[state=checked]:bg-violet-50"
-                                >
-                                  <Icon className="h-8 w-8 text-slate-400 peer-data-[state=checked]:text-violet-600 mb-2" />
-                                  <span className="font-bold text-sm text-slate-900">{label}</span>
-                                  <span className="text-xs text-slate-400 mt-0.5">{sub}</span>
-                                </FormLabel>
-                              </FormItem>
-                            ))}
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage className="text-red-500 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {/* Trạng thái */}
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-sm font-semibold text-slate-700">Trạng thái hoạt động</span>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-semibold ${form.watch("trangThai") === 1 ? "text-emerald-600" : "text-slate-400"}`}>
-                          {form.watch("trangThai") === 1 ? "Hoạt động" : "Ngừng hoạt động"}
-                        </span>
-                        <Switch
-                          checked={form.watch("trangThai") === 1}
-                          onCheckedChange={(checked) => form.setValue("trangThai", checked ? 1 : 0)}
-                          className="data-[state=checked]:bg-emerald-600"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Panel footer */}
-              <div className="flex justify-end gap-3 px-8 py-5 bg-slate-50 border-t border-slate-100">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate(`/customers/${id}`)}
-                  className="bg-white text-slate-900 border border-slate-900 hover:bg-slate-50 shadow-sm font-medium"
-                >
-                  Hủy
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm transition-all duration-200 font-bold min-w-[140px]"
-                >
-                  {loading
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</>
-                    : <><Save className="mr-2 h-4 w-4" />Cập nhật</>
-                  }
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
+    <PageContainer className="mx-auto max-w-3xl space-y-5">
+      {/* ── Header ── */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => navigate(`/customers/${id}`)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại chi tiết
+        </button>
+        <PageHeader
+          className="mb-0"
+          title="Chỉnh sửa khách hàng"
+          description="Cập nhật thông tin chi tiết của khách hàng"
+        />
       </div>
-    </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <FormSection title="Thông tin khách hàng" description="Các trường có dấu * là bắt buộc">
+            {loading ? (
+              <LoadingState rows={4} label="Đang tải thông tin khách hàng" />
+            ) : (
+              <div className="space-y-5">
+                {/* Tên khách hàng */}
+                <FormField control={form.control} name="tenKhachHang" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                      <User className="size-4 text-bo-muted" /> Tên khách hàng <span className="text-bo-danger">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Người liên hệ */}
+                <FormField control={form.control} name="nguoiLienHe" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-semibold text-bo-foreground">Người liên hệ</FormLabel>
+                    <FormControl>
+                      <Input
+                        className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Số điện thoại */}
+                <FormField control={form.control} name="soDienThoai" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                      <Phone className="size-4 text-bo-muted" /> Số điện thoại
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Email */}
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                      <Mail className="size-4 text-bo-muted" /> Email
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Địa chỉ */}
+                <FormField control={form.control} name="diaChi" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                      <MapPin className="size-4 text-bo-muted" /> Địa chỉ
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        className="resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Loại khách hàng */}
+                <FormField control={form.control} name="loaiKhachHang" render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                      <Users className="size-4 text-bo-muted" /> Loại khách hàng
+                    </FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                      >
+                        {LOAI_OPTIONS.map(({ value, label, sub, Icon }) => (
+                          <FormItem key={value}>
+                            <FormControl>
+                              <RadioGroupItem value={value} id={value} className="peer sr-only" />
+                            </FormControl>
+                            <FormLabel
+                              htmlFor={value}
+                              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-bo-border bg-white p-4 text-center transition-colors hover:border-bo-primary hover:bg-bo-primary-soft peer-data-[state=checked]:border-bo-primary peer-data-[state=checked]:bg-bo-primary-soft"
+                            >
+                              {createElement(Icon, { className: "mb-2 size-7 text-bo-muted peer-data-[state=checked]:text-bo-primary" })}
+                              <span className="text-sm font-bold text-bo-foreground">{label}</span>
+                              <span className="mt-0.5 text-xs text-bo-muted">{sub}</span>
+                            </FormLabel>
+                          </FormItem>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage className="text-xs text-bo-danger" />
+                  </FormItem>
+                )} />
+
+                {/* Trạng thái */}
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
+                  <span className="text-sm font-semibold text-bo-foreground">Trạng thái hoạt động</span>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-semibold ${form.watch("trangThai") === 1 ? "text-bo-success" : "text-bo-muted"}`}>
+                      {form.watch("trangThai") === 1 ? "Hoạt động" : "Ngừng hoạt động"}
+                    </span>
+                    <Switch
+                      checked={form.watch("trangThai") === 1}
+                      onCheckedChange={(checked) => form.setValue("trangThai", checked ? 1 : 0)}
+                      className="data-[state=checked]:bg-bo-success"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </FormSection>
+
+          <FormActions className="rounded-b-lg border border-t-0 border-bo-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate(`/customers/${id}`)}
+              className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="min-w-[140px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              {loading
+                ? <><Loader2 className="size-4 animate-spin" />Đang lưu...</>
+                : <><Save className="size-4" />Cập nhật</>
+              }
+            </Button>
+          </FormActions>
+        </form>
+      </Form>
+    </PageContainer>
   );
 }

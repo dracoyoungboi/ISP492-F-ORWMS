@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { dashboardService } from "@/services/dashboardService";
 import Stat from "@/components/dashboard/Stat";
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
 import { Package, AlertTriangle } from "lucide-react";
 
 export default function DashboardWarehouseStaff() {
@@ -16,24 +18,29 @@ export default function DashboardWarehouseStaff() {
   if (!data) return null;
 
   return (
-    <div className="lux-sync p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+    <PageContainer className="space-y-5">
 
-      <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <PageHeader
+        title="Tổng quan"
+        description="Thông tin hoạt động kho trong ngày"
+      />
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
         <Stat
-          icon={<Package className="w-5 h-5 text-blue-600" />}
+          icon={<Package className="h-5 w-5 text-bo-primary" />}
           label="Đơn bán hôm nay"
           value={data.totalOrdersToday}
         />
 
         <Stat
-          icon={<AlertTriangle className="w-5 h-5 text-red-600" />}
+          icon={<AlertTriangle className="h-5 w-5 text-bo-danger" />}
           label="Tồn kho thấp"
           value={data.lowStockCount}
         />
 
       </section>
 
-    </div>
+    </PageContainer>
   );
 }

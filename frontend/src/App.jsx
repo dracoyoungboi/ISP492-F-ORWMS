@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { Toaster } from "@/components/ui/sonner";
 import Login from "./pages/Login";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -53,11 +55,6 @@ import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
 import StockTakeList from "./pages/stock-take/StockTakeList";
 import StockTakeCreate from "./pages/stock-take/StockTakeCreate";
-import StoreLayout from "@/components/store/StoreLayout";
-import StoreHome from "./pages/store/StoreHome";
-import ProductCategory from "./pages/store/ProductCategory";
-import ProductSearch from "./pages/store/ProductSearch";
-import PublicProductDetail from "./pages/store/PublicProductDetail";
 import BaoCaoDoanhThu from "./pages/bao-cao/BaoCaoDoanhThu";
 import KhachHangReport from "./pages/bao-cao/KhachHangReport";
 import NhatKyNhapXuat from "./pages/bao-cao/NhatKyNhapXuat";
@@ -85,6 +82,9 @@ import QuotationDetail from "./pages/order/QuotationDetail";
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Toaster global: dùng chung cho mọi trang (kể cả auth — toast từ ProtectedRoute
+          cần sống sót khi chuyển sang /login, nơi BackofficeLayout không còn mount) */}
+      <Toaster position="top-center" richColors />
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
         <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
@@ -94,20 +94,15 @@ export default function App() {
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
         <Route path="/quote-success" element={<QuoteSuccess />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
-        <Route path="/user/:id" element={<UserDetail />} />
-
-        {/* ========== STOREFRONT ROUTES (CÓ NAVBAR + FOOTER CỦA KHÁCH) ========== */}
-        <Route element={<StoreLayout />}>
-          <Route path="/store" element={<StoreHome />} />
-          <Route path="/category/:id" element={<ProductCategory />} />
-          <Route path="/search" element={<ProductSearch />} />
-          <Route path="/product/:id" element={<PublicProductDetail />} />
-        </Route>
 
         {/* ========== BACKOFFICE ROUTES (CÓ SIDEBAR + HEADER) ========== */}
-        <Route element={<BackofficeLayout />}>
+        <Route element={<ProtectedRoute />}>
+          <Route element={<BackofficeLayout />}>
           {/* Dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Hồ sơ cá nhân (mở từ menu tài khoản ở Header) */}
+          <Route path="/user/:id" element={<UserDetail />} />
 
           {/* User management */}
           <Route path="/users" element={<ViewUserListByAdmin />} />
@@ -212,6 +207,7 @@ export default function App() {
           {/*Lịch sử giao dịch kho */}
           <Route path="/lich-su-giao-dich-kho" element={<LichSuGiaoDichKhoList />} />
 
+          </Route>
         </Route>
 
         {/* ========== 404 ========== */}

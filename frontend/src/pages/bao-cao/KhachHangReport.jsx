@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,7 +8,6 @@ import {
   ComposedChart,
   Bar,
   Line,
-  ReferenceLine,
 } from "recharts";
 
 import {
@@ -22,16 +19,14 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
+import StatusBadge from "@/components/shared/StatusBadge";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 
 import {
   Tabs,
@@ -46,17 +41,6 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-
-import { Badge } from "@/components/ui/badge";
 
 
 // API
@@ -82,6 +66,23 @@ const defaultTuNgay = `${thisYear}-${String(
 
 const defaultDenNgay =
   today.toISOString().split("T")[0];
+
+
+// Màu biểu đồ lấy từ token bo-* (recharts cần giá trị màu cụ thể)
+const CHART_COLORS = {
+  khachMoi: "#1677ff",
+  quayLai: "#93c5fd",
+  tongKhach: "#182537",
+  grid: "#e1e6ec",
+  axis: "#64748b",
+};
+
+const DROPDOWN_CLASS =
+  "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+const SELECT_ITEM_CLASS =
+  "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+const TH_CLASS =
+  "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
 
 // build query
@@ -126,28 +127,25 @@ function buildParams({
 
 
 // KPI CARD
-function KpiCard({ icon: Icon, label, value }) {
+function KpiCard({ icon, label, value }) {
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-6">
-        <div>
-          <p className="text-xs text-muted-foreground">
-            {label}
-          </p>
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-bo-muted">
+          {label}
+        </p>
 
-          <h3 className="text-2xl font-bold">
-            {fmt(value)}
-          </h3>
-        </div>
+        <p className="mt-1 break-words text-2xl font-bold tracking-tight text-bo-foreground">
+          {fmt(value)}
+        </p>
+      </div>
 
-        <div className="p-3 rounded-xl bg-purple-100">
-          <Icon className="text-purple-600" />
-        </div>
-      </CardContent>
-    </Card>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
+        {icon}
+      </span>
+    </div>
   );
 }
-
 
 
 export default function KhachHangReport() {
@@ -168,8 +166,6 @@ export default function KhachHangReport() {
   const [data, setData] = useState([]);
 
   const [loading, setLoading] = useState(false);
-
-  const [tab, setTab] = useState("tong_hop");
 
 
   const fetchData = useCallback(async () => {
@@ -214,8 +210,10 @@ export default function KhachHangReport() {
   ]);
 
 
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); dữ liệu vẫn tải lại mỗi khi bộ lọc đổi.
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => fetchData());
   }, [fetchData]);
 
 
@@ -237,319 +235,330 @@ export default function KhachHangReport() {
 
 
   return (
-    <div className="max-w-[1500px] mx-auto p-6 space-y-6">
-      {/* FILTER */}
+    <PageContainer className="space-y-5">
 
-      <div className="flex flex-wrap gap-4 items-end p-6">
-        <Tabs value={loai} onValueChange={setLoai}>
-          <TabsList>
-            <TabsTrigger value="ngay">Ngày</TabsTrigger>
-            <TabsTrigger value="thang">Tháng</TabsTrigger>
-            <TabsTrigger value="nam">Năm</TabsTrigger>
-            <TabsTrigger value="so_sanh">
-              So sánh
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* ── BỘ LỌC ── */}
+      <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="flex flex-wrap items-end gap-3 p-4 sm:p-5">
+
+          <Tabs value={loai} onValueChange={setLoai}>
+            <TabsList className="h-9 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
+              <TabsTrigger
+                value="ngay"
+                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+              >
+                Ngày
+              </TabsTrigger>
+              <TabsTrigger
+                value="thang"
+                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+              >
+                Tháng
+              </TabsTrigger>
+              <TabsTrigger
+                value="nam"
+                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+              >
+                Năm
+              </TabsTrigger>
+              <TabsTrigger
+                value="so_sanh"
+                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+              >
+                So sánh
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
 
-        {loai === "ngay" && (
-          <>
-            <Input
-              type="date"
-              value={tuNgay}
-              onChange={(e) =>
-                setTuNgay(e.target.value)
-              }
-            />
+          {loai === "ngay" && (
+            <>
+              <Input
+                type="date"
+                value={tuNgay}
+                onChange={(e) =>
+                  setTuNgay(e.target.value)
+                }
+                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              />
 
-            <Input
-              type="date"
-              value={denNgay}
-              onChange={(e) =>
-                setDenNgay(e.target.value)
-              }
-            />
-          </>
-        )}
+              <Input
+                type="date"
+                value={denNgay}
+                onChange={(e) =>
+                  setDenNgay(e.target.value)
+                }
+                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              />
+            </>
+          )}
 
 
-        {(loai === "thang" ||
-          loai === "so_sanh") && (
+          {(loai === "thang" ||
+            loai === "so_sanh") && (
+              <Input
+                type="number"
+                placeholder="Năm"
+                value={nam ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNam(v === "" ? null : Number(v));
+                }}
+                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              />
+            )}
+
+
+          {loai === "nam" && (
+            <div className="flex gap-2">
+
+              <Input
+                type="number"
+                placeholder="Từ năm"
+                value={tuNam ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTuNam(v === "" ? null : Number(v));
+                }}
+                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              />
+
+              <Input
+                type="number"
+                placeholder="Đến năm"
+                value={denNam ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDenNam(v === "" ? null : Number(v));
+                }}
+                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              />
+
+            </div>
+          )}
+
+
+          {loai === "so_sanh" && (
             <Input
               type="number"
-              placeholder="Năm"
-              value={nam ?? ""}
+              placeholder="Tháng"
+              value={thang ?? ""}
               onChange={(e) => {
                 const v = e.target.value;
-                setNam(v === "" ? null : Number(v));
+                setThang(v === "" ? null : Number(v));
               }}
-              className="w-[120px]"
+              className="h-9 w-[110px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
             />
           )}
 
 
-        {loai === "nam" && (
-          <div className="flex gap-2">
+          <Select
+            value={khoId || "ALL"}
+            onValueChange={(v) => setKhoId(v === "ALL" ? "" : v)}
+          >
+            <SelectTrigger className="h-9 w-[200px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
+              <SelectValue placeholder="Tất cả kho" />
+            </SelectTrigger>
 
-            <Input
-              type="number"
-              placeholder="Từ năm"
-              value={tuNam ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTuNam(v === "" ? null : Number(v));
-              }}
-              className="w-[120px]"
-            />
+            <SelectContent
+              position="popper"
+              sideOffset={4}
+              className={DROPDOWN_CLASS}
+            >
 
-            <Input
-              type="number"
-              placeholder="Đến năm"
-              value={denNam ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                setDenNam(v === "" ? null : Number(v));
-              }}
-              className="w-[120px]"
-            />
+              <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>
+                Tất cả kho
+              </SelectItem>
 
-          </div>
-        )}
+              <SelectItem value="1" className={SELECT_ITEM_CLASS}>
+                KHO01 – Hà Nội
+              </SelectItem>
 
+              <SelectItem value="2" className={SELECT_ITEM_CLASS}>
+                KHO02 – Miền Nam
+              </SelectItem>
 
-        {loai === "so_sanh" && (
-          <Input
-            type="number"
-            placeholder="Tháng"
-            value={thang ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              setThang(v === "" ? null : Number(v));
-            }}
-            className="w-[90px]"
-          />
-        )}
+            </SelectContent>
+          </Select>
 
 
-        <Select
-          value={khoId || "ALL"}
-          onValueChange={(v) => setKhoId(v === "ALL" ? "" : v)}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Tất cả kho" />
-          </SelectTrigger>
+          <Button
+            onClick={fetchData}
+            disabled={loading}
+            className="h-9 gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50"
+          >
+            {loading ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : (
+              <Search className="size-4" />
+            )}
 
-          <SelectContent>
+            Xem báo cáo
+          </Button>
+        </div>
+      </section>
 
-            <SelectItem value="ALL">
-              Tất cả kho
-            </SelectItem>
-
-            <SelectItem value="1">
-              KHO01 – Hà Nội
-            </SelectItem>
-
-            <SelectItem value="2">
-              KHO02 – Miền Nam
-            </SelectItem>
-
-          </SelectContent>
-        </Select>
-
-
-        <Button
-          onClick={fetchData}
-          disabled={loading}
-          className="bg-purple-600 hover:bg-purple-700"
-        >
-          {loading ? (
-            <RefreshCw className="animate-spin mr-2" />
-          ) : (
-            <Search className="mr-2" />
-          )}
-
-          Xem báo cáo
-        </Button>
-      </div>
-
-      {/* KPI */}
-      <div className="grid md:grid-cols-3 gap-4">
+      {/* ── KPI ── */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
         <KpiCard
-          icon={UserPlus}
+          icon={<UserPlus className="size-5" />}
           label="Khách mới"
           value={tongMoi}
         />
 
         <KpiCard
-          icon={Repeat}
+          icon={<Repeat className="size-5" />}
           label="Khách quay lại"
           value={tongQuayLai}
         />
 
         <KpiCard
-          icon={TrendingUp}
+          icon={<TrendingUp className="size-5" />}
           label="Tổng khách mua"
           value={tongMua}
         />
 
-      </div>
+      </section>
 
 
 
-      {/* CHART */}
-      <Card>
-
-        <CardHeader>
-          <CardTitle>
-            Phân tích khách hàng
-          </CardTitle>
-
-          <CardDescription>
-            Xu hướng khách mới & quay lại
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="h-[420px]">
-
+      {/* ── BIỂU ĐỒ ── */}
+      <SurfaceCard
+        title="Phân tích khách hàng"
+        description="Xu hướng khách mới & quay lại"
+        contentClassName="h-[420px]"
+      >
+        {loading && data.length === 0 ? (
+          <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
+        ) : (
           <ResponsiveContainer width="100%" height="100%">
 
             <ComposedChart data={data}>
 
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={CHART_COLORS.grid}
+                vertical={false}
+              />
 
-              <XAxis dataKey="nhanThoiGian" />
+              <XAxis
+                dataKey="nhanThoiGian"
+                tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
+                tickLine={false}
+              />
 
-              <YAxis />
+              <YAxis
+                tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
 
               <Tooltip />
 
               <Bar
                 dataKey="soKhachMoi"
-                fill="#a78bfa"
+                fill={CHART_COLORS.khachMoi}
                 name="Khách mới"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={36}
               />
 
               <Bar
                 dataKey="soKhachQuayLai"
-                fill="#c4b5fd"
+                fill={CHART_COLORS.quayLai}
                 name="Quay lại"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={36}
               />
 
               <Line
                 dataKey="tongKhachMua"
-                stroke="#9333ea"
+                stroke={CHART_COLORS.tongKhach}
                 strokeWidth={3}
                 name="Tổng khách"
+                dot={{ r: 3, fill: CHART_COLORS.tongKhach, strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
               />
 
             </ComposedChart>
 
           </ResponsiveContainer>
-
-        </CardContent>
-
-      </Card>
+        )}
+      </SurfaceCard>
 
 
 
-      {/* TABLE */}
-      <Card>
+      {/* ── BẢNG CHI TIẾT ── */}
+      <TableShell
+        title="Chi tiết dữ liệu"
+        description={`${data.length} kỳ được tổng hợp`}
+      >
+        {loading && data.length === 0 ? (
+          <LoadingState rows={5} label="Đang tải chi tiết khách hàng" />
+        ) : data.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="Không có dữ liệu"
+            description="Hãy thay đổi bộ lọc và thử lại."
+          />
+        ) : (
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                <th className={`${TH_CLASS} text-left`}>Kỳ</th>
+                <th className={`${TH_CLASS} text-right`}>Khách mới</th>
+                <th className={`${TH_CLASS} text-right`}>Quay lại</th>
+                <th className={`${TH_CLASS} text-right`}>Tổng mua</th>
+                <th className={`${TH_CLASS} text-right`}>Tích lũy</th>
+                <th className={`${TH_CLASS} text-right`}>Tăng trưởng</th>
+              </tr>
+            </thead>
 
-        <CardHeader>
-          <CardTitle>
-            Chi tiết dữ liệu
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent>
-
-          <Table>
-
-            <TableHeader>
-
-              <TableRow>
-
-                <TableHead>Kỳ</TableHead>
-
-                <TableHead className="text-right">
-                  Khách mới
-                </TableHead>
-
-                <TableHead className="text-right">
-                  Quay lại
-                </TableHead>
-
-                <TableHead className="text-right">
-                  Tổng mua
-                </TableHead>
-
-                <TableHead className="text-right">
-                  Tích lũy
-                </TableHead>
-
-                <TableHead className="text-right">
-                  Tăng trưởng
-                </TableHead>
-
-              </TableRow>
-
-            </TableHeader>
-
-
-            <TableBody>
-
+            <tbody className="divide-y divide-bo-border">
               {data.map((row, i) => (
-
-                <TableRow key={i}>
-
-                  <TableCell>
+                <tr
+                  key={i}
+                  className="transition-colors hover:bg-bo-surface-subtle"
+                >
+                  <td className="px-3 py-3.5 font-medium text-bo-foreground">
                     {row.nhanThoiGian}
-                  </TableCell>
+                  </td>
 
-                  <TableCell className="text-right text-purple-700 font-semibold">
+                  <td className="px-3 py-3.5 text-right font-semibold text-bo-primary">
                     {fmt(row.soKhachMoi)}
-                  </TableCell>
+                  </td>
 
-                  <TableCell className="text-right">
+                  <td className="px-3 py-3.5 text-right text-bo-foreground">
                     {fmt(row.soKhachQuayLai)}
-                  </TableCell>
+                  </td>
 
-                  <TableCell className="text-right">
+                  <td className="px-3 py-3.5 text-right text-bo-foreground">
                     {fmt(row.tongKhachMua)}
-                  </TableCell>
+                  </td>
 
-                  <TableCell className="text-right">
+                  <td className="px-3 py-3.5 text-right text-bo-muted">
                     {fmt(row.tichLuyKhachMoi)}
-                  </TableCell>
+                  </td>
 
-                  <TableCell className="text-right">
-
+                  <td className="px-3 py-3.5 text-right">
                     {row.tyLeTangTruong != null ? (
-
-                      <Badge className="bg-purple-100 text-purple-700">
-                        {row.tyLeTangTruong.toFixed(1)}%
-                      </Badge>
-
+                      <StatusBadge
+                        label={`${row.tyLeTangTruong.toFixed(1)}%`}
+                        tone="info"
+                        dot={false}
+                      />
                     ) : (
-                      "—"
+                      <span className="text-bo-muted">—</span>
                     )}
-
-                  </TableCell>
-
-                </TableRow>
-
+                  </td>
+                </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </TableShell>
 
-            </TableBody>
-
-          </Table>
-
-        </CardContent>
-
-      </Card>
-
-    </div>
+    </PageContainer>
   );
 }

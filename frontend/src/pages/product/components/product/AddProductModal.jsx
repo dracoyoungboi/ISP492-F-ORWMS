@@ -20,6 +20,8 @@ import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
 
+import FormSection from "@/components/shared/FormSection";
+
 const addProductSchema = yup.object({
     tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
     maSanPham: yup.string().nullable(),
@@ -44,6 +46,45 @@ const addProductSchema = yup.object({
     ).min(1, "Phải có ít nhất 1 biến thể")
 });
 
+/* ==========================================
+   LOGIC LÀM PHẲNG CÂY DANH MỤC
+   ========================================== */
+const flattenCategoryTree = (tree, level = 0) => {
+    let flatList = [];
+    if (!Array.isArray(tree)) return flatList;
+
+    tree.forEach(node => {
+        // CHỈ LẤY DANH MỤC CÓ TRẠNG THÁI BẰNG 1
+        if (node.trangThai === 1) {
+            // Tạo chuỗi thụt lề bằng Non-breaking space (\u00A0) để React/HTML không cắt mất
+            const indent = "\u00A0\u00A0\u00A0\u00A0".repeat(level);
+            const prefix = level > 0 ? `${indent}└─ ` : "";
+
+            flatList.push({
+                id: node.id,
+                tenDanhMuc: node.tenDanhMuc, // Tên gốc (dùng khi cần)
+                displayTitle: `${prefix}${node.tenDanhMuc}`, // Tên hiển thị trong Dropdown có nhánh cây
+                level: level
+            });
+
+            // Xử lý mảng danh mục con dựa theo DTO là "danhMucCons"
+            if (node.danhMucCons && Array.isArray(node.danhMucCons) && node.danhMucCons.length > 0) {
+                flatList = flatList.concat(flattenCategoryTree(node.danhMucCons, level + 1));
+            }
+        }
+    });
+    return flatList;
+};
+
+const CONTROL_CLASS =
+    "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
+const CONTROL_DISABLED_CLASS =
+    "cursor-not-allowed border-bo-border bg-bo-surface-subtle italic text-bo-muted";
+const SELECT_CONTENT_CLASS = "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+const SELECT_ITEM_CLASS = "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+const STEP_CLASS =
+    "flex items-center justify-center gap-2 rounded-md border border-bo-border bg-white px-2 py-1.5 text-center text-[11px] font-semibold text-bo-muted";
+
 export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
@@ -57,7 +98,6 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
         handleSubmit,
         reset,
         formState: { errors, isSubmitting },
-        watch
     } = useForm({
         // Client-side schema validation truoc khi goi backend create.
         resolver: yupResolver(addProductSchema),
@@ -119,75 +159,48 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     useEffect(() => {
         if (isOpen) {
             // Moi lan mo modal thi reset form de tranh du lieu cu con sot lai.
-            handleResetForm();
+            // Hoãn qua microtask để tránh setState đồng bộ trong effect
+            // (react-hooks/set-state-in-effect).
+            queueMicrotask(() => handleResetForm());
         }
     }, [isOpen, handleResetForm]);
 
-    // ==========================================
-    // LOGIC LÀM PHẲNG CÂY DANH MỤC
-    // ==========================================
-    const flattenCategoryTree = (tree, level = 0) => {
-        let flatList = [];
-        if (!Array.isArray(tree)) return flatList;
+    const loadReferenceData = useCallback(async () => {
+        try {
+            // Tai du lieu tham chieu cho form (mau, size, chat lieu, danh muc).
+            // Luong backend: Controller.getAll -> Service.getAll -> Repository.findAll.
+            const extractData = (response) => response?.data?.data ?? response?.data ?? [];
 
-        tree.forEach(node => {
-            // CHỈ LẤY DANH MỤC CÓ TRẠNG THÁI BẰNG 1
-            if (node.trangThai === 1) {
-                // Tạo chuỗi thụt lề bằng Non-breaking space (\u00A0) để React/HTML không cắt mất
-                const indent = "\u00A0\u00A0\u00A0\u00A0".repeat(level);
-                const prefix = level > 0 ? `${indent}└─ ` : "";
+            const [colorsResult, sizesResult, materialsResult, categoriesResult] = await Promise.allSettled([
+                productService.getColors(),
+                productService.getSizes(),
+                productService.getMaterials(),
+                danhMucQuanAoService.getCayDanhMuc(),
+            ]);
 
-                flatList.push({
-                    id: node.id,
-                    tenDanhMuc: node.tenDanhMuc, // Tên gốc (dùng khi cần)
-                    displayTitle: `${prefix}${node.tenDanhMuc}`, // Tên hiển thị trong Dropdown có nhánh cây
-                    level: level
-                });
+            if (colorsResult.status === "fulfilled") setColors(extractData(colorsResult.value));
+            if (sizesResult.status === "fulfilled") setSizes(extractData(sizesResult.value));
+            if (materialsResult.status === "fulfilled") setMaterials(extractData(materialsResult.value));
 
-                // Xử lý mảng danh mục con dựa theo DTO là "danhMucCons"
-                if (node.danhMucCons && Array.isArray(node.danhMucCons) && node.danhMucCons.length > 0) {
-                    flatList = flatList.concat(flattenCategoryTree(node.danhMucCons, level + 1));
-                }
+            if (categoriesResult.status === "fulfilled") {
+                const rawCategoriesTree = extractData(categoriesResult.value);
+                // Ép phẳng cây danh mục và tạo lùi lề
+                setCategories(flattenCategoryTree(rawCategoriesTree));
+            } else {
+                toast.error("Không thể tải dữ liệu danh mục");
             }
-        });
-        return flatList;
-    };
+
+        } catch {
+            toast.error("Lỗi hệ thống khi tải dữ liệu khởi tạo");
+        }
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
-
-        const fetchData = async () => {
-            try {
-                // Tai du lieu tham chieu cho form (mau, size, chat lieu, danh muc).
-                // Luong backend: Controller.getAll -> Service.getAll -> Repository.findAll.
-                const extractData = (response) => response?.data?.data ?? response?.data ?? [];
-
-                const [colorsResult, sizesResult, materialsResult, categoriesResult] = await Promise.allSettled([
-                    productService.getColors(),
-                    productService.getSizes(),
-                    productService.getMaterials(),
-                    danhMucQuanAoService.getCayDanhMuc(),
-                ]);
-
-                if (colorsResult.status === "fulfilled") setColors(extractData(colorsResult.value));
-                if (sizesResult.status === "fulfilled") setSizes(extractData(sizesResult.value));
-                if (materialsResult.status === "fulfilled") setMaterials(extractData(materialsResult.value));
-
-                if (categoriesResult.status === "fulfilled") {
-                    const rawCategoriesTree = extractData(categoriesResult.value);
-                    // Ép phẳng cây danh mục và tạo lùi lề
-                    setCategories(flattenCategoryTree(rawCategoriesTree));
-                } else {
-                    toast.error("Không thể tải dữ liệu danh mục");
-                }
-
-            } catch (error) {
-                toast.error("Lỗi hệ thống khi tải dữ liệu khởi tạo");
-            }
-        };
-
-        fetchData();
-    }, [isOpen]);
+        // Hoãn qua microtask để tránh setState đồng bộ trong effect
+        // (react-hooks/set-state-in-effect); dữ liệu tham chiếu vẫn được tải khi mở modal.
+        queueMicrotask(() => loadReferenceData());
+    }, [isOpen, loadReferenceData]);
 
     const onSubmit = async (data) => {
         // [User nhan Luu trong modal Them san pham]
@@ -320,73 +333,79 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleCancel}>
-            <DialogContent className="sm:max-w-[1180px] max-h-[92vh] bg-white dark:!bg-white text-amber-950 dark:!text-amber-950 border border-amber-200 rounded-2xl shadow-xl flex flex-col">
-                <DialogHeader className="border-b border-amber-200 pb-4">
+            <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]">
+                <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 text-left sm:px-5">
                     <div className="flex items-center justify-between gap-3">
-                        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-amber-950">
-                            <Package className="w-5 h-5 text-amber-700" />
+                        <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
+                            <Package className="size-5 text-bo-primary" />
                             Thêm sản phẩm mới
                         </DialogTitle>
                     </div>
-                    <DialogDescription className="text-sm text-amber-800/80">
+                    <DialogDescription className="mt-1 text-sm leading-6 text-bo-muted">
                         Điền thông tin theo từng nhóm để tạo sản phẩm mới đầy đủ và dễ kiểm soát hơn.
                     </DialogDescription>
 
-                    <div className="grid grid-cols-3 gap-2 mt-2 text-[11px] font-semibold">
-                        <div className="rounded-lg border border-amber-300 bg-amber-100 px-2 py-1 text-amber-900 text-center">Bước 1: Thông tin</div>
-                        <div className="rounded-lg border border-amber-300 bg-amber-100 px-2 py-1 text-amber-900 text-center">Bước 2: Ảnh sản phẩm</div>
-                        <div className="rounded-lg border border-amber-300 bg-amber-100 px-2 py-1 text-amber-900 text-center">Bước 3: Biến thể</div>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <div className={STEP_CLASS}>
+                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">1</span>
+                            <span className="truncate">Bước 1: Thông tin</span>
+                        </div>
+                        <div className={STEP_CLASS}>
+                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">2</span>
+                            <span className="truncate">Bước 2: Ảnh sản phẩm</span>
+                        </div>
+                        <div className={STEP_CLASS}>
+                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">3</span>
+                            <span className="truncate">Bước 3: Biến thể</span>
+                        </div>
                     </div>
 
-                    <div className="grid gap-2 lg:grid-cols-2 mt-2">
-                        <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-start gap-2">
-                            <Sparkles className="h-4 w-4 text-amber-700 mt-0.5" />
-                            <p className="text-xs text-amber-800 leading-relaxed">
+                    <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
+                            <Sparkles className="mt-0.5 size-4 shrink-0 text-bo-primary" />
+                            <p className="text-xs leading-relaxed text-bo-foreground">
                                 <b>Tự động sinh mã:</b> Mã sản phẩm và SKU sẽ được hệ thống tạo từ danh mục và thuộc tính biến thể.
                             </p>
                         </div>
 
-                        <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-start gap-2">
-                            <Info className="h-4 w-4 text-amber-700 mt-0.5" />
-                            <p className="text-xs text-amber-800 leading-relaxed">
+                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
+                            <Info className="mt-0.5 size-4 shrink-0 text-bo-primary" />
+                            <p className="text-xs leading-relaxed text-bo-foreground">
                                 <b>Lưu ý giá:</b> Có thể để trống giá khi tạo, hệ thống sẽ cập nhật theo dữ liệu nhập kho thực tế.
                             </p>
                         </div>
                     </div>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto overflow-x-visible px-1 min-h-0">
-                    /* Form nhập thông tin thêm sản phẩm mới*/
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                     <form
                         onSubmit={handleSubmit(onSubmit)}
-                        className="space-y-6 py-1 [&_[data-slot=input]]:bg-white [&_[data-slot=input]]:text-amber-950 [&_[data-slot=textarea]]:bg-white [&_[data-slot=textarea]]:text-amber-950 [&_[data-slot=select-trigger]]:bg-white [&_[data-slot=select-trigger]]:text-amber-950 [&_[data-slot=select-content]]:bg-white [&_[data-slot=select-content]]:text-amber-950 dark:[&_[data-slot=input]]:bg-white dark:[&_[data-slot=textarea]]:bg-white dark:[&_[data-slot=select-trigger]]:bg-white dark:[&_[data-slot=select-content]]:bg-white"
+                        className="space-y-5 [&_[data-slot=select-trigger]]:bg-white [&_[data-slot=textarea]]:bg-white"
                     >
-                        <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr] items-start">
-                            <div className="space-y-4">
-                                <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-                                    <h3 className="font-semibold text-sm text-amber-900 border-b border-amber-200 pb-2">Thông tin cơ bản</h3>
-
-                                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid items-start gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+                            <div className="space-y-5">
+                                <FormSection title="Thông tin cơ bản">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         {/* Tên sản phẩm */}
                                         <div className="space-y-2">
                                             <Label htmlFor="tenSanPham">
-                                                Tên sản phẩm <span className="text-red-500">*</span>
+                                                Tên sản phẩm <span className="text-bo-danger">*</span>
                                             </Label>
                                             <Controller
                                                 name="tenSanPham"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} placeholder="VD: Áo sơ mi nam cổ tròn" disabled={isSubmitting} />
+                                                    <Input {...field} placeholder="VD: Áo sơ mi nam cổ tròn" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                             {errors.tenSanPham && (
-                                                <p className="text-xs text-red-500">{errors.tenSanPham.message}</p>
+                                                <p className="text-xs text-bo-danger">{errors.tenSanPham.message}</p>
                                             )}
                                         </div>
 
                                         {/* Danh mục sản phẩm - TRẢ LẠI CẤU TRÚC CHA CON */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="danhMucId">Danh mục <span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="danhMucId">Danh mục <span className="text-bo-danger">*</span></Label>
                                             <Controller
                                                 name="danhMucId"
                                                 control={control}
@@ -396,23 +415,23 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         onValueChange={(value) => field.onChange(Number(value))}
                                                         disabled={isSubmitting}
                                                     >
-                                                        <SelectTrigger className="w-full h-10 bg-white">
+                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
                                                             <SelectValue placeholder="Chọn danh mục" />
                                                         </SelectTrigger>
                                                         <SelectContent
                                                             position="popper"
                                                             side="bottom"
                                                             align="start"
-                                                            className="z-50 bg-white border border-gray-200 shadow-lg rounded-md max-h-[300px]"
+                                                            className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}
                                                         >
                                                             {categories.length === 0 ? (
-                                                                <div className="p-2 text-sm text-gray-500 text-center">Không có danh mục nào đang hoạt động</div>
+                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có danh mục nào đang hoạt động</div>
                                                             ) : (
                                                                 categories.map((cat) => (
                                                                     <SelectItem
                                                                         key={cat.id}
                                                                         value={cat.id.toString()}
-                                                                        className={`cursor-pointer ${cat.level === 0 ? 'font-bold text-gray-800' : 'text-gray-600'}`}
+                                                                        className={`${SELECT_ITEM_CLASS} ${cat.level === 0 ? 'font-semibold text-bo-foreground' : ''}`}
                                                                     >
                                                                         {cat.displayTitle}
                                                                     </SelectItem>
@@ -423,13 +442,13 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 )}
                                             />
                                             {errors.danhMucId && (
-                                                <p className="text-xs text-red-500">{errors.danhMucId.message}</p>
+                                                <p className="text-xs text-bo-danger">{errors.danhMucId.message}</p>
                                             )}
                                         </div>
 
                                         {/* Mã sản phẩm (Tự động) */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="maSanPham" className="text-gray-500">Mã sản phẩm (Tự động)</Label>
+                                            <Label htmlFor="maSanPham" className="text-bo-muted">Mã sản phẩm (Tự động)</Label>
                                             <Controller
                                                 name="maSanPham"
                                                 control={control}
@@ -438,7 +457,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         {...field}
                                                         placeholder="Hệ thống tự động sinh mã..."
                                                         disabled
-                                                        className="bg-gray-50 italic text-gray-500 cursor-not-allowed"
+                                                        className={CONTROL_DISABLED_CLASS}
                                                     />
                                                 )}
                                             />
@@ -450,7 +469,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 name="maVach"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} placeholder="Mã vạch (Nếu có)" disabled={isSubmitting} />
+                                                    <Input {...field} placeholder="Mã vạch (Nếu có)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
@@ -466,12 +485,12 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         onValueChange={(value) => field.onChange(Number(value))}
                                                         disabled={isSubmitting}
                                                     >
-                                                        <SelectTrigger className="w-full h-10">
+                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
                                                             <SelectValue placeholder="Chọn trạng thái" />
                                                         </SelectTrigger>
-                                                        <SelectContent position="popper" side="bottom" className="z-50 bg-white border border-gray-200 shadow-lg rounded-md">
-                                                            <SelectItem value="1">Còn hàng</SelectItem>
-                                                            <SelectItem value="0">Hết hàng</SelectItem>
+                                                        <SelectContent position="popper" side="bottom" className={SELECT_CONTENT_CLASS}>
+                                                            <SelectItem value="1" className={SELECT_ITEM_CLASS}>Còn hàng</SelectItem>
+                                                            <SelectItem value="0" className={SELECT_ITEM_CLASS}>Hết hàng</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 )}
@@ -484,7 +503,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 name="mucTonToiThieu"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0" disabled={isSubmitting} />
+                                                    <Input {...field} type="number" min="0" placeholder="0" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
@@ -495,7 +514,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 name="giaVonMacDinh"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} />
+                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
@@ -506,31 +525,34 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 name="giaBanMacDinh"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} />
+                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
 
                                         {/* Mô tả */}
-                                        <div className="col-span-2 space-y-2">
+                                        <div className="space-y-2 sm:col-span-2">
                                             <Label htmlFor="moTa">Mô tả</Label>
                                             <Controller
                                                 name="moTa"
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Textarea {...field} placeholder="Nhập mô tả chi tiết về sản phẩm..." rows={3} disabled={isSubmitting} />
+                                                    <Textarea {...field} placeholder="Nhập mô tả chi tiết về sản phẩm..." rows={3} disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
                                     </div>
-                                </div>
+                                </FormSection>
 
                                 {/* Ảnh sản phẩm - Required */}
-                                <div className="space-y-4 rounded-2xl border border-amber-200 bg-white p-4">
-                                    <h3 className="font-semibold text-sm text-amber-900 border-b border-amber-200 pb-2">
-                                        Ảnh sản phẩm chính <span className="text-red-500">*</span>
-                                    </h3>
-                                    <div className="border-2 border-dashed border-amber-300 rounded-xl p-4 space-y-2 bg-amber-50/40">
+                                <FormSection
+                                    title={
+                                        <>
+                                            Ảnh sản phẩm chính <span className="text-bo-danger">*</span>
+                                        </>
+                                    }
+                                >
+                                    <div className="space-y-2 rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-4">
                                         <input
                                             type="file"
                                             multiple
@@ -542,284 +564,288 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                         />
                                         <label
                                             htmlFor="product-images"
-                                            className="flex items-center justify-center gap-2 p-2 border border-amber-300 rounded-xl cursor-pointer hover:bg-amber-100 text-amber-900"
+                                            className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
                                         >
-                                            <Upload className="h-4 w-4" />
-                                            <span className="text-sm">Chọn ảnh sản phẩm</span>
+                                            <Upload className="size-4" />
+                                            <span>Chọn ảnh sản phẩm</span>
                                         </label>
                                         {productImages.length === 0 && (
-                                            <p className="text-xs text-gray-500 text-center">Vui lòng thêm ít nhất 1 ảnh sản phẩm chính</p>
+                                            <p className="text-center text-xs text-bo-muted">Vui lòng thêm ít nhất 1 ảnh sản phẩm chính</p>
                                         )}
-                                        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
                                             {productImages.map((file, index) => (
                                                 <div key={index} className="relative">
                                                     <img
                                                         src={URL.createObjectURL(file)}
                                                         alt="Preview"
-                                                        className="w-full h-24 object-cover rounded-lg border shadow-sm"
+                                                        className="h-24 w-full rounded-md border border-bo-border object-cover shadow-sm"
                                                     />
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveProductImage(index)}
-                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                                        aria-label={`Xóa ảnh ${index + 1}`}
+                                                        className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
                                                     >
-                                                        <X className="h-3 w-3" />
+                                                        <X className="size-3" />
                                                     </button>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                </div>
+                                </FormSection>
                             </div>
 
                             {/* Biến thể sản phẩm */}
-                            <div className="space-y-4 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/70 p-4 xl:sticky xl:top-0">
-                                <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                                    <h3 className="font-semibold text-sm text-amber-900">
-                                        Danh sách biến thể <span className="text-red-500">*</span>
-                                    </h3>
-                                    <span className="text-[11px] text-amber-700">Cuộn để xem thêm</span>
-                                </div>
-
-                                <div className="max-h-[55vh] xl:max-h-[calc(92vh-25rem)] overflow-y-auto pr-1 space-y-3">
-                                    {fields.map((field, index) => (
-                                        <div key={field.id} className="p-4 border border-amber-200 rounded-xl space-y-3 bg-white relative overflow-visible shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-semibold text-amber-900">Biến thể #{index + 1}</span>
-                                                {fields.length > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleRemoveVariant(index)}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <X className="h-4 w-4 mr-1" /> Xóa
-                                                    </Button>
-                                                )}
-                                            </div>
-
-                                            <div className="grid grid-cols-3 gap-4 overflow-visible">
-                                                {/* Màu sắc */}
-                                                <div className="space-y-2">
-                                                    <Label>Màu sắc <span className="text-red-500">*</span></Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.mauSacId`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Select
-                                                                value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                onValueChange={(value) => field.onChange(Number(value))}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <SelectTrigger className="w-full h-10 bg-white">
-                                                                    <SelectValue placeholder="Chọn màu" />
-                                                                </SelectTrigger>
-                                                                <SelectContent position="popper" side="bottom" align="start" className="z-50 bg-white max-h-[200px]">
-                                                                    {colors.length === 0 ? (
-                                                                        <div className="p-2 text-sm text-gray-500">Không có màu sắc</div>
-                                                                    ) : (
-                                                                        colors.map((color) => (
-                                                                            <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()}>{color.tenMau}</SelectItem>
-                                                                        ))
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                    {errors.bienTheSanPhams?.[index]?.mauSacId && (
-                                                        <p className="text-xs text-red-500">{errors.bienTheSanPhams[index].mauSacId.message}</p>
-                                                    )}
-                                                </div>
-
-                                                {/* Size */}
-                                                <div className="space-y-2">
-                                                    <Label>Size <span className="text-red-500">*</span></Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.sizeId`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Select
-                                                                value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                onValueChange={(value) => field.onChange(Number(value))}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <SelectTrigger className="w-full h-10 bg-white">
-                                                                    <SelectValue placeholder="Chọn size" />
-                                                                </SelectTrigger>
-                                                                <SelectContent position="popper" side="bottom" align="start" className="z-50 bg-white max-h-[200px]">
-                                                                    {sizes.length === 0 ? (
-                                                                        <div className="p-2 text-sm text-gray-500">Không có size</div>
-                                                                    ) : (
-                                                                        sizes.map((size) => (
-                                                                            <SelectItem key={`size-${index}-${size.id}`} value={size.id.toString()}>{size.tenSize}</SelectItem>
-                                                                        ))
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                    {errors.bienTheSanPhams?.[index]?.sizeId && (
-                                                        <p className="text-xs text-red-500">{errors.bienTheSanPhams[index].sizeId.message}</p>
-                                                    )}
-                                                </div>
-
-                                                {/* Chất liệu */}
-                                                <div className="space-y-2">
-                                                    <Label>Chất liệu <span className="text-red-500">*</span></Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.chatLieuId`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Select
-                                                                value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                onValueChange={(value) => field.onChange(Number(value))}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <SelectTrigger className="w-full h-10 bg-white">
-                                                                    <SelectValue placeholder="Chọn chất liệu" />
-                                                                </SelectTrigger>
-                                                                <SelectContent position="popper" side="bottom" align="start" className="z-50 bg-white max-h-[200px]">
-                                                                    {materials.length === 0 ? (
-                                                                        <div className="p-2 text-sm text-gray-500">Không có chất liệu</div>
-                                                                    ) : (
-                                                                        materials.map((material) => (
-                                                                            <SelectItem key={`material-${index}-${material.id}`} value={material.id.toString()}>{material.tenChatLieu}</SelectItem>
-                                                                        ))
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                    {errors.bienTheSanPhams?.[index]?.chatLieuId && (
-                                                        <p className="text-xs text-red-500">{errors.bienTheSanPhams[index].chatLieuId.message}</p>
-                                                    )}
-                                                </div>
-
-                                                {/* Mã SKU */}
-                                                <div className="col-span-2 space-y-2">
-                                                    <Label className="text-gray-500">Mã SKU (Tự động)</Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.maSku`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Input {...field} placeholder="Hệ thống tự động ghép mã..." disabled className="bg-gray-100 italic text-gray-500 cursor-not-allowed" />
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Mã vạch SKU</Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.maVachSku`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Input {...field} placeholder="Mã vạch SKU" className="bg-white" disabled={isSubmitting} />
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Giá vốn</Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.giaVon`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Input {...field} type="number" min="0" placeholder="0 (Tự động)" className="bg-white" disabled={isSubmitting} />
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Giá bán</Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.giaBan`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Input {...field} type="number" min="0" placeholder="0 (Tự động)" className="bg-white" disabled={isSubmitting} />
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Trạng thái</Label>
-                                                    <Controller
-                                                        name={`bienTheSanPhams.${index}.trangThai`}
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Select
-                                                                value={field.value?.toString()}
-                                                                onValueChange={(value) => field.onChange(Number(value))}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <SelectTrigger className="w-full h-10 bg-white">
-                                                                    <SelectValue placeholder="Chọn trạng thái" />
-                                                                </SelectTrigger>
-                                                                <SelectContent position="popper" side="bottom" className="z-50 bg-white">
-                                                                    <SelectItem value="1">Hoạt động</SelectItem>
-                                                                    <SelectItem value="0">Tạm ngừng</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Variant Image */}
-                                            <div className="space-y-2 mt-4 pt-4 border-t">
-                                                <Label>Ảnh biến thể <span className="text-red-500">*</span></Label>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex-1 border-2 border-dashed border-amber-300 rounded-lg p-2 bg-white">
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            onChange={(e) => handleVariantImageChange(index, e)}
-                                                            className="hidden"
-                                                            id={`variant-image-${index}`}
+                            <div className="xl:sticky xl:top-0">
+                                <FormSection
+                                    title={
+                                        <>
+                                            Danh sách biến thể <span className="text-bo-danger">*</span>
+                                        </>
+                                    }
+                                    description="Cuộn để xem thêm"
+                                >
+                                    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 xl:max-h-[calc(92vh-25rem)]">
+                                        {fields.map((field, index) => (
+                                            <div key={field.id} className="relative space-y-3 overflow-visible rounded-lg border border-bo-border bg-bo-surface-subtle p-4 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-semibold text-bo-foreground">Biến thể #{index + 1}</span>
+                                                    {fields.length > 1 && (
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
+                                                            onClick={() => handleRemoveVariant(index)}
                                                             disabled={isSubmitting}
-                                                        />
-                                                        <label
-                                                            htmlFor={`variant-image-${index}`}
-                                                            className="flex items-center justify-center gap-2 p-2 border border-amber-300 rounded-lg cursor-pointer hover:bg-amber-100 h-full text-amber-900"
                                                         >
-                                                            <Upload className="h-4 w-4" />
-                                                            <span className="text-sm">Chọn ảnh biến thể</span>
-                                                        </label>
+                                                            <X className="size-4" /> Xóa
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 overflow-visible sm:grid-cols-3">
+                                                    {/* Màu sắc */}
+                                                    <div className="space-y-2">
+                                                        <Label>Màu sắc <span className="text-bo-danger">*</span></Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.mauSacId`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Select
+                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
+                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    disabled={isSubmitting}
+                                                                >
+                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                                        <SelectValue placeholder="Chọn màu" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                        {colors.length === 0 ? (
+                                                                            <div className="p-2 text-sm text-bo-muted">Không có màu sắc</div>
+                                                                        ) : (
+                                                                            colors.map((color) => (
+                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>{color.tenMau}</SelectItem>
+                                                                            ))
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        />
+                                                        {errors.bienTheSanPhams?.[index]?.mauSacId && (
+                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].mauSacId.message}</p>
+                                                        )}
                                                     </div>
 
-                                                    <div className="w-24 h-24 shrink-0 flex items-center justify-center border rounded-lg bg-white overflow-hidden relative">
-                                                        {!variantImages[index] ? (
-                                                            <p className="text-[10px] text-gray-400 text-center px-1">Chưa có ảnh</p>
-                                                        ) : (
-                                                            <>
-                                                                <img
-                                                                    src={URL.createObjectURL(variantImages[index])}
-                                                                    alt="Variant Preview"
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveVariantImage(index)}
-                                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow-sm"
+                                                    {/* Size */}
+                                                    <div className="space-y-2">
+                                                        <Label>Size <span className="text-bo-danger">*</span></Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.sizeId`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Select
+                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
+                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    disabled={isSubmitting}
                                                                 >
-                                                                    <X className="h-3 w-3" />
-                                                                </button>
-                                                            </>
+                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                                        <SelectValue placeholder="Chọn size" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                        {sizes.length === 0 ? (
+                                                                            <div className="p-2 text-sm text-bo-muted">Không có size</div>
+                                                                        ) : (
+                                                                            sizes.map((size) => (
+                                                                                <SelectItem key={`size-${index}-${size.id}`} value={size.id.toString()} className={SELECT_ITEM_CLASS}>{size.tenSize}</SelectItem>
+                                                                            ))
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        />
+                                                        {errors.bienTheSanPhams?.[index]?.sizeId && (
+                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].sizeId.message}</p>
                                                         )}
+                                                    </div>
+
+                                                    {/* Chất liệu */}
+                                                    <div className="space-y-2">
+                                                        <Label>Chất liệu <span className="text-bo-danger">*</span></Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.chatLieuId`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Select
+                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
+                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    disabled={isSubmitting}
+                                                                >
+                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                                        <SelectValue placeholder="Chọn chất liệu" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                        {materials.length === 0 ? (
+                                                                            <div className="p-2 text-sm text-bo-muted">Không có chất liệu</div>
+                                                                        ) : (
+                                                                            materials.map((material) => (
+                                                                                <SelectItem key={`material-${index}-${material.id}`} value={material.id.toString()} className={SELECT_ITEM_CLASS}>{material.tenChatLieu}</SelectItem>
+                                                                            ))
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        />
+                                                        {errors.bienTheSanPhams?.[index]?.chatLieuId && (
+                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].chatLieuId.message}</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Mã SKU */}
+                                                    <div className="space-y-2 sm:col-span-2">
+                                                        <Label className="text-bo-muted">Mã SKU (Tự động)</Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.maSku`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Input {...field} placeholder="Hệ thống tự động ghép mã..." disabled className={CONTROL_DISABLED_CLASS} />
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label>Mã vạch SKU</Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.maVachSku`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Input {...field} placeholder="Mã vạch SKU" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label>Giá vốn</Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.giaVon`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Input {...field} type="number" min="0" placeholder="0 (Tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label>Giá bán</Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.giaBan`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Input {...field} type="number" min="0" placeholder="0 (Tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label>Trạng thái</Label>
+                                                        <Controller
+                                                            name={`bienTheSanPhams.${index}.trangThai`}
+                                                            control={control}
+                                                            render={({ field }) => (
+                                                                <Select
+                                                                    value={field.value?.toString()}
+                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    disabled={isSubmitting}
+                                                                >
+                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                                        <SelectValue placeholder="Chọn trạng thái" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent position="popper" side="bottom" className={SELECT_CONTENT_CLASS}>
+                                                                        <SelectItem value="1" className={SELECT_ITEM_CLASS}>Hoạt động</SelectItem>
+                                                                        <SelectItem value="0" className={SELECT_ITEM_CLASS}>Tạm ngừng</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Variant Image */}
+                                                <div className="mt-4 space-y-2 border-t border-bo-border pt-4">
+                                                    <Label>Ảnh biến thể <span className="text-bo-danger">*</span></Label>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex-1 rounded-lg border-2 border-dashed border-bo-border bg-white p-2">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={(e) => handleVariantImageChange(index, e)}
+                                                                className="hidden"
+                                                                id={`variant-image-${index}`}
+                                                                disabled={isSubmitting}
+                                                            />
+                                                            <label
+                                                                htmlFor={`variant-image-${index}`}
+                                                                className="flex h-full cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                                            >
+                                                                <Upload className="size-4" />
+                                                                <span>Chọn ảnh biến thể</span>
+                                                            </label>
+                                                        </div>
+
+                                                        <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-white">
+                                                            {!variantImages[index] ? (
+                                                                <p className="px-1 text-center text-[10px] text-bo-muted">Chưa có ảnh</p>
+                                                            ) : (
+                                                                <>
+                                                                    <img
+                                                                        src={URL.createObjectURL(variantImages[index])}
+                                                                        alt="Variant Preview"
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveVariantImage(index)}
+                                                                        aria-label={`Xóa ảnh biến thể ${index + 1}`}
+                                                                        className="absolute right-1 top-1 rounded-full bg-bo-danger p-0.5 text-white shadow-sm transition-opacity hover:opacity-90"
+                                                                    >
+                                                                        <X className="size-3" />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                </FormSection>
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <DialogFooter className="mt-4 border-t border-amber-200 pt-4 bg-white dark:!bg-white shrink-0">
-                    <div className="w-full flex items-center justify-between gap-3">
+                <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
+                    <div className="flex w-full items-center justify-between gap-3">
                         <Button
                             type="button"
                             size="sm"
@@ -835,9 +861,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 trangThai: 1,
                             })}
                             disabled={isSubmitting}
-                            className="flex items-center gap-1 border-dashed border-2 border-amber-300 hover:bg-amber-100 text-amber-900"
+                            className="flex items-center gap-1 border-2 border-dashed border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="size-4" />
                             Thêm biến thể khác
                         </Button>
                         <div className="flex items-center gap-2">
@@ -846,19 +872,19 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 variant="outline"
                                 onClick={handleCancel}
                                 disabled={isSubmitting}
-                                className="bg-white text-amber-900 border-amber-300 hover:bg-amber-50 h-10 px-6 rounded-xl font-medium"
+                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 Hủy
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="bg-amber-600 text-white border border-amber-600 hover:bg-amber-700 shadow-sm transition-all duration-200 h-10 px-6 rounded-xl font-medium flex items-center"
+                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 onClick={handleSubmit(onSubmit)}
                             >
                                 {isSubmitting ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="size-4 animate-spin" />
                                         Đang lưu...
                                     </>
                                 ) : (

@@ -1,16 +1,21 @@
-import { useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import apiClient from "@/services/apiClient";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Loader2, FileText, User, Calculator,
-  Clock, CheckCircle2, Package, Calendar, XCircle,
-  Receipt, Hash, MapPin, Check
+  ArrowLeft, Loader2, User, Calculator,
+  CheckCircle2, Calendar, XCircle,
+  Receipt, Hash, MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import LoadingState from "@/components/shared/LoadingState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import SurfaceCard from "@/components/shared/SurfaceCard";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -35,19 +40,19 @@ function parseRoles(vaiTro) {
 
 // ── Trạng thái Báo Giá ───────────────────────────────────────────────────
 const QUOTE_STATUS_MAP = {
-  0: { label: "Đang chờ phản hồi", badge: "inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700", dot: "h-1.5 w-1.5 rounded-full bg-amber-500" },
-  2: { label: "Đã chốt đơn", badge: "inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700", dot: "h-1.5 w-1.5 rounded-full bg-emerald-500" },
-  4: { label: "Bị từ chối", badge: "inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700", dot: "h-1.5 w-1.5 rounded-full bg-red-500" },
+  0: { label: "Đang chờ phản hồi", tone: "warning" },
+  2: { label: "Đã chốt đơn", tone: "success" },
+  4: { label: "Bị từ chối", tone: "danger" },
 };
 
 export default function BaoGiaDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [userRoles, setUserRoles] = useState([]);
-  
+
   // State cho Modal Từ chối
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -76,17 +81,21 @@ export default function BaoGiaDetail() {
 
   const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
 
-  async function fetchDetail() {
+  const fetchDetail = useCallback(async () => {
     setLoading(true);
-    try { 
-      const res = await donBanHangService.getDetail(id); 
-      setData(res.data); 
+    try {
+      const res = await donBanHangService.getDetail(id);
+      setData(res.data);
     }
     catch { toast.error("Không tải được chi tiết báo giá"); }
     finally { setLoading(false); }
-  }
+  }, [id]);
 
-  useEffect(() => { fetchDetail(); }, [id]);
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
+  useEffect(() => {
+    queueMicrotask(() => fetchDetail());
+  }, [fetchDetail]);
 
   // ── Handlers ──
   const handleReject = async () => {
@@ -114,12 +123,11 @@ export default function BaoGiaDetail() {
 
   if (loading && !data) {
     return (
-      <div className="lux-sync warehouse-unified p-6 bg-gradient-to-br from-slate-50 via-yellow-50 to-amber-50 min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin text-yellow-600" />
-          <span className="text-sm text-gray-600">Đang tải chi tiết báo giá...</span>
-        </div>
-      </div>
+      <PageContainer>
+        <SurfaceCard>
+          <LoadingState rows={4} label="Đang tải chi tiết báo giá" />
+        </SurfaceCard>
+      </PageContainer>
     );
   }
 
@@ -128,207 +136,192 @@ export default function BaoGiaDetail() {
   const { donBanHang, chiTiet } = data;
   const st = QUOTE_STATUS_MAP[donBanHang.trangThai] ?? QUOTE_STATUS_MAP[0];
 
+  const infoRows = [
+    { icon: User,     label: "Khách hàng",     value: donBanHang.khachHang?.tenKhachHang },
+    { icon: Calendar, label: "Ngày lập",       value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
+    { icon: MapPin,   label: "Địa chỉ dự kiến", value: donBanHang.diaChiGiaoHang || "—" },
+  ];
+
   return (
-    <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-yellow-50 to-amber-50 min-h-screen">
-      <div className="space-y-6 w-full">
+    <PageContainer className="space-y-5">
+      {/* ── Header ── */}
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => navigate("/sales-quotations")}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại danh sách Báo giá
+        </button>
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => navigate("/sales-quotations")}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors duration-150"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Quay lại danh sách Báo giá
-          </button>
-
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className={st.badge}><span className={st.dot} />{st.label}</span>
-
-            {/* Các role thường mới thấy các nút này */}
-            {!isKhoRole && (
-              <>
-                {donBanHang.trangThai === 0 && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowRejectModal(true)}
-                      className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium transition-all duration-200"
-                    >
-                      <XCircle className="mr-2 h-4 w-4" /> Từ chối
-                    </Button>
-                    <Button
-                      onClick={handleApprove}
-                      className="bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700 shadow-sm transition-all duration-200 font-bold"
-                    >
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Chấp nhận (Chốt đơn)
-                    </Button>
-                  </>
-                )}
-
-                <Button
-                  onClick={() => navigate(`/sales-quotations/${id}/print`)}
-                  className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm transition-all duration-200 font-bold"
-                >
-                  <Receipt className="mr-2 h-4 w-4" /> In / PDF Báo giá
-                </Button>
-              </>
-            )}
+            <h1 className="text-lg font-bold text-bo-foreground">Báo giá {donBanHang.soDonHang}</h1>
+            <StatusBadge label={st.label} tone={st.tone} />
           </div>
+
+          {/* Các role thường mới thấy các nút này */}
+          {!isKhoRole && (
+            <div className="flex flex-wrap items-center gap-2">
+              {donBanHang.trangThai === 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowRejectModal(true)}
+                    className="gap-1.5 border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
+                  >
+                    <XCircle className="size-4" /> Từ chối
+                  </Button>
+                  <Button
+                    onClick={handleApprove}
+                    className="gap-1.5 bg-bo-success text-white hover:bg-bo-success/90"
+                  >
+                    <CheckCircle2 className="size-4" /> Chấp nhận (Chốt đơn)
+                  </Button>
+                </>
+              )}
+
+              <Button
+                onClick={() => navigate(`/sales-quotations/${id}/print`)}
+                className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+              >
+                <Receipt className="size-4" /> In / PDF Báo giá
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* ── LEFT: Thông tin chung ── */}
+        <div className="lg:col-span-1">
+          <SurfaceCard title="Chi tiết Báo giá" description={donBanHang.soDonHang}>
+            <div className="space-y-4">
+              {/* Info rows */}
+              {infoRows.map(({ icon, label, value }) => (
+                <div key={label} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-bo-surface-subtle text-bo-muted">
+                    {createElement(icon, { className: "size-3.5" })}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
+                    <p className="mt-0.5 text-sm font-semibold leading-snug text-bo-foreground">{value}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Hiển thị lý do từ chối nếu có */}
+              {donBanHang.trangThai === 4 && donBanHang.lyDoTuChoi && (
+                <div className="mt-4 rounded-md border border-bo-danger/30 bg-bo-danger-soft p-3">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-bo-danger">Lý do từ chối:</p>
+                  <p className="text-sm italic text-bo-danger">{donBanHang.lyDoTuChoi}</p>
+                </div>
+              )}
+
+              {/* Tổng tiền */}
+              <div className="space-y-2 border-t border-bo-border pt-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold uppercase text-bo-muted">Tiền hàng</span>
+                  <span className="text-sm font-semibold text-bo-foreground">{(donBanHang.tienHang ?? 0).toLocaleString()}đ</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold uppercase text-bo-muted">Dự kiến phí VC</span>
+                  <span className="text-sm font-semibold text-bo-foreground">{(donBanHang.phiVanChuyen ?? 0).toLocaleString()}đ</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-bo-border pt-2">
+                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-bo-foreground">
+                    <Calculator className="size-3.5" />Tổng báo giá
+                  </span>
+                  <span className="text-xl font-bold text-bo-foreground">{(donBanHang.tongCong ?? 0).toLocaleString()}đ</span>
+                </div>
+              </div>
+            </div>
+          </SurfaceCard>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* ── LEFT: Thông tin chung ── */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-              <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-100">
-                  <FileText className="h-4 w-4 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-900 leading-snug">Chi tiết Báo giá</p>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">{donBanHang.soDonHang}</p>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-4">
-
-                {/* Info rows */}
-                {[
-                  { icon: User,     color: "bg-blue-50 text-blue-600",   label: "Khách hàng",        value: donBanHang.khachHang?.tenKhachHang },
-                  { icon: Calendar, color: "bg-indigo-50 text-indigo-600", label: "Ngày lập",          value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
-                  { icon: MapPin,   color: "bg-red-50 text-red-600",     label: "Địa chỉ dự kiến", value: donBanHang.diaChiGiaoHang || "—" },
-                ].map(({ icon: Icon, color, label, value }) => (
-                  <div key={label} className="flex items-start gap-3">
-                    <div className={`mt-0.5 p-1.5 rounded-lg flex-shrink-0 ${color}`}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
-                      <p className="text-sm font-semibold text-slate-900 mt-0.5 leading-snug">{value}</p>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Hiển thị lý do từ chối nếu có */}
-                {donBanHang.trangThai === 4 && donBanHang.lyDoTuChoi && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-100 mt-4">
-                      <p className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">Lý do từ chối:</p>
-                      <p className="text-sm text-red-900 italic">{donBanHang.lyDoTuChoi}</p>
-                  </div>
-                )}
-
-                {/* Tổng tiền */}
-                <div className="pt-4 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">Tiền hàng</span>
-                    <span className="text-sm font-semibold text-slate-600">{(donBanHang.tienHang ?? 0).toLocaleString()}đ</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">Dự kiến phí VC</span>
-                    <span className="text-sm font-semibold text-slate-600">{(donBanHang.phiVanChuyen ?? 0).toLocaleString()}đ</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-xs font-black text-slate-900 uppercase flex items-center gap-1"><Calculator className="h-3.5 w-3.5" />Tổng báo giá</span>
-                    <span className="text-xl font-black text-slate-900">{(donBanHang.tongCong ?? 0).toLocaleString()}đ</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── RIGHT: Tables ── */}
-          <div className="lg:col-span-2 space-y-6">
-
-            {/* Danh mục sản phẩm */}
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-              <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100">
-                  <Package className="h-4 w-4 text-amber-600" />
-                </div>
-                <p className="font-semibold text-slate-900">Sản phẩm báo giá</p>
-                <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">
-                  {chiTiet.length}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase whitespace-nowrap">Mặt hàng</th>
-                      <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase whitespace-nowrap">Số lượng</th>
-                      <th className="h-12 px-4 text-right font-semibold text-slate-600 tracking-wide text-xs uppercase whitespace-nowrap">Đơn giá</th>
-                      <th className="h-12 px-4 text-right font-semibold text-slate-600 tracking-wide text-xs uppercase whitespace-nowrap">Thành tiền</th>
+        {/* ── RIGHT: Tables ── */}
+        <div className="lg:col-span-2">
+          {/* Danh mục sản phẩm */}
+          <SurfaceCard
+            title="Sản phẩm báo giá"
+            description={`${chiTiet.length} mặt hàng trong báo giá`}
+            contentClassName="p-0"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                    <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mặt hàng</th>
+                    <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
+                    <th className="h-10 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
+                    <th className="h-10 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-bo-border">
+                  {chiTiet.map((item) => (
+                    <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+                      <td className="px-3 py-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-bo-foreground">{item.tenSanPham}</span>
+                        <span className="mt-0.5 flex items-center gap-1 font-mono text-xs text-bo-muted">
+                          <Hash className="size-3" />{item.sku}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex h-7 min-w-[32px] items-center justify-center rounded-md bg-bo-surface-subtle px-2 text-xs font-bold text-bo-foreground">
+                          {item.soLuongDat}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right text-sm italic text-bo-muted">
+                        {item.donGia.toLocaleString()}đ
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <span className="font-bold text-bo-foreground">{item.thanhTien.toLocaleString()}đ</span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {chiTiet.map((item) => (
-                      <tr key={item.id} className="transition-colors duration-150 hover:bg-yellow-50/50">
-                        <td className="px-4 py-3.5 align-middle">
-                          <span className="font-semibold text-slate-900 text-xs uppercase tracking-wide">{item.tenSanPham}</span>
-                          <span className="block font-mono text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Hash className="h-3 w-3" />{item.sku}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 align-middle text-center">
-                          <span className="inline-flex h-8 min-w-[32px] items-center justify-center rounded-lg bg-slate-100 px-2 font-bold text-slate-900 ring-1 ring-slate-200 text-xs">
-                            {item.soLuongDat}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 align-middle text-right text-slate-500 text-sm italic">
-                          {item.donGia.toLocaleString()}đ
-                        </td>
-                        <td className="px-4 py-3.5 align-middle text-right">
-                          <span className="font-bold text-slate-900">{item.thanhTien.toLocaleString()}đ</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-          </div>
+          </SurfaceCard>
         </div>
       </div>
 
       {/* Modal Nhập lý do từ chối */}
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="border-bo-border bg-white sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-                <XCircle className="h-5 w-5" /> Từ chối báo giá
+            <DialogTitle className="flex items-center gap-2 text-bo-danger">
+                <XCircle className="size-5" /> Từ chối báo giá
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-                <p className="text-sm text-slate-500">Vui lòng ghi rõ lý do khách hàng không chấp nhận báo giá này để lưu trữ lịch sử.</p>
-                <Textarea 
-                    placeholder="Khách hàng chê giá đắt / Hàng không đúng yêu cầu..." 
+                <p className="text-sm text-bo-muted">Vui lòng ghi rõ lý do khách hàng không chấp nhận báo giá này để lưu trữ lịch sử.</p>
+                <Textarea
+                    placeholder="Khách hàng chê giá đắt / Hàng không đúng yêu cầu..."
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     rows={4}
-                    className="resize-none"
+                    className="resize-none border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                 />
             </div>
           </div>
-          <DialogFooter className="flex items-center justify-end gap-3 pt-4 mt-2 border-t border-slate-100">
-            <Button 
-              variant="outline" 
+          <DialogFooter className="mt-2 flex items-center justify-end gap-3 border-t border-bo-border pt-4">
+            <Button
+              variant="outline"
               onClick={() => setShowRejectModal(false)}
-              className="h-10 px-4 font-semibold text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition-colors duration-200"
+              className="h-10 border-bo-border bg-white px-4 font-semibold text-bo-foreground hover:bg-bo-surface-subtle"
             >
               Hủy bỏ
             </Button>
-            <Button 
-              onClick={handleReject} 
+            <Button
+              onClick={handleReject}
               disabled={rejectLoading}
-              className="h-10 px-4 font-bold bg-red-600 text-white hover:bg-red-700 border border-red-600 shadow-sm transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center"
+              className="flex h-10 items-center bg-bo-danger px-4 font-semibold text-white hover:bg-bo-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {rejectLoading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang xử lý...</>
+                <><Loader2 className="mr-2 size-4 animate-spin" /> Đang xử lý...</>
               ) : (
                 "Xác nhận từ chối"
               )}
@@ -336,6 +329,6 @@ export default function BaoGiaDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,5 +1,5 @@
-import { Box } from 'lucide-react';
 import AuthImagePanel from './AuthImagePanel';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 /**
  * Khung layout chung cho các màn hình xác thực:
@@ -18,11 +18,8 @@ export default function AuthShell({ children }) {
                 {/* my-auto thay cho justify-center: không cắt phần đầu form khi nội dung dài hơn màn hình */}
                 <div className="w-full max-w-md mx-auto my-auto px-6 py-10 sm:px-12 lg:px-0 lg:py-24">
                     {/* Logo trên mobile */}
-                    <div className="lg:hidden flex items-center gap-2 font-bold text-xl tracking-tight mb-10 fade-in-up">
-                        <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center">
-                            <Box className="w-5 h-5" />
-                        </div>
-                        FS WMS
+                    <div className="lg:hidden mb-10 fade-in-up">
+                        <BrandLogo variant="auth" />
                     </div>
 
                     {children}

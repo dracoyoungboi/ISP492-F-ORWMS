@@ -11,9 +11,10 @@ import {
 import {
     Building2, Package, Calendar, AlertCircle, CheckCircle,
     Loader2, Send, FileText, Clock, DollarSign, Mail, Phone,
-    User, MapPin, ChevronRight, ShieldCheck, Info, Boxes, TrendingUp,
+    User, MapPin, ChevronRight, ShieldCheck, Info, TrendingUp,
 } from "lucide-react";
 import supplierQuotationService from '@/services/supplierQuotationService';
+import BrandLogo from '@/components/brand/BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /* ─── MOCK DATA (remove in production) ─── */
@@ -719,13 +720,11 @@ export default function SupplierQuotation() {
                     <div className="sq-banner">
                         <div className="sq-banner-grid" />
                         <div className="sq-banner-left">
-                            <div className="sq-banner-logo">
-                                <Boxes size={22} strokeWidth={1.8} style={{ color: '#fff' }} />
-                            </div>
+                            <BrandLogo variant="sidebar-collapsed" />
                             <div>
                                 <p className="sq-banner-eyebrow">Cổng báo giá nhà cung cấp</p>
                                 <p className="sq-banner-title">
-                                    <span>FS</span> Warehouse Management
+                                    <span>FCentric</span> · Fashion Warehouse Management
                                 </p>
                             </div>
                         </div>
@@ -754,7 +753,7 @@ export default function SupplierQuotation() {
                             </h1>
                             <p className="sq-page-sub">
                                 {isQuoted
-                                    ? 'Báo giá này đã được gửi cho hệ thống FS Warehouse Management'
+                                    ? 'Báo giá này đã được gửi cho hệ thống FCentric'
                                     : 'Vui lòng cung cấp đơn giá và thông tin giao hàng chi tiết'}
                             </p>
                         </div>

@@ -1,19 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { nguoiDungService } from "@/services/nguoiDungService";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
+import AvatarEditorModal from "@/components/AvatarEditorModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import EmptyState from "@/components/shared/EmptyState";
+import PageContainer from "@/components/backoffice/PageContainer";
 
 import {
     ArrowLeft,
     Calendar,
+    Camera,
     CheckCircle2,
     Clock,
     Clock3,
@@ -27,7 +31,6 @@ import {
     UserCog,
     X,
     AlertCircle,
-    Activity,
 } from "lucide-react";
 
 export default function UserDetail() {
@@ -40,8 +43,7 @@ export default function UserDetail() {
     const [isEditing, setIsEditing] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-
-    const [loadingActivities, setLoadingActivities] = useState(false);
+    const [editorOpen, setEditorOpen] = useState(false);
 
     // User data
     const [userData, setUserData] = useState({
@@ -58,12 +60,6 @@ export default function UserDetail() {
 
     const [editedData, setEditedData] = useState({ ...userData });
 
-    // demo activities
-    const [activities] = useState([
-        { type: "success", title: "Cập nhật thông tin", detail: "Đổi email và số điện thoại", at: "2026-01-15T03:43:37Z" },
-        { type: "info", title: "Đăng nhập hệ thống", detail: "Thiết bị: Chrome • IP: 192.168.1.100", at: "2026-01-14T10:12:00Z" },
-    ]);
-
     const vaiTroOptions = useMemo(
         () => [
             { value: "quan_tri_vien", label: "Quản trị viên" },
@@ -79,12 +75,18 @@ export default function UserDetail() {
     const getVaiTroLabel = (value) => vaiTroOptions.find((opt) => opt.value === value)?.label || value || "—";
     const isActive = useMemo(() => Number(userData.trangThai) === 1, [userData.trangThai]);
 
-    const initials = useMemo(() => {
-        const name = userData.hoTen?.trim();
-        if (!name) return "U";
-        const parts = name.split(/\s+/).slice(0, 2);
-        return parts.map((p) => p[0]?.toUpperCase()).join("") || "U";
-    }, [userData.hoTen]);
+    // Avatar editor is only for the logged-in user's own profile.
+    const loggedInUserId = useMemo(() => {
+        try {
+            const token = localStorage.getItem("access_token");
+            if (!token) return null;
+            const payload = jwtDecode(token);
+            return payload?.userId ?? payload?.id ?? payload?.sub ?? null;
+        } catch {
+            return null;
+        }
+    }, []);
+    const isSelf = loggedInUserId != null && String(loggedInUserId) === String(id);
 
     const formatDateTime = (iso) => {
         if (!iso) return "—";
@@ -117,16 +119,6 @@ export default function UserDetail() {
 
         fetchUser();
     }, [id]);
-
-    // ===== Activities (demo) =====
-    const fetchActivities = async () => {
-        setLoadingActivities(true);
-        try {
-            // TODO: cắm API real
-        } finally {
-            setLoadingActivities(false);
-        }
-    };
 
     // ===== Edit handlers =====
     const handleEdit = () => {
@@ -199,45 +191,31 @@ export default function UserDetail() {
         }
     };
 
-    // ===== UI helpers =====
-    const activityIcon = (type) => {
-        if (type === "success") return <CheckCircle2 className="w-4 h-4 text-green-600" />;
-        if (type === "warning") return <AlertCircle className="w-4 h-4 text-amber-600" />;
-        return <Activity className="w-4 h-4 text-blue-600" />;
-    };
-
-    const activityBg = (type) => {
-        if (type === "success") return "bg-green-100";
-        if (type === "warning") return "bg-amber-100";
-        return "bg-blue-100";
-    };
-
     const quickStats = [
-        { icon: <UserCog className="h-4 w-4 text-[#b8860b]" />, label: "Vai trò", value: getVaiTroLabel(userData.vaiTro) },
-        { icon: <Shield className="h-4 w-4 text-[#b8860b]" />, label: "Trạng thái", value: isActive ? "Đang hoạt động" : "Không hoạt động" },
-        { icon: <IdCard className="h-4 w-4 text-[#b8860b]" />, label: "Mã người dùng", value: userData.id ?? "—" },
-        { icon: <Clock3 className="h-4 w-4 text-[#b8860b]" />, label: "Cập nhật gần nhất", value: formatDateTime(userData.ngayCapNhat) },
+        { icon: <UserCog className="h-4 w-4 text-bo-primary" />, label: "Vai trò", value: getVaiTroLabel(userData.vaiTro) },
+        { icon: <Shield className="h-4 w-4 text-bo-primary" />, label: "Trạng thái", value: isActive ? "Đang hoạt động" : "Không hoạt động" },
+        { icon: <IdCard className="h-4 w-4 text-bo-primary" />, label: "Mã người dùng", value: userData.id ?? "—" },
+        { icon: <Clock3 className="h-4 w-4 text-bo-primary" />, label: "Cập nhật gần nhất", value: formatDateTime(userData.ngayCapNhat) },
     ];
 
     return (
-        <div className="lux-sync min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 p-6">
-            <div className="max-w-6xl mx-auto space-y-6">
+        <PageContainer className="mx-auto max-w-5xl space-y-5">
                 {/* Header */}
-                <div className="rounded-2xl border border-[rgba(184,134,11,0.18)] bg-white p-5 shadow-sm">
+                <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm sm:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-start gap-4">
                             <Button
                                 variant="outline"
                                 size="icon"
                                 onClick={() => navigate(-1)}
-                                className="border-[rgba(184,134,11,0.28)] text-[#7a6e5f] hover:bg-[rgba(184,134,11,0.08)] hover:text-[#b8860b]"
+                                className="shrink-0 border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
                             >
-                                <ArrowLeft className="w-4 h-4" />
+                                <ArrowLeft className="h-4 w-4" />
                             </Button>
-                            <div>
-                                <p className="text-xs uppercase tracking-[0.16em] text-[rgba(184,134,11,0.72)]">Tài khoản / Hồ sơ</p>
-                                <h1 className="text-2xl font-bold text-[#1a1612]">Chi tiết người dùng</h1>
-                                <p className="mt-1 text-sm text-[#7a6e5f]">Quản lý thông tin tài khoản và lịch sử thay đổi</p>
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-bo-primary">Tài khoản / Hồ sơ</p>
+                                <h1 className="text-xl font-bold text-bo-foreground sm:text-2xl">Chi tiết người dùng</h1>
+                                <p className="mt-1 text-sm text-bo-muted">Quản lý thông tin tài khoản và lịch sử thay đổi</p>
                             </div>
                         </div>
 
@@ -246,9 +224,9 @@ export default function UserDetail() {
                                 <Button
                                     onClick={handleEdit}
                                     disabled={loadingUser}
-                                    className="bg-gradient-to-r from-[#b8860b] to-[#e8b923] text-white hover:opacity-95"
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 >
-                                    <Edit className="w-4 h-4 mr-2" />
+                                    <Edit className="mr-2 h-4 w-4" />
                                     Chỉnh sửa
                                 </Button>
                             ) : (
@@ -257,17 +235,17 @@ export default function UserDetail() {
                                         variant="outline"
                                         onClick={handleCancel}
                                         disabled={saving}
-                                        className="border-[rgba(184,134,11,0.28)] text-[#7a6e5f] hover:bg-[rgba(184,134,11,0.08)] hover:text-[#b8860b]"
+                                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
-                                        <X className="w-4 h-4 mr-2" />
+                                        <X className="mr-2 h-4 w-4" />
                                         Hủy
                                     </Button>
                                     <Button
                                         onClick={handleSave}
                                         disabled={saving}
-                                        className="bg-gradient-to-r from-[#b8860b] to-[#e8b923] text-white hover:opacity-95"
+                                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                                     >
-                                        <Save className="w-4 h-4 mr-2" />
+                                        <Save className="mr-2 h-4 w-4" />
                                         {saving ? "Đang lưu..." : "Lưu thay đổi"}
                                     </Button>
                                 </>
@@ -289,117 +267,125 @@ export default function UserDetail() {
 
                 {/* Alerts */}
                 {showSuccess && (
-                    <Alert className="bg-emerald-50 border-emerald-200">
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
+                    <Alert className="border-bo-success/30 bg-bo-success-soft">
+                        <CheckCircle2 className="h-4 w-4 text-bo-success" />
+                        <AlertDescription className="text-bo-success">
                             Cập nhật thông tin người dùng thành công!
                         </AlertDescription>
                     </Alert>
                 )}
 
                 {errorMsg && (
-                    <Alert className="bg-red-50 border-red-200">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <AlertDescription className="text-red-800">{errorMsg}</AlertDescription>
+                    <Alert className="border-bo-danger/30 bg-bo-danger-soft">
+                        <AlertCircle className="h-4 w-4 text-bo-danger" />
+                        <AlertDescription className="text-bo-danger">{errorMsg}</AlertDescription>
                     </Alert>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
                     {/* Left - Summary */}
-                    <div className="lg:col-span-1">
-                        <Card className="overflow-hidden border border-[rgba(184,134,11,0.16)] shadow-sm">
-                            <div className="h-1 bg-gradient-to-r from-transparent via-[#b8860b] to-transparent" />
-                            <CardContent className="p-6">
-                                <div className="flex flex-col items-center text-center">
-                                    <Avatar className="w-24 h-24 mb-4">
-                                        <AvatarFallback className="bg-gradient-to-r from-[#b8860b] to-[#e8b923] text-white text-2xl">
-                                            {initials}
-                                        </AvatarFallback>
-                                    </Avatar>
-
-                                    <h3 className="text-xl font-bold text-gray-900">
-                                        {loadingUser ? "Loading..." : userData.hoTen || "—"}
-                                    </h3>
-
-                                    <p className="text-[#7a6e5f] mb-2">@{userData.tenDangNhap || "—"}</p>
-
-                                    <Badge className="mb-4 border-[rgba(184,134,11,0.24)] bg-[rgba(184,134,11,0.08)] text-[#3d3529]" variant="outline">
-                                        <Shield className="w-3 h-3 mr-1" />
-                                        {getVaiTroLabel(userData.vaiTro)}
-                                    </Badge>
-
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className={`w-2 h-2 rounded-full ${isActive ? "bg-green-500" : "bg-gray-400"}`} />
-                                        <span className={`text-sm font-medium ${isActive ? "text-green-600" : "text-gray-600"}`}>
-                                            {isActive ? "Đang hoạt động" : "Không hoạt động"}
+                    <div className="space-y-5 lg:col-span-1">
+                        <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+                            <div className="flex flex-col items-center p-6 text-center">
+                                {isSelf ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditorOpen(true)}
+                                        aria-label="Thay đổi ảnh đại diện"
+                                        className="group relative mb-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
+                                    >
+                                        <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
+                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                            <Camera className="size-6 text-white" />
                                         </span>
-                                    </div>
+                                    </button>
+                                ) : (
+                                    <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" className="mb-4" />
+                                )}
 
-                                    <div className="w-full space-y-3 text-left border-t border-[rgba(184,134,11,0.14)] pt-4">
-                                        <div className="flex items-center gap-2 text-sm text-[#7a6e5f]">
-                                            <Calendar className="w-4 h-4" />
-                                            <span>Ngày tạo: {formatDateTime(userData.ngayTao)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm text-[#7a6e5f]">
-                                            <Clock className="w-4 h-4" />
-                                            <span>Cập nhật: {formatDateTime(userData.ngayCapNhat)}</span>
-                                        </div>
+                                <h3 className="break-all text-xl font-bold text-bo-foreground">
+                                    {loadingUser ? "Loading..." : userData.hoTen || "—"}
+                                </h3>
+
+                                <p className="mb-2 text-bo-muted">@{userData.tenDangNhap || "—"}</p>
+
+                                <Badge variant="outline" className="mb-4 border-bo-border bg-bo-surface-subtle text-bo-foreground">
+                                    <Shield className="mr-1 h-3 w-3" />
+                                    {getVaiTroLabel(userData.vaiTro)}
+                                </Badge>
+
+                                <div className="mb-6 flex items-center gap-2">
+                                    <div className={`h-2 w-2 rounded-full ${isActive ? "bg-bo-success" : "bg-slate-400"}`} />
+                                    <span className={`text-sm font-medium ${isActive ? "text-bo-success" : "text-bo-muted"}`}>
+                                        {isActive ? "Đang hoạt động" : "Không hoạt động"}
+                                    </span>
+                                </div>
+
+                                <div className="w-full space-y-3 border-t border-bo-border pt-4 text-left">
+                                    <div className="flex items-center gap-2 text-sm text-bo-muted">
+                                        <Calendar className="h-4 w-4" />
+                                        <span>Ngày tạo: {formatDateTime(userData.ngayTao)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-bo-muted">
+                                        <Clock className="h-4 w-4" />
+                                        <span>Cập nhật: {formatDateTime(userData.ngayCapNhat)}</span>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card className="mt-4 border border-[rgba(184,134,11,0.16)] shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="text-base">Thông tin hệ thống</CardTitle>
-                                <CardDescription>Thông tin quan trọng</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-2 text-sm text-[#3d3529]">
+                        <div className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+                            <div className="border-b border-bo-border px-4 py-3">
+                                <h2 className="text-sm font-semibold text-bo-foreground">Thông tin hệ thống</h2>
+                                <p className="mt-0.5 text-xs text-bo-muted">Thông tin quan trọng</p>
+                            </div>
+                            <div className="space-y-2 p-4 text-sm text-bo-foreground">
                                 <div className="flex justify-between gap-3">
-                                    <span>ID</span>
+                                    <span className="text-bo-muted">ID</span>
                                     <span className="font-medium">{userData.id ?? "—"}</span>
                                 </div>
                                 <div className="flex justify-between gap-3">
-                                    <span>Vai trò</span>
-                                    <span className="font-medium text-right">{getVaiTroLabel(userData.vaiTro)}</span>
+                                    <span className="text-bo-muted">Vai trò</span>
+                                    <span className="text-right font-medium">{getVaiTroLabel(userData.vaiTro)}</span>
                                 </div>
                                 <div className="flex justify-between gap-3">
-                                    <span>Trạng thái</span>
+                                    <span className="text-bo-muted">Trạng thái</span>
                                     <span className="font-medium">{isActive ? "Hoạt động" : "Không hoạt động"}</span>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Right - Tabs */}
                     <div className="lg:col-span-2">
-                        <Tabs
-                            defaultValue="info"
-                            className="space-y-4"
-                            onValueChange={(v) => {
-                                if (v === "activity") fetchActivities();
-                            }}
-                        >
-                            <TabsList className="grid w-full grid-cols-2 bg-[#f5f2ea] border border-[rgba(184,134,11,0.14)]">
-                                <TabsTrigger value="info">Thông tin</TabsTrigger>
-                                <TabsTrigger value="activity">Hoạt động</TabsTrigger>
+                        <Tabs defaultValue="info" className="space-y-4">
+                            <TabsList className="grid w-full grid-cols-2 rounded-lg border border-bo-border bg-bo-surface-subtle">
+                                <TabsTrigger
+                                    value="info"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
+                                >
+                                    Thông tin
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="activity"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
+                                >
+                                    Hoạt động
+                                </TabsTrigger>
                             </TabsList>
 
                             {/* Tab: Thông tin */}
                             <TabsContent value="info">
-                                <Card className="border border-[rgba(184,134,11,0.16)] shadow-sm overflow-hidden">
-                                    <CardHeader className="border-b border-[rgba(184,134,11,0.12)] bg-[rgba(184,134,11,0.05)]">
-                                        <CardTitle>Thông tin người dùng</CardTitle>
-                                        {/* <CardDescription>
-                                            {isEditing ? "Chỉnh sửa các trường cho phép cập nhật" : "Chế độ chỉ xem (read-only)"}
-                                        </CardDescription> */}
-                                    </CardHeader>
+                                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+                                    <div className="border-b border-bo-border px-4 py-3">
+                                        <h2 className="text-sm font-semibold text-bo-foreground">Thông tin người dùng</h2>
+                                    </div>
 
-                                    <CardContent className="space-y-6">
+                                    <div className="space-y-6 p-4 sm:p-5">
                                         {/* tenDangNhap */}
                                         <div className="space-y-2">
                                             <Label htmlFor="tenDangNhap" className="flex items-center gap-2">
-                                                <User className="w-4 h-4 text-gray-500" />
+                                                <User className="h-4 w-4 text-bo-muted" />
                                                 Tên đăng nhập
                                             </Label>
                                             <Input
@@ -407,7 +393,7 @@ export default function UserDetail() {
                                                 value={userData.tenDangNhap}
                                                 readOnly
                                                 disabled
-                                                className="bg-[#faf8f3] border-[rgba(184,134,11,0.18)]"
+                                                className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
                                             />
                                         </div>
 
@@ -419,14 +405,16 @@ export default function UserDetail() {
                                                 value={isEditing ? editedData.hoTen : userData.hoTen}
                                                 onChange={(e) => handleInputChange("hoTen", e.target.value)}
                                                 disabled={!isEditing || loadingUser}
-                                                className={!isEditing ? "bg-[#faf8f3] border-[rgba(184,134,11,0.18)]" : "border-[rgba(184,134,11,0.25)] focus-visible:ring-[rgba(184,134,11,0.35)]"}
+                                                className={!isEditing
+                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
                                             />
                                         </div>
 
                                         {/* email */}
                                         <div className="space-y-2">
                                             <Label htmlFor="email" className="flex items-center gap-2">
-                                                <Mail className="w-4 h-4 text-gray-500" />
+                                                <Mail className="h-4 w-4 text-bo-muted" />
                                                 Email
                                             </Label>
                                             <Input
@@ -435,13 +423,13 @@ export default function UserDetail() {
                                                 value={userData.email}
                                                 readOnly
                                                 disabled
-                                                className="bg-[#faf8f3] border-[rgba(184,134,11,0.18)]"
+                                                className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
                                             />
                                         </div>
 
                                         <div className="space-y-2">
                                             <Label htmlFor="soDienThoai" className="flex items-center gap-2">
-                                                <Phone className="w-4 h-4 text-gray-500" />
+                                                <Phone className="h-4 w-4 text-bo-muted" />
                                                 Số điện thoại
                                             </Label>
                                             <Input
@@ -449,14 +437,16 @@ export default function UserDetail() {
                                                 value={isEditing ? editedData.soDienThoai : userData.soDienThoai}
                                                 onChange={(e) => handleInputChange("soDienThoai", e.target.value)}
                                                 disabled={!isEditing || loadingUser}
-                                                className={!isEditing ? "bg-[#faf8f3] border-[rgba(184,134,11,0.18)]" : "border-[rgba(184,134,11,0.25)] focus-visible:ring-[rgba(184,134,11,0.35)]"}
+                                                className={!isEditing
+                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
                                             />
                                         </div>
 
                                         {/* password - only writable in edit mode */}
                                         <div className="space-y-2">
                                             <Label htmlFor="password" className="flex items-center gap-2">
-                                                <Shield className="w-4 h-4 text-gray-500" />
+                                                <Shield className="h-4 w-4 text-bo-muted" />
                                                 Mật khẩu
                                             </Label>
                                             <Input
@@ -466,72 +456,61 @@ export default function UserDetail() {
                                                 placeholder={isEditing ? "Nhập mật khẩu mới" : ""}
                                                 onChange={(e) => handleInputChange("password", e.target.value)}
                                                 disabled={!isEditing || loadingUser}
-                                                className={!isEditing ? "bg-[#faf8f3] border-[rgba(184,134,11,0.18)]" : "border-[rgba(184,134,11,0.25)] focus-visible:ring-[rgba(184,134,11,0.35)]"}
+                                                className={!isEditing
+                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
                                             />
                                         </div>
 
                                         {/* read-only fields */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div className="space-y-2">
                                                 <Label>Vai trò</Label>
-                                                <Input value={getVaiTroLabel(userData.vaiTro)} disabled className="bg-[#faf8f3] border-[rgba(184,134,11,0.18)]" />
+                                                <Input value={getVaiTroLabel(userData.vaiTro)} disabled className="border-bo-border bg-bo-surface-subtle text-bo-foreground" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Trạng thái</Label>
-                                                <Input value={isActive ? "Hoạt động" : "Không hoạt động"} disabled className="bg-[#faf8f3] border-[rgba(184,134,11,0.18)]" />
+                                                <Input value={isActive ? "Hoạt động" : "Không hoạt động"} disabled className="border-bo-border bg-bo-surface-subtle text-bo-foreground" />
                                             </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                </div>
                             </TabsContent>
 
                             {/* Tab: Hoạt động */}
                             <TabsContent value="activity">
-                                <Card className="border border-[rgba(184,134,11,0.16)] shadow-sm overflow-hidden">
-                                    <CardHeader className="border-b border-[rgba(184,134,11,0.12)] bg-[rgba(184,134,11,0.05)]">
-                                        <CardTitle>Lịch sử hoạt động</CardTitle>
-                                        <CardDescription>Demo UI — cắm API sau</CardDescription>
-                                    </CardHeader>
+                                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+                                    <div className="border-b border-bo-border px-4 py-3">
+                                        <h2 className="text-sm font-semibold text-bo-foreground">Lịch sử hoạt động</h2>
+                                    </div>
 
-                                    <CardContent className="space-y-3">
-                                        {loadingActivities && <div className="text-sm text-gray-600">Đang tải hoạt động...</div>}
-
-                                        {!loadingActivities &&
-                                            activities.map((a, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="flex items-start gap-4 p-4 bg-[#faf8f3] border border-[rgba(184,134,11,0.14)] rounded-lg hover:bg-[rgba(184,134,11,0.08)] transition-colors"
-                                                >
-                                                    <div className={`p-2 rounded-lg ${activityBg(a.type)}`}>{activityIcon(a.type)}</div>
-
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <p className="font-medium text-gray-900">{a.title}</p>
-                                                            <span className="text-xs text-[#7a6e5f]">{formatDateTime(a.at)}</span>
-                                                        </div>
-                                                        <p className="text-sm text-[#7a6e5f] mt-1">{a.detail}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                    </CardContent>
-                                </Card>
+                                    <EmptyState
+                                        title="Chưa có hoạt động"
+                                        description="Lịch sử hoạt động của tài khoản sẽ hiển thị tại đây khi có dữ liệu."
+                                    />
+                                </div>
                             </TabsContent>
                         </Tabs>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <AvatarEditorModal
+                    open={editorOpen}
+                    onOpenChange={setEditorOpen}
+                    userId={userData.id}
+                />
+        </PageContainer>
     );
 }
 
 function OverviewTile({ icon, label, value }) {
     return (
-        <div className="rounded-xl border border-[rgba(184,134,11,0.16)] bg-white px-4 py-3 shadow-sm">
-            <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(184,134,11,0.12)]">
+        <div className="rounded-lg border border-bo-border bg-bo-surface px-4 py-3 shadow-sm">
+            <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-bo-primary-soft">
                 {icon}
             </div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-[rgba(184,134,11,0.74)]">{label}</p>
-            <p className="mt-1 text-sm font-semibold text-[#1a1612]">{value}</p>
+            <p className="text-[11px] uppercase tracking-wide text-bo-muted">{label}</p>
+            <p className="mt-1 break-words text-sm font-semibold text-bo-foreground">{value}</p>
         </div>
     );
 }

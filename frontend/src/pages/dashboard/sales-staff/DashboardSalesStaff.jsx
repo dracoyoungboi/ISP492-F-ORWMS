@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { dashboardService } from "@/services/dashboardService";
 import Stat from "@/components/dashboard/Stat";
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
 import { ShoppingCart, DollarSign, Truck } from "lucide-react";
 
 export default function DashboardSalesStaff() {
@@ -17,31 +19,36 @@ export default function DashboardSalesStaff() {
 
     return (
 
-        <div className="lux-sync p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+        <PageContainer className="space-y-5">
 
-            <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <PageHeader
+                title="Tổng quan bán hàng"
+                description="Doanh thu và đơn hàng trong ngày"
+            />
+
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
                 <Stat
-                    icon={<ShoppingCart className="w-5 h-5 text-orange-600" />}
+                    icon={<ShoppingCart className="h-5 w-5 text-bo-warning" />}
                     label="Đơn bán hôm nay"
                     value={data.totalOrdersToday}
                 />
 
                 <Stat
-                    icon={<DollarSign className="w-5 h-5 text-emerald-600" />}
+                    icon={<DollarSign className="h-5 w-5 text-bo-success" />}
                     label="Doanh thu hôm nay"
                     value={`${data.revenueToday.toLocaleString()}₫`}
                 />
 
                 <Stat
-                    icon={<Truck className="w-5 h-5 text-blue-600" />}
+                    icon={<Truck className="h-5 w-5 text-bo-primary" />}
                     label="Đơn bán chờ xuất kho"
                     value={data.pendingSaleOrders}
                 />
 
             </section>
 
-        </div>
+        </PageContainer>
 
     )
 

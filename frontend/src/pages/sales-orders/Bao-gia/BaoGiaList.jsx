@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { donBanHangService } from "@/services/donBanHangService";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "@/services/apiClient";
@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Plus,
   RefreshCcw,
-  Search,
   Check,
   Eye,
   Filter,
@@ -16,10 +15,7 @@ import {
   Clock,
   XCircle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,10 +23,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import EmptyState from "@/components/shared/EmptyState";
+import FilterBar from "@/components/shared/FilterBar";
+import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import TableShell from "@/components/shared/TableShell";
+
 const QUOTE_STATUS_MAP = {
-  0: { label: "Chờ phản hồi", className: "bg-amber-50 text-amber-700 border border-amber-200" },
-  2: { label: "Đã chốt đơn", className: "bg-emerald-50 text-emerald-700 border border-emerald-200" }, // THÊM DÒNG NÀY
-  4: { label: "Bị từ chối", className: "bg-red-50 text-red-700 border border-red-200" },
+  0: { label: "Chờ phản hồi", tone: "warning" },
+  2: { label: "Đã chốt đơn", tone: "success" },
+  4: { label: "Bị từ chối", tone: "danger" },
 };
 
 const ROLE = {
@@ -90,7 +95,7 @@ export default function BaoGiaList() {
     fetchUserInfo();
   }, []);
 
-  function buildFilterPayload() {
+  const buildFilterPayload = useCallback(() => {
     // LỌC CHỨNG TỪ BÁO GIÁ
     const filterList = [
       {
@@ -122,9 +127,9 @@ export default function BaoGiaList() {
       filters: filterList,
       sorts: [{ fieldName: "id", direction: "DESC" }],
     };
-  }
+  }, [filters.keyword, filters.trangThai, filters.page, filters.size]);
 
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const payload = buildFilterPayload();
@@ -148,11 +153,13 @@ export default function BaoGiaList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [buildFilterPayload, filters.ngayDatHang]);
 
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
   useEffect(() => {
-    fetchData();
-  }, [filters.keyword, filters.trangThai, filters.ngayDatHang, filters.page, filters.size]);
+    queueMicrotask(() => fetchData());
+  }, [fetchData]);
 
   const totalPages = Math.ceil(total / filters.size);
 
@@ -175,241 +182,166 @@ export default function BaoGiaList() {
     tuChoi: data.filter((d) => d.trangThai === 4).length,
   };
 
+  const trangThaiLabel = filters.trangThai === ""
+    ? "Tất cả trạng thái"
+    : QUOTE_STATUS_MAP[filters.trangThai]?.label;
+
   return (
-    <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
-      <div className="space-y-6 w-full">
-        {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-blue-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tổng báo giá</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+    <PageContainer className="space-y-5">
+      {/* ── Page header ── */}
+      <PageHeader
+        title="Báo giá"
+        description="Danh sách báo giá gửi khách hàng và trạng thái phản hồi"
+        actions={
+          !isKhoRole ? (
+            <Link to="/sales-quotations/create">
+              <Button className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                <Plus className="size-4" />
+                Tạo báo giá mới
+              </Button>
+            </Link>
+          ) : null
+        }
+      />
 
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-amber-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Đang chờ phản hồi</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.choPhanHoi}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-amber-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-red-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Bị từ chối</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stats.tuChoi}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ── Stats ── */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+          <div>
+            <p className="text-xs font-medium text-bo-muted">Tổng báo giá</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
+          </div>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
+            <FileText className="size-5" />
+          </span>
         </div>
 
-        {/* FILTER SECTION */}
-        <Card className="border-0 shadow-lg bg-white">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <Filter className="h-5 w-5 text-purple-600" />
-              Lọc Báo Giá
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2 md:col-span-1">
-                <Label className="text-gray-700 font-medium">Tìm kiếm</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Nhập mã báo giá..."
-                    className="pl-9 border-gray-200 focus:border-purple-500 focus:ring-purple-500 h-10"
-                    value={filters.keyword}
-                    onChange={(e) => setFilters((p) => ({ ...p, keyword: e.target.value, page: 0 }))}
-                  />
-                </div>
-              </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+          <div>
+            <p className="text-xs font-medium text-bo-muted">Đang chờ phản hồi</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.choPhanHoi}</p>
+          </div>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
+            <Clock className="size-5" />
+          </span>
+        </div>
 
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-medium">Trạng thái</Label>
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal h-10">
-                      <span className="truncate">
-                        {filters.trangThai === "" && "Tất cả trạng thái"}
-                        {filters.trangThai === "0" && "Chờ phản hồi"}
-                        {filters.trangThai === "2" && "Đã chốt đơn"}
-                        {filters.trangThai === "4" && "Bị từ chối"}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
-                    <DropdownMenuItem onClick={() => setFilters((p) => ({ ...p, trangThai: "", page: 0 }))} className="flex items-center justify-between cursor-pointer hover:bg-purple-50">
-                      Tất cả trạng thái {filters.trangThai === "" && <Check className="h-4 w-4" />}
-                    </DropdownMenuItem>
-                    {Object.entries(QUOTE_STATUS_MAP).map(([key, value]) => (
-                      <DropdownMenuItem key={key} onClick={() => setFilters((p) => ({ ...p, trangThai: key, page: 0 }))} className="flex items-center justify-between cursor-pointer hover:bg-purple-50">
-                        {value.label} {filters.trangThai === key && <Check className="h-4 w-4" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+          <div>
+            <p className="text-xs font-medium text-bo-muted">Bị từ chối</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.tuChoi}</p>
+          </div>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
+            <XCircle className="size-5" />
+          </span>
+        </div>
+      </section>
 
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-medium">Ngày lập</Label>
-                <div className="relative">
-                  <Input
-                    type="date"
-                    className="border-gray-200 focus:border-purple-500 focus:ring-purple-500 h-10"
-                    value={filters.ngayDatHang}
-                    onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={handleReset}
-                  className="bg-white text-gray-700 border-gray-200 hover:bg-gray-50 h-10 px-4 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 w-full justify-center"
+      {/* ── Filters ── */}
+      <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+          <Filter className="size-4 text-bo-primary" />
+          <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+            Lọc Báo Giá
+          </h2>
+        </div>
+        <FilterBar
+          primary={
+            <SearchInput
+              placeholder="Nhập mã báo giá..."
+              value={filters.keyword}
+              onChange={(e) => setFilters((p) => ({ ...p, keyword: e.target.value, page: 0 }))}
+              onClear={() => setFilters((p) => ({ ...p, keyword: "", page: 0 }))}
+            />
+          }
+          filters={
+            <>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
+                  >
+                    <span className="truncate">{trangThaiLabel}</span>
+                    <ChevronDown className="size-4 shrink-0 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                 >
-                  <RefreshCcw className="h-4 w-4" /> Đặt lại
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* NÚT TẠO BÁO GIÁ */}
-        {!isKhoRole && (
-            <div className="flex justify-end">
-              <Link to="/sales-quotations/create">
-                <Button className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm gap-2 transition-all duration-200">
-                  <Plus className="h-4 w-4" />
-                  Tạo báo giá mới
-                </Button>
-              </Link>
-            </div>
-        )}
-
-        {/* TABLE SECTION */}
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-          {loading ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="flex items-center justify-center">
-                <RefreshCcw className="h-6 w-6 animate-spin text-purple-600 mr-2" />
-                Đang tải dữ liệu...
-              </div>
-            </div>
-          ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
-                <FileText className="h-10 w-10 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-800">Không tìm thấy báo giá nào</h3>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Bấm tạo báo giá mới hoặc điều chỉnh bộ lọc.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">STT</th>
-                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Mã báo giá</th>
-                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Khách hàng</th>
-                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Ngày lập</th>
-                    <th className="h-12 px-4 text-right font-semibold text-slate-600 tracking-wide text-xs uppercase">Tổng tiền</th>
-                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Trạng thái</th>
-                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.map((item, index) => (
-                    <tr
-                      key={item.id}
-                      className="transition-colors duration-150 hover:bg-purple-50/50 cursor-pointer"
-                      onClick={() => navigate(`/sales-quotations/${item.id}`)}
+                  <DropdownMenuItem
+                    onClick={() => setFilters((p) => ({ ...p, trangThai: "", page: 0 }))}
+                    className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                  >
+                    Tất cả trạng thái
+                    {filters.trangThai === "" && <Check className="size-4" />}
+                  </DropdownMenuItem>
+                  {Object.entries(QUOTE_STATUS_MAP).map(([key, value]) => (
+                    <DropdownMenuItem
+                      key={key}
+                      onClick={() => setFilters((p) => ({ ...p, trangThai: key, page: 0 }))}
+                      className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                     >
-                      <td className="px-4 py-3.5 align-middle text-center text-slate-500 text-xs">
-                        {filters.page * filters.size + index + 1}
-                      </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <span className="font-bold text-purple-600 tracking-wide uppercase">{item.soDonHang}</span>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <div className="font-semibold text-slate-900">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-center">
-                        <div className="text-slate-600 text-xs">
-                          {new Date(item.ngayTao).toLocaleDateString("vi-VN")}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-right">
-                        <span className="font-bold text-slate-900">
-                          {item.tongCong?.toLocaleString("vi-VN")} đ
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-center">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${QUOTE_STATUS_MAP[item.trangThai]?.className}`}>
-                          {QUOTE_STATUS_MAP[item.trangThai]?.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/sales-quotations/${item.id}`);
-                            }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-purple-600 hover:bg-purple-50 hover:border-purple-200"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      {value.label}
+                      {filters.trangThai === key && <Check className="size-4" />}
+                    </DropdownMenuItem>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-        {/* PAGINATION */}
-        <Card className="border-0 shadow-md bg-white">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <input
+                type="date"
+                aria-label="Ngày lập"
+                value={filters.ngayDatHang}
+                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
+                className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[170px]"
+              />
+            </>
+          }
+          actions={
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            >
+              <RefreshCcw className="size-4" />
+              Đặt lại
+            </Button>
+          }
+        />
+      </div>
+
+      {/* ── Table ── */}
+      <TableShell
+        title="Danh sách báo giá"
+        description="Nhấn vào dòng để xem chi tiết báo giá"
+        footer={
+          data.length > 0 ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Page size */}
               <div className="flex items-center gap-2">
-                <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
+                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">
+                    <Button
+                      variant="outline"
+                      className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                    >
                       {filters.size} dòng
-                      <ChevronDown className="h-4 w-4 opacity-50" />
+                      <ChevronDown className="size-3.5 opacity-60" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
+                  <DropdownMenuContent
+                    align="start"
+                    className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                  >
                     {[10, 20, 30, 50].map((s) => (
-                      <DropdownMenuItem key={s} onClick={() => handlePageSizeChange(s)} className="cursor-pointer">
+                      <DropdownMenuItem
+                        key={s}
+                        onClick={() => handlePageSizeChange(s)}
+                        className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                      >
                         {s} dòng
                       </DropdownMenuItem>
                     ))}
@@ -417,15 +349,32 @@ export default function BaoGiaList() {
                 </DropdownMenu>
               </div>
 
-              <div className="text-sm text-gray-600">
-                Hiển thị <span className="font-semibold text-gray-900">{filters.page * filters.size + 1}</span> - <span className="font-semibold text-gray-900">{Math.min((filters.page + 1) * filters.size, total)}</span> trong tổng số <span className="font-semibold text-purple-600">{total}</span> kết quả
-              </div>
+              {/* Page info */}
+              <p className="text-xs text-bo-muted">
+                Hiển thị{" "}
+                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
+                {" - "}
+                <span className="font-semibold text-bo-foreground">
+                  {Math.min((filters.page + 1) * filters.size, total)}
+                </span>
+                {" trong tổng số "}
+                <span className="font-semibold text-bo-primary">{total}</span> kết quả
+              </p>
 
+              {/* Navigation */}
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => handlePageChange(filters.page - 1)} disabled={filters.page === 0} className="gap-1 disabled:opacity-50">
-                  <ChevronLeft className="h-4 w-4" /> Trước
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(filters.page - 1)}
+                  disabled={filters.page === 0}
+                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  Trước
                 </Button>
-                <div className="hidden sm:flex gap-1">
+
+                <div className="hidden items-center gap-1 sm:flex">
                   {[...Array(Math.min(5, totalPages))].map((_, idx) => {
                     let pageNum;
                     if (totalPages <= 5) pageNum = idx;
@@ -436,24 +385,108 @@ export default function BaoGiaList() {
                     return (
                       <Button
                         key={idx}
-                        variant={filters.page === pageNum ? "default" : "outline"}
+                        variant="outline"
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
-                        className={filters.page === pageNum ? "bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm" : "border-gray-200"}
+                        className={
+                          filters.page === pageNum
+                            ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                            : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
+                        }
                       >
                         {pageNum + 1}
                       </Button>
                     );
                   })}
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handlePageChange(filters.page + 1)} disabled={filters.page >= totalPages - 1} className="gap-1 disabled:opacity-50">
-                  Sau <ChevronRight className="h-4 w-4" />
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(filters.page + 1)}
+                  disabled={filters.page >= totalPages - 1}
+                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                >
+                  Sau
+                  <ChevronRight className="size-3.5" />
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          ) : null
+        }
+      >
+        {loading ? (
+          <LoadingState rows={6} />
+        ) : data.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Không tìm thấy báo giá nào"
+            description="Bấm tạo báo giá mới hoặc điều chỉnh bộ lọc."
+          />
+        ) : (
+          <table className="w-full min-w-[980px] text-sm">
+            <thead>
+              <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
+                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
+                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
+                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bo-border">
+              {data.map((item, index) => (
+                <tr
+                  key={item.id}
+                  className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                  onClick={() => navigate(`/sales-quotations/${item.id}`)}
+                >
+                  <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                    {filters.page * filters.size + index + 1}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                    {new Date(item.ngayTao).toLocaleDateString("vi-VN")}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <span className="font-semibold text-bo-foreground">
+                      {item.tongCong?.toLocaleString("vi-VN")} đ
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <StatusBadge
+                      label={QUOTE_STATUS_MAP[item.trangThai]?.label}
+                      tone={QUOTE_STATUS_MAP[item.trangThai]?.tone}
+                    />
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/sales-quotations/${item.id}`);
+                        }}
+                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="size-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableShell>
+    </PageContainer>
   );
 }

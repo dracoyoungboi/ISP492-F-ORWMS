@@ -1,70 +1,47 @@
 // src/pages/supplier/SupplierList.jsx
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Loader2, Users,
+    ChevronDown, Phone, Mail, User2, Filter, RefreshCcw, Check, AlertTriangle,
+    CheckCircle2,
+} from 'lucide-react';
+import { toast } from "sonner";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import PageHeader from "@/components/backoffice/PageHeader";
+import EmptyState from "@/components/shared/EmptyState";
+import FilterBar from "@/components/shared/FilterBar";
+import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight,
-    Eye, Loader2, Users, ChevronDown, Phone, Mail, User2,
-    Filter, RefreshCcw, Check, AlertTriangle, CheckCircle2,
-} from "lucide-react";
-import { toast } from "sonner";
+
 import { getAllSupplier, deleteSupplier } from "@/services/supplierService";
 
-// ── Status badge ──────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-    return status === 1 ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Hoạt động
-        </span>
-    ) : (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            Ngừng hoạt động
-        </span>
-    );
-}
-
 // ── Action button ─────────────────────────────────────────────────────────
-function ActionBtn({ title, onClick, color, children }) {
-    const colors = {
-        violet: "text-violet-600 hover:bg-violet-50 hover:border-violet-200",
-        blue:   "text-blue-600 hover:bg-blue-50 hover:border-blue-200",
-        red:    "text-red-500 hover:bg-red-50 hover:border-red-200",
+function ActionBtn({ title, onClick, tone = "neutral", children }) {
+    const tones = {
+        neutral: "text-bo-muted hover:border-bo-primary hover:text-bo-primary",
+        danger: "text-bo-muted hover:border-bo-danger hover:text-bo-danger",
     };
+
     return (
         <button
             type="button"
             title={title}
             onClick={onClick}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 ${colors[color]}`}
+            className={`inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white transition-colors ${tones[tone]}`}
         >
             {children}
         </button>
-    );
-}
-
-// ── Empty state ───────────────────────────────────────────────────────────
-function EmptyState() {
-    return (
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
-                <Users className="h-10 w-10 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800">Không tìm thấy nhà cung cấp</h3>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                Chưa có nhà cung cấp nào phù hợp. Hãy thêm mới hoặc thay đổi bộ lọc tìm kiếm.
-            </p>
-        </div>
     );
 }
 
@@ -76,40 +53,42 @@ function ConfirmDeleteModal({ target, isDeleting, onConfirm, onCancel }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Overlay */}
             <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                 onClick={!isDeleting ? onCancel : undefined}
             />
             {/* Dialog */}
-            <div className="relative z-10 w-full max-w-md mx-4 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative z-10 mx-4 w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg">
                 {/* Header */}
-                <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-red-50">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-                        <AlertTriangle className="h-5 w-5 text-red-600" />
-                    </div>
+                <div className="flex items-center gap-3 border-b border-bo-border bg-bo-danger-soft px-5 py-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-danger">
+                        <AlertTriangle className="size-5" />
+                    </span>
                     <div>
-                        <p className="font-bold text-red-700 text-base leading-snug">Xác nhận xóa nhà cung cấp</p>
-                        <p className="text-xs text-red-500 mt-0.5">Hành động này không thể hoàn tác</p>
+                        <p className="text-base font-semibold leading-snug text-bo-danger">
+                            Xác nhận xóa nhà cung cấp
+                        </p>
+                        <p className="mt-0.5 text-xs text-bo-muted">Hành động này không thể hoàn tác</p>
                     </div>
                 </div>
 
                 {/* Body */}
-                <div className="px-6 py-5">
-                    <p className="text-sm text-slate-600 leading-relaxed">
+                <div className="px-5 py-4">
+                    <p className="text-sm leading-relaxed text-slate-600">
                         Bạn có chắc chắn muốn xóa nhà cung cấp{" "}
-                        <span className="font-semibold text-slate-900">"{target.tenNhaCungCap}"</span>{" "}
-                        (mã: <span className="font-mono font-semibold text-violet-600">{target.maNhaCungCap}</span>)?
+                        <span className="font-semibold text-bo-foreground">"{target.tenNhaCungCap}"</span>{" "}
+                        (mã: <span className="font-mono font-semibold text-bo-foreground">{target.maNhaCungCap}</span>)?
                     </p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-bo-muted">
                         Toàn bộ thông tin liên quan đến nhà cung cấp này sẽ bị xóa vĩnh viễn.
                     </p>
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
                     <Button
                         type="button"
                         variant="outline"
-                        className="border-slate-900 text-slate-600 hover:bg-slate-900 hover:text-white transition-all duration-200"
+                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         onClick={onCancel}
                         disabled={isDeleting}
                     >
@@ -117,14 +96,14 @@ function ConfirmDeleteModal({ target, isDeleting, onConfirm, onCancel }) {
                     </Button>
                     <Button
                         type="button"
-                        className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 min-w-[100px] shadow-sm transition-all duration-200"
+                        className="min-w-[100px] border border-bo-danger bg-bo-danger text-white hover:bg-bo-danger/90"
                         onClick={onConfirm}
                         disabled={isDeleting}
                     >
                         {isDeleting ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</>
+                            <><Loader2 className="mr-2 size-4 animate-spin" />Đang xóa...</>
                         ) : (
-                            <><Trash2 className="mr-2 h-4 w-4" />Xóa</>
+                            <><Trash2 className="mr-2 size-4" />Xóa</>
                         )}
                     </Button>
                 </div>
@@ -171,7 +150,9 @@ export default function SupplierList() {
         }
     }, [search]);
 
-    useEffect(() => { fetchSuppliers(); }, [fetchSuppliers]);
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
+    useEffect(() => { queueMicrotask(() => fetchSuppliers()); }, [fetchSuppliers]);
 
     // Reset page khi filter đổi
     useEffect(() => { setPageNumber(0); }, [filterStatus]);
@@ -265,253 +246,142 @@ export default function SupplierList() {
                 onCancel={handleCancelDelete}
             />
 
-            <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
-                <div className="space-y-6 w-full">
-
-                    {/* ── Page header ── */}
-
-                    {/* ── Stats ── */}
-                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-blue-50 to-white">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Tổng nhà cung cấp</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
-                                    </div>
-                                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                                        <Users className="h-6 w-6 text-blue-600" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-green-50 to-white">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">{stats.active}</p>
-                                    </div>
-                                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                                        <CheckCircle2 className="h-6 w-6 text-green-600" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-red-50 to-white">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Ngừng hoạt động</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">{stats.inactive}</p>
-                                    </div>
-                                    <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                                        <AlertTriangle className="h-6 w-6 text-red-500" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </section>
-
-                    {/* ── Filter bar ── */}
-                    <Card className="border-0 shadow-lg bg-white">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                                <Filter className="h-5 w-5 text-purple-600" />
-                                Bộ lọc tìm kiếm
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Search */}
-                            <div className="space-y-2 md:col-span-2">
-                                <Label className="text-gray-700 font-medium">Tìm kiếm</Label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Tìm theo mã, tên, người liên hệ..."
-                                        className="pl-9 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Status filter */}
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Trạng thái</Label>
-                                <DropdownMenu modal={false}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
-                                            <span className="truncate">{currentFilterLabel}</span>
-                                            <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
-                                        {STATUS_FILTER_OPTIONS.map((opt) => (
-                                            <DropdownMenuItem
-                                                key={opt.value}
-                                                onClick={() => setFilterStatus(opt.value)}
-                                                className="flex items-center justify-between cursor-pointer hover:bg-purple-50"
-                                            >
-                                                {opt.label}
-                                                {filterStatus === opt.value && <Check className="h-4 w-4" />}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Reset */}
-                            <div className="flex items-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleReset}
-                                    className="w-full flex items-center gap-2 transition-all duration-300 hover:bg-purple-600 hover:text-white border-gray-300"
-                                >
-                                    <RefreshCcw className="h-4 w-4" />
-                                    Đặt lại
-                                </Button>
-                            </div>
-                        </div>
-                        </CardContent>
-                    </Card>
-  
-                    {/* ── Action buttons ── */}
-                    <div className="flex items-center justify-end">
+            <PageContainer className="space-y-5">
+                {/* ── Page header ── */}
+                <PageHeader
+                    title="Quản lý nhà cung cấp"
+                    description="Danh sách nhà cung cấp và trạng thái hợp tác trong hệ thống"
+                    actions={
                         <Button
                             onClick={() => navigate("/supplier/new")}
-                            className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm transition-all duration-200"
+                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            <Plus className="w-4 h-4 mr-2" />
+                            <Plus className="size-4" />
                             Thêm nhà cung cấp
                         </Button>
+                    }
+                />
+
+                {/* ── Stats ── */}
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                        <div>
+                            <p className="text-xs font-medium text-bo-muted">Tổng nhà cung cấp</p>
+                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
+                        </div>
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
+                            <Users className="size-5" />
+                        </span>
                     </div>
 
-                    {/* ── Table ── */}
-                    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-                        {loading ? (
-                            <div className="flex items-center justify-center py-16 gap-2">
-                                <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-                                <span className="text-sm text-gray-600">Đang tải danh sách...</span>
-                            </div>
-                        ) : pageItems.length === 0 ? (
-                            <EmptyState />
-                        ) : (
-                            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-slate-200 bg-slate-50">
-                                            {["STT", "Mã NCC", "Tên nhà cung cấp", "Người liên hệ", "SĐT", "Email", "Trạng thái", "Thao tác"].map((h, i) => (
-                                                <th
-                                                    key={h}
-                                                    className={`h-12 px-4 font-semibold text-slate-600 tracking-wide text-xs uppercase ${i === 7 ? "text-center" : "text-left"}`}
-                                                >
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {pageItems.map((item, index) => (
-                                            <tr key={item.id} className="transition-colors duration-150 hover:bg-violet-50/50">
-                                                {/* STT */}
-                                                <td className="px-4 py-3.5 align-middle text-slate-500 text-xs">
-                                                    {safePage * pageSize + index + 1}
-                                                </td>
-
-                                                {/* Mã NCC */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <span className="font-bold text-purple-600 tracking-wide">
-                                                        {item.maNhaCungCap || "—"}
-                                                    </span>
-                                                </td>
-
-                                                {/* Tên */}
-                                                <td className="px-4 py-3.5 align-middle max-w-[200px]">
-                                                    <span className="font-semibold text-slate-900 leading-snug">
-                                                        {item.tenNhaCungCap}
-                                                    </span>
-                                                </td>
-
-                                                {/* Người liên hệ */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <User2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span className="text-slate-700">{item.nguoiLienHe || "—"}</span>
-                                                    </div>
-                                                </td>
-
-                                                {/* SĐT */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span className="text-slate-700">{item.soDienThoai || "—"}</span>
-                                                    </div>
-                                                </td>
-
-                                                {/* Email */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span className="text-slate-600 text-xs">{item.email || "—"}</span>
-                                                    </div>
-                                                </td>
-
-                                                {/* Trạng thái */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <StatusBadge status={item.trangThai} />
-                                                </td>
-
-                                                {/* Thao tác */}
-                                                <td className="px-4 py-3.5 align-middle">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <ActionBtn title="Xem chi tiết" onClick={() => navigate(`/supplier/view/${item.id}`)} color="violet">
-                                                            <Eye className="h-4 w-4" />
-                                                        </ActionBtn>
-                                                        <ActionBtn title="Chỉnh sửa" onClick={() => navigate(`/supplier/${item.id}`)} color="blue">
-                                                            <Edit className="h-4 w-4" />
-                                                        </ActionBtn>
-                                                        <ActionBtn
-                                                            title="Xóa"
-                                                            onClick={() => handleDeleteClick(item)}
-                                                            color="red"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </ActionBtn>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                        <div>
+                            <p className="text-xs font-medium text-bo-muted">Đang hoạt động</p>
+                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.active}</p>
+                        </div>
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
+                            <CheckCircle2 className="size-5" />
+                        </span>
                     </div>
 
-                    {/* ── Pagination ── */}
-                    {totalElements > 0 && (
-                        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 p-4">
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+                        <div>
+                            <p className="text-xs font-medium text-bo-muted">Ngừng hoạt động</p>
+                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.inactive}</p>
+                        </div>
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
+                            <AlertTriangle className="size-5" />
+                        </span>
+                    </div>
+                </section>
 
+                {/* ── Filter bar ── */}
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+                        <Filter className="size-4 text-bo-primary" />
+                        <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+                            Bộ lọc tìm kiếm
+                        </h2>
+                    </div>
+                    <FilterBar
+                        primary={
+                            <SearchInput
+                                placeholder="Tìm theo mã, tên, người liên hệ..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onClear={() => setSearch("")}
+                            />
+                        }
+                        filters={
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
+                                    >
+                                        <span className="truncate">{currentFilterLabel}</span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                >
+                                    {STATUS_FILTER_OPTIONS.map((opt) => (
+                                        <DropdownMenuItem
+                                            key={opt.value}
+                                            onClick={() => setFilterStatus(opt.value)}
+                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            {opt.label}
+                                            {filterStatus === opt.value && <Check className="size-4" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        }
+                        actions={
+                            <Button
+                                variant="outline"
+                                onClick={handleReset}
+                                className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                <RefreshCcw className="size-4" />
+                                Đặt lại
+                            </Button>
+                        }
+                    />
+                </div>
+
+                {/* ── Table ── */}
+                <TableShell
+                    title="Danh sách nhà cung cấp"
+                    description="Nhấn vào thao tác để xem chi tiết, chỉnh sửa hoặc xóa nhà cung cấp"
+                    footer={
+                        totalElements > 0 ? (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 {/* Page size */}
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
+                                    <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">
+                                            <Button
+                                                variant="outline"
+                                                className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                                            >
                                                 {pageSize} dòng
-                                                <ChevronDown className="h-4 w-4 opacity-50" />
+                                                <ChevronDown className="size-3.5 opacity-60" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
+                                        <DropdownMenuContent
+                                            align="start"
+                                            className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                        >
                                             {[5, 10, 20, 50].map((size) => (
                                                 <DropdownMenuItem
                                                     key={size}
                                                     onClick={() => { setPageSize(size); setPageNumber(0); }}
-                                                    className="cursor-pointer"
+                                                    className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                                 >
                                                     {size} dòng
                                                 </DropdownMenuItem>
@@ -521,16 +391,16 @@ export default function SupplierList() {
                                 </div>
 
                                 {/* Page info */}
-                                <div className="text-sm text-gray-600">
+                                <p className="text-xs text-bo-muted">
                                     Hiển thị{" "}
-                                    <span className="font-semibold text-gray-900">{safePage * pageSize + 1}</span>
-                                    {" "}-{" "}
-                                    <span className="font-semibold text-gray-900">
+                                    <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
+                                    {" – "}
+                                    <span className="font-semibold text-bo-foreground">
                                         {Math.min((safePage + 1) * pageSize, totalElements)}
                                     </span>
-                                    {" "}trong tổng số{" "}
-                                    <span className="font-semibold text-violet-600">{totalElements}</span> kết quả
-                                </div>
+                                    {" trong tổng số "}
+                                    <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
+                                </p>
 
                                 {/* Nav */}
                                 <div className="flex items-center gap-2">
@@ -539,12 +409,12 @@ export default function SupplierList() {
                                         size="sm"
                                         onClick={() => handlePageChange(safePage - 1)}
                                         disabled={safePage === 0}
-                                        className="gap-1 disabled:opacity-50"
+                                        className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                     >
-                                        <ChevronLeft className="h-4 w-4" /> Trước
+                                        <ChevronLeft className="size-3.5" /> Trước
                                     </Button>
 
-                                    <div className="hidden sm:flex gap-1">
+                                    <div className="hidden items-center gap-1 sm:flex">
                                         {[...Array(Math.min(5, totalPages))].map((_, idx) => {
                                             let pageNum;
                                             if (totalPages <= 5)               pageNum = idx;
@@ -555,13 +425,13 @@ export default function SupplierList() {
                                             return (
                                                 <Button
                                                     key={idx}
-                                                    variant={safePage === pageNum ? "default" : "outline"}
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => handlePageChange(pageNum)}
                                                     className={
                                                         safePage === pageNum
-                                                            ? "bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm"
-                                                            : "border-gray-200"
+                                                            ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                                                            : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
                                                     }
                                                 >
                                                     {pageNum + 1}
@@ -575,17 +445,116 @@ export default function SupplierList() {
                                         size="sm"
                                         onClick={() => handlePageChange(safePage + 1)}
                                         disabled={safePage >= totalPages - 1}
-                                        className="gap-1 disabled:opacity-50"
+                                        className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                     >
-                                        Sau <ChevronRight className="h-4 w-4" />
+                                        Sau <ChevronRight className="size-3.5" />
                                     </Button>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        ) : null
+                    }
+                >
+                    {loading ? (
+                        <LoadingState rows={5} label="Đang tải danh sách nhà cung cấp" />
+                    ) : pageItems.length === 0 ? (
+                        <EmptyState
+                            icon={Users}
+                            title="Không tìm thấy nhà cung cấp"
+                            description="Chưa có nhà cung cấp nào phù hợp. Hãy thêm mới hoặc thay đổi bộ lọc tìm kiếm."
+                        />
+                    ) : (
+                        <table className="w-full min-w-[960px] text-sm">
+                            <thead>
+                                <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                    {["STT", "Mã NCC", "Tên nhà cung cấp", "Người liên hệ", "SĐT", "Email", "Trạng thái", "Thao tác"].map((h, i) => (
+                                        <th
+                                            key={h}
+                                            className={`h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}`}
+                                        >
+                                            {h}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-bo-border">
+                                {pageItems.map((item, index) => (
+                                    <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                        {/* STT */}
+                                        <td className="px-3 py-3 text-xs text-bo-muted">
+                                            {safePage * pageSize + index + 1}
+                                        </td>
 
-                </div>
-            </div>
+                                        {/* Mã NCC */}
+                                        <td className="px-3 py-3">
+                                            <span className="font-mono text-xs font-semibold text-bo-foreground">
+                                                {item.maNhaCungCap || "—"}
+                                            </span>
+                                        </td>
+
+                                        {/* Tên */}
+                                        <td className="max-w-[220px] px-3 py-3">
+                                            <span className="font-semibold leading-snug text-bo-foreground">
+                                                {item.tenNhaCungCap}
+                                            </span>
+                                        </td>
+
+                                        {/* Người liên hệ */}
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-1.5 text-slate-600">
+                                                <User2 className="size-3.5 shrink-0 text-slate-400" />
+                                                <span>{item.nguoiLienHe || "—"}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* SĐT */}
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-1.5 text-slate-600">
+                                                <Phone className="size-3.5 shrink-0 text-slate-400" />
+                                                <span>{item.soDienThoai || "—"}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* Email */}
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                                                <Mail className="size-3.5 shrink-0 text-slate-400" />
+                                                <span>{item.email || "—"}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* Trạng thái */}
+                                        <td className="px-3 py-3">
+                                            <StatusBadge
+                                                label={item.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
+                                                tone={item.trangThai === 1 ? "success" : "neutral"}
+                                            />
+                                        </td>
+
+                                        {/* Thao tác */}
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <ActionBtn title="Xem chi tiết" onClick={() => navigate(`/supplier/view/${item.id}`)}>
+                                                    <Eye className="size-4" />
+                                                </ActionBtn>
+                                                <ActionBtn title="Chỉnh sửa" onClick={() => navigate(`/supplier/${item.id}`)}>
+                                                    <Edit className="size-4" />
+                                                </ActionBtn>
+                                                <ActionBtn
+                                                    title="Xóa"
+                                                    tone="danger"
+                                                    onClick={() => handleDeleteClick(item)}
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </ActionBtn>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </TableShell>
+            </PageContainer>
         </>
     );
 }

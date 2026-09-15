@@ -11,7 +11,7 @@ import {
 export const SIDEBAR_MENU = [
   // ================= DASHBOARD =================
   {
-    label: "Dashboard",
+    label: "Tổng quan",
     icon: LayoutDashboard,
     to: "/dashboard",
     roles: [

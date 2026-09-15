@@ -3,9 +3,7 @@ import DashboardWarehouseManager from "./warehouse-manager/DashboardWarehouseMan
 import DashboardWarehouseStaff from "./warehouse-staff/DashboardWarehouseStaff";
 import DashboardSalesStaff from "./sales-staff/DashboardSalesStaff";
 import DashboardPurchaseStaff from "./purchase-staff/DashboardPurchaseStaff";
-
 export default function Dashboard() {
-
     const role = localStorage.getItem("role");
 
     const DASHBOARD_MAP = {
@@ -19,7 +17,8 @@ export default function Dashboard() {
     const DashboardComponent = DASHBOARD_MAP[role];
 
     if (!DashboardComponent) {
-        return <div className="lux-sync p-6 min-h-screen">Không có quyền truy cập</div>;
+
+        return <div className="flex min-h-screen items-center justify-center bg-bo-canvas p-6 font-backoffice text-bo-muted">Không có quyền truy cập</div>;
     }
 
     return <DashboardComponent />;

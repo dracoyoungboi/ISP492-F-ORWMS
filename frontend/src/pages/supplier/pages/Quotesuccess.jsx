@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Mail, Clock, Package, Boxes, ChevronRight, ShieldCheck } from "lucide-react";
+import { CheckCircle, Mail, Clock, Package, ChevronRight, ShieldCheck } from "lucide-react";
+import BrandLogo from '@/components/brand/BrandLogo';
 
 const STYLES = `
 .qs-root {
@@ -230,12 +231,7 @@ export default function QuoteSuccess() {
 
                         {/* Logo bar */}
                         <div className="qs-logo-bar">
-                            <div className="qs-logo-box">
-                                <Boxes size={18} strokeWidth={1.8} style={{ color: '#fff' }} />
-                            </div>
-                            <span className="qs-logo-fs">FS</span>
-                            <span className="qs-logo-sep" />
-                            <span className="qs-logo-wms">WMS · Supplier Portal</span>
+                            <BrandLogo variant="compact" />
                         </div>
 
                         {/* Success icon */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
@@ -7,10 +7,14 @@ import {
   TrendingUp, DollarSign, Package, Percent,
   Search, RefreshCw, BarChart2, Calendar, Warehouse,
 } from "lucide-react";
+import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
+import TableShell from "@/components/shared/TableShell";
+import StatusBadge from "@/components/shared/StatusBadge";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── API ───
@@ -43,17 +47,40 @@ const fmt = (n) => {
   return num.toLocaleString("vi-VN");
 };
 
+// Màu biểu đồ lấy từ token bo-* (recharts cần giá trị màu cụ thể)
+const CHART_COLORS = {
+  giaVon: "#94a3b8",
+  giaVonLight: "#cbd5e1",
+  loiNhuan: "#15803d",
+  loiNhuanLight: "#86efac",
+  doanhThu: "#1677ff",
+  grid: "#e1e6ec",
+  axis: "#64748b",
+};
+
+const TH_CLASS =
+  "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+const INPUT_CLASS =
+  "h-9 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20";
+const SELECT_ITEM_CLASS =
+  "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+
+// Tông màu tỷ lệ lãi gộp: >= 20% tốt, >= 10% trung bình, còn lại thấp
+const laiTone = (value) => (value >= 20 ? "success" : value >= 10 ? "warning" : "danger");
+
 // ─── CUSTOM TOOLTIP ───
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-4 min-w-[180px]">
-      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3 font-mono">{label}</p>
+    <div className="min-w-[180px] rounded-lg border border-bo-border bg-white p-3 shadow-sm">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
       {payload.map((entry, i) => (
-        <div key={i} className="flex items-center gap-2 mb-1.5">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} />
-          <span className="text-slate-600 text-xs flex-1">{entry.name}</span>
-          <span className="text-slate-900 font-bold text-xs font-mono">{fmt(entry.value)}</span>
+        <div key={i} className="mb-1.5 flex items-center gap-2 last:mb-0">
+          <svg className="size-2.5 shrink-0" viewBox="0 0 10 10" aria-hidden="true">
+            <circle cx="5" cy="5" r="5" fill={entry.color} />
+          </svg>
+          <span className="flex-1 text-xs text-slate-600">{entry.name}</span>
+          <span className="text-xs font-bold text-bo-foreground">{fmt(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -61,22 +88,20 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // ─── KPI CARD ───
-function KpiCard({ icon: Icon, label, value, sub, colorClass, bgClass, borderClass }) {
+function KpiCard({ icon, label, value, sub, valueClass, iconClass }) {
   return (
-    <Card className={`border ${borderClass} shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white`}>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{label}</p>
-            <p className={`text-2xl font-bold ${colorClass} truncate`}>{value}</p>
-            {sub && <p className="text-xs text-slate-400 mt-1.5">{sub}</p>}
-          </div>
-          <div className={`w-11 h-11 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0 ml-3`}>
-            <Icon size={20} className={colorClass} />
-          </div>
+    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-bo-muted">{label}</p>
+          <p className={`mt-1 truncate text-2xl font-bold tracking-tight ${valueClass}`}>{value}</p>
+          {sub && <p className="mt-1 text-xs text-bo-muted">{sub}</p>}
         </div>
-      </CardContent>
-    </Card>
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+          {icon}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -99,12 +124,12 @@ function MiniSparkline({ data, color }) {
 }
 
 // ─── PROGRESS BAR ───
-function ProgressBar({ pct, color }) {
+function ProgressBar({ pct, barClass }) {
   return (
-    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
       <div
-        className="h-full rounded-full transition-all duration-700"
-        style={{ width: `${Math.min(pct, 100)}%`, background: color }}
+        className={`h-full rounded-full ${barClass}`}
+        style={{ width: `${Math.min(pct, 100)}%` }}
       />
     </div>
   );
@@ -143,7 +168,19 @@ export default function BaoCaoDoanhThu() {
     setLoading(false);
   }, [buildParams]);
 
-  useEffect(() => { loadData(); }, [loai, khoId]);
+  // Giữ tham chiếu mới nhất của hàm tải dữ liệu để effect tự động tải bên dưới
+  // không phụ thuộc vào các mốc thời gian (giữ nguyên hành vi cũ).
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
+
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); vẫn tự động tải lại khi đổi loại báo cáo
+  // hoặc kho như hành vi cũ, không tải khi chỉ đổi mốc thời gian.
+  useEffect(() => {
+    queueMicrotask(() => loadDataRef.current());
+  }, [loai, khoId]);
 
   const chartData = data.map(d => ({
     ...d,
@@ -173,297 +210,262 @@ export default function BaoCaoDoanhThu() {
   ];
 
   return (
-    <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
+    <PageContainer className="space-y-5">
 
       {/* ── KPI CARDS ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={DollarSign} label="Tổng doanh thu" value={fmt(totalDoanhThu)}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard icon={<DollarSign className="size-5" />} label="Tổng doanh thu" value={fmt(totalDoanhThu)}
           sub={`${chartData.length} kỳ thống kê`}
-          colorClass="text-purple-700" bgClass="bg-purple-100" borderClass="border-purple-100" />
-        <KpiCard icon={TrendingUp} label="Lợi nhuận gộp" value={fmt(totalLoiNhuan)}
+          valueClass="text-bo-primary" iconClass="bg-bo-primary-soft text-bo-primary" />
+        <KpiCard icon={<TrendingUp className="size-5" />} label="Lợi nhuận gộp" value={fmt(totalLoiNhuan)}
           sub={`Chiếm ${loiNhuanPct}% doanh thu`}
-          colorClass="text-emerald-700" bgClass="bg-emerald-100" borderClass="border-emerald-100" />
-        <KpiCard icon={Percent} label="Tỷ lệ lãi gộp TB" value={avgTyLe + "%"}
+          valueClass="text-bo-success" iconClass="bg-bo-success-soft text-bo-success" />
+        <KpiCard icon={<Percent className="size-5" />} label="Tỷ lệ lãi gộp TB" value={avgTyLe + "%"}
           sub="Trung bình các kỳ"
-          colorClass="text-indigo-700" bgClass="bg-indigo-100" borderClass="border-indigo-100" />
-        <KpiCard icon={Package} label="Tổng đơn hàng" value={totalDon.toLocaleString()}
+          valueClass="text-bo-foreground" iconClass="bg-slate-100 text-slate-600" />
+        <KpiCard icon={<Package className="size-5" />} label="Tổng đơn hàng" value={totalDon.toLocaleString()}
           sub="Đơn hàng hoàn thành"
-          colorClass="text-amber-700" bgClass="bg-amber-100" borderClass="border-amber-100" />
-      </div>
+          valueClass="text-bo-warning" iconClass="bg-bo-warning-soft text-bo-warning" />
+      </section>
 
       {/* ── FILTER PANEL ── */}
-      <Card className="border-0 shadow-md bg-white">
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar size={14} className="text-purple-500" />
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Bộ lọc báo cáo</span>
+      <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+          <Calendar className="size-4 text-bo-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Bộ lọc báo cáo</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
+          {/* Tab group */}
+          <div className="flex flex-wrap gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
+            {tabConfig.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setLoai(key)}
+                className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${loai === key
+                  ? "bg-bo-primary text-white shadow-sm"
+                  : "text-slate-600 hover:bg-white hover:text-bo-foreground"
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Tab group */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-              {tabConfig.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setLoai(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 cursor-pointer border-0 ${loai === key
-                    ? "bg-white text-purple-700 shadow-sm ring-1 ring-slate-200"
-                    : "text-slate-500 hover:text-slate-700 bg-transparent"
-                    }`}
-                >
-                  {label}
-                </button>
-              ))}
+          {loai === "ngay" && (
+            <div className="flex items-center gap-2">
+              <Input type="date" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
+                className={`${INPUT_CLASS} w-[160px]`} />
+              <span className="font-medium text-bo-muted">→</span>
+              <Input type="date" value={denNgay} onChange={e => setDenNgay(e.target.value)}
+                className={`${INPUT_CLASS} w-[160px]`} />
             </div>
+          )}
 
-            {loai === "ngay" && (
-              <div className="flex items-center gap-2">
-                <Input type="date" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
-                  className="border-slate-200 text-slate-700 h-10 text-sm" />
-                <span className="text-slate-400 font-medium">→</span>
-                <Input type="date" value={denNgay} onChange={e => setDenNgay(e.target.value)}
-                  className="border-slate-200 text-slate-700 h-10 text-sm" />
-              </div>
-            )}
-
-            {(loai === "thang" || loai === "so_sanh") && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">NĂM</span>
-                <Input type="number" value={nam} onChange={e => setNam(e.target.value)}
-                  className="w-[110px] pl-10 border-slate-200 h-10 text-sm text-slate-700" />
-              </div>
-            )}
-
-            {loai === "nam" && (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">TỪ</span>
-                  <Input type="number" value={tuNam} onChange={e => setTuNam(e.target.value)}
-                    className="w-[110px] pl-8 border-slate-200 h-10 text-sm text-slate-700" />
-                </div>
-                <span className="text-slate-400 font-medium">→</span>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">ĐẾN</span>
-                  <Input type="number" value={denNam} onChange={e => setDenNam(e.target.value)}
-                    className="w-[110px] pl-10 border-slate-200 h-10 text-sm text-slate-700" />
-                </div>
-              </div>
-            )}
-
-            {loai === "so_sanh" && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 text-[10px] font-bold pointer-events-none">T</span>
-                <Input type="number" value={thang} onChange={e => setThang(e.target.value)}
-                  className="w-[90px] pl-7 border-slate-200 h-10 text-sm text-slate-700" />
-              </div>
-            )}
-
-            <div className="relative">
-              <Warehouse size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-              <Select value={khoId} onValueChange={setKhoId}>
-                <SelectTrigger className="pl-9 pr-4 h-10 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-slate-400 focus:border-slate-400 min-w-[200px]">
-                  <SelectValue placeholder="Tất cả kho" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 shadow-lg z-50" position="popper" sideOffset={4}>
-                  <SelectItem value="ALL" className="text-slate-700 cursor-pointer focus:bg-slate-50 hover:bg-slate-50">Tất cả kho</SelectItem>
-                  {khoList.map(k => (
-                    <SelectItem key={k.id} value={String(k.id)} className="text-slate-700 cursor-pointer focus:bg-slate-50 hover:bg-slate-50">
-                      [{k.maKho}] {k.tenKho}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {(loai === "thang" || loai === "so_sanh") && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Năm</span>
+              <Input type="number" value={nam} onChange={e => setNam(e.target.value)}
+                className={`${INPUT_CLASS} w-[110px]`} />
             </div>
+          )}
 
-            <Button
-              onClick={loadData}
-              disabled={loading}
-              className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 active:bg-slate-100 h-10 px-5 shadow-md shadow-slate-200 transition-all duration-150 gap-2"
-            >
-              {loading ? <RefreshCw size={15} className="animate-spin" /> : <Search size={15} />}
-              Xem báo cáo
-            </Button>
+          {loai === "nam" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Từ</span>
+              <Input type="number" value={tuNam} onChange={e => setTuNam(e.target.value)}
+                className={`${INPUT_CLASS} w-[110px]`} />
+              <span className="font-medium text-bo-muted">→</span>
+              <span className="text-xs font-medium text-bo-muted">Đến</span>
+              <Input type="number" value={denNam} onChange={e => setDenNam(e.target.value)}
+                className={`${INPUT_CLASS} w-[110px]`} />
+            </div>
+          )}
+
+          {loai === "so_sanh" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">Tháng</span>
+              <Input type="number" value={thang} onChange={e => setThang(e.target.value)}
+                className={`${INPUT_CLASS} w-[90px]`} />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Warehouse className="size-4 shrink-0 text-bo-muted" />
+            <Select value={khoId} onValueChange={setKhoId}>
+              <SelectTrigger className="h-9 min-w-[200px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
+                <SelectValue placeholder="Tất cả kho" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4} className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>Tất cả kho</SelectItem>
+                {khoList.map(k => (
+                  <SelectItem key={k.id} value={String(k.id)} className={SELECT_ITEM_CLASS}>
+                    [{k.maKho}] {k.tenKho}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+
+          <Button
+            onClick={loadData}
+            disabled={loading}
+            className="h-9 gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50"
+          >
+            {loading ? <RefreshCw className="size-4 animate-spin" /> : <Search className="size-4" />}
+            Xem báo cáo
+          </Button>
+        </div>
+      </section>
 
       {/* ── CHART + SUMMARY ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_300px]">
 
-        <Card className="border-0 shadow-md bg-white">
-          <CardHeader className="pb-2 pt-5 px-6">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-800">Biểu đồ doanh thu</CardTitle>
-                <CardDescription className="text-xs text-slate-400 mt-1">Doanh thu, giá vốn &amp; lợi nhuận theo kỳ</CardDescription>
-              </div>
-              <div className="flex gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-slate-200 inline-block" />Giá vốn
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" />Lợi nhuận
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-5 h-0.5 bg-amber-700 inline-block rounded-full" />Doanh thu
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-5">
+        <SurfaceCard title="Biểu đồ doanh thu" description="Doanh thu, giá vốn & lợi nhuận theo kỳ">
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-sm bg-slate-300" />Giá vốn
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-sm bg-bo-success" />Lợi nhuận
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-5 rounded-full bg-bo-primary" />Doanh thu
+            </span>
+          </div>
+
+          {loading && chartData.length === 0 ? (
+            <LoadingState rows={4} label="Đang tải biểu đồ doanh thu" />
+          ) : (
             <ResponsiveContainer width="100%" height={360}>
               <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradGiaVon" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f6dda0" />
-                    <stop offset="100%" stopColor="#e8b923" />
+                    <stop offset="0%" stopColor={CHART_COLORS.giaVonLight} />
+                    <stop offset="100%" stopColor={CHART_COLORS.giaVon} />
                   </linearGradient>
                   <linearGradient id="gradLoiNhuan" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f3cf6a" />
-                    <stop offset="100%" stopColor="#c79500" />
+                    <stop offset="0%" stopColor={CHART_COLORS.loiNhuanLight} />
+                    <stop offset="100%" stopColor={CHART_COLORS.loiNhuan} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="nhanThoiGian" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
-                <YAxis tickFormatter={fmt} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(184,134,11,0.08)" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+                <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
+                <YAxis tickFormatter={fmt} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
                 <Bar dataKey="giaVon" name="Giá vốn" stackId="a" fill="url(#gradGiaVon)" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="loiNhuan" name="Lợi nhuận" stackId="a" fill="url(#gradLoiNhuan)" radius={[4, 4, 0, 0]} />
-                <Line dataKey="doanhThu" name="Doanh thu" stroke="#8f6500" strokeWidth={2.5}
-                  dot={{ r: 3, fill: "#8f6500", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                <Line dataKey="doanhThu" name="Doanh thu" stroke={CHART_COLORS.doanhThu} strokeWidth={2.5}
+                  dot={{ r: 3, fill: CHART_COLORS.doanhThu, strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          )}
+        </SurfaceCard>
 
         {/* Side summary */}
         <div className="flex flex-col gap-3">
           {[
-            { label: "Doanh thu", value: fmt(totalDoanhThu), pct: 100, color: "#8b5cf6", textColor: "text-purple-700", bg: "bg-purple-50", border: "border-purple-100" },
-            { label: "Giá vốn", value: fmt(totalGiaVon), pct: giaVonPct, color: "#94a3b8", textColor: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
-            { label: "Lợi nhuận", value: fmt(totalLoiNhuan), pct: loiNhuanPct, color: "#10b981", textColor: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-100" },
+            { label: "Doanh thu", value: fmt(totalDoanhThu), pct: 100, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
+            { label: "Giá vốn", value: fmt(totalGiaVon), pct: giaVonPct, barClass: "bg-slate-400", textClass: "text-slate-600", bg: "bg-slate-100" },
+            { label: "Lợi nhuận", value: fmt(totalLoiNhuan), pct: loiNhuanPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
           ].map(item => (
-            <Card key={item.label} className={`border ${item.border} shadow-sm bg-white`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{item.label}</span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.bg} ${item.textColor}`}>{item.pct}%</span>
-                </div>
-                <p className={`text-xl font-bold ${item.textColor} mb-3`}>{item.value}</p>
-                <ProgressBar pct={item.pct} color={item.color} />
-              </CardContent>
-            </Card>
+            <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-bo-muted">{item.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.bg} ${item.textClass}`}>{item.pct}%</span>
+              </div>
+              <p className={`mb-3 text-xl font-bold ${item.textClass}`}>{item.value}</p>
+              <ProgressBar pct={item.pct} barClass={item.barClass} />
+            </div>
           ))}
 
           {chartData.length > 1 && (
-            <Card className="border border-emerald-100 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Xu hướng doanh thu</p>
-                <MiniSparkline data={chartData} color="#8b5cf6" />
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <p className="mb-2 text-xs font-medium text-bo-muted">Xu hướng doanh thu</p>
+              <MiniSparkline data={chartData} color={CHART_COLORS.doanhThu} />
+            </div>
           )}
 
-          <Card className="border border-indigo-100 shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Chỉ số nhanh</p>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Giá trị TB / đơn</span>
-                <span className="text-xs font-bold text-purple-700">{totalDon > 0 ? fmt(totalDoanhThu / totalDon) : "—"}</span>
-              </div>
-              <div className="h-px bg-slate-200" />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">LN trung bình / kỳ</span>
-                <span className="text-xs font-bold text-emerald-700">{chartData.length > 0 ? fmt(totalLoiNhuan / chartData.length) : "—"}</span>
-              </div>
-              <div className="h-px bg-slate-200" />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Tỷ lệ lãi gộp TB</span>
-                <span className={`text-xs font-bold ${Number(avgTyLe) >= 20 ? "text-emerald-700" : Number(avgTyLe) >= 10 ? "text-amber-600" : "text-rose-600"}`}>
-                  {avgTyLe}%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* ── DATA TABLE ── */}
-      <Card className="border-0 shadow-md bg-white">
-        <CardHeader className="pb-3 pt-5 px-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-bold text-slate-800">Chi tiết số liệu</CardTitle>
-              <CardDescription className="text-xs text-slate-400 mt-1">{chartData.length} kỳ được tổng hợp</CardDescription>
+          <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+            <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">Giá trị TB / đơn</span>
+              <span className="text-xs font-bold text-bo-primary">{totalDon > 0 ? fmt(totalDoanhThu / totalDon) : "—"}</span>
+            </div>
+            <div className="my-3 h-px bg-bo-border" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">LN trung bình / kỳ</span>
+              <span className="text-xs font-bold text-bo-success">{chartData.length > 0 ? fmt(totalLoiNhuan / chartData.length) : "—"}</span>
+            </div>
+            <div className="my-3 h-px bg-bo-border" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-bo-muted">Tỷ lệ lãi gộp TB</span>
+              <StatusBadge
+                label={`${avgTyLe}%`}
+                tone={laiTone(Number(avgTyLe))}
+                dot={false}
+              />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-y border-slate-100 bg-slate-50/70">
-                  {["#", "Thời kỳ", "Doanh thu", "Giá vốn", "Lợi nhuận", "Tỷ lệ lãi", "Số đơn"].map((h, i) => (
-                    <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap ${i > 1 ? "text-right" : "text-left"}`}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {chartData.map((row, i) => (
-                  <tr key={i} className="hover:bg-purple-50/50 transition-colors duration-100">
-                    <td className="px-5 py-3.5 text-xs text-slate-300 font-medium">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="px-5 py-3.5 text-sm text-slate-600 font-medium">{row.nhanThoiGian}</td>
-                    <td className="px-5 py-3.5 text-right text-sm font-bold text-purple-700">{fmt(row.doanhThu)}</td>
-                    <td className="px-5 py-3.5 text-right text-sm text-slate-500">{fmt(row.giaVon)}</td>
-                    <td className="px-5 py-3.5 text-right text-sm font-bold text-emerald-700">{fmt(row.loiNhuan)}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${row.tyLeLaiGop >= 20 ? "bg-emerald-50 text-emerald-700"
-                        : row.tyLeLaiGop >= 10 ? "bg-amber-50 text-amber-700"
-                          : "bg-rose-50 text-rose-700"
-                        }`}>
-                        {row.tyLeLaiGop.toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-sm text-slate-600">{row.soLuongDon.toLocaleString()}</td>
-                  </tr>
+        </div>
+      </section>
+
+      {/* ── DATA TABLE ── */}
+      <TableShell
+        title="Chi tiết số liệu"
+        description={`${chartData.length} kỳ được tổng hợp`}
+      >
+        {loading && chartData.length === 0 ? (
+          <LoadingState rows={5} label="Đang tải chi tiết doanh thu" />
+        ) : chartData.length === 0 ? (
+          <EmptyState
+            icon={BarChart2}
+            title="Không có dữ liệu"
+            description="Hãy thay đổi bộ lọc và thử lại."
+          />
+        ) : (
+          <table className="w-full min-w-[820px] text-sm">
+            <thead>
+              <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                {["#", "Thời kỳ", "Doanh thu", "Giá vốn", "Lợi nhuận", "Tỷ lệ lãi", "Số đơn"].map((h, i) => (
+                  <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right" : "text-left"}`}>
+                    {h}
+                  </th>
                 ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bo-border">
+              {chartData.map((row, i) => (
+                <tr key={i} className="transition-colors hover:bg-bo-surface-subtle">
+                  <td className="px-4 py-3.5 text-xs font-medium text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
+                  <td className="px-4 py-3.5 font-medium text-bo-foreground">{row.nhanThoiGian}</td>
+                  <td className="px-4 py-3.5 text-right font-bold text-bo-primary">{fmt(row.doanhThu)}</td>
+                  <td className="px-4 py-3.5 text-right text-slate-600">{fmt(row.giaVon)}</td>
+                  <td className="px-4 py-3.5 text-right font-bold text-bo-success">{fmt(row.loiNhuan)}</td>
+                  <td className="px-4 py-3.5 text-right">
+                    <StatusBadge label={`${row.tyLeLaiGop.toFixed(2)}%`} tone={laiTone(row.tyLeLaiGop)} dot={false} />
+                  </td>
+                  <td className="px-4 py-3.5 text-right text-slate-600">{row.soLuongDon.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
 
-                {chartData.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                          <BarChart2 size={24} className="text-slate-400" />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-500">Không có dữ liệu</p>
-                        <p className="text-xs text-slate-400">Hãy thay đổi bộ lọc và thử lại</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-bo-border bg-bo-surface-subtle">
+                <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-primary">{fmt(totalDoanhThu)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{fmt(totalGiaVon)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-success">{fmt(totalLoiNhuan)}</td>
+                <td className="px-4 py-3.5 text-right">
+                  <StatusBadge label={`${avgTyLe}%`} tone="info" dot={false} />
+                </td>
+                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{totalDon.toLocaleString()}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </TableShell>
 
-              {chartData.length > 0 && (
-                <tfoot>
-                  <tr className="border-t-2 border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-                    <td colSpan={2} className="px-5 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide">Tổng cộng</td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-purple-700">{fmt(totalDoanhThu)}</td>
-                    <td className="px-5 py-4 text-right text-sm font-bold text-slate-500">{fmt(totalGiaVon)}</td>
-                    <td className="px-5 py-4 text-right text-sm font-extrabold text-emerald-700">{fmt(totalLoiNhuan)}</td>
-                    <td className="px-5 py-4 text-right">
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full">{avgTyLe}%</span>
-                    </td>
-                    <td className="px-5 py-4 text-right text-sm font-bold text-slate-600">{totalDon.toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-    </div>
+    </PageContainer>
   );
 }

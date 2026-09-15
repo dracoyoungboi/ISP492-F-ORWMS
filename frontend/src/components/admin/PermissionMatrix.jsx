@@ -1,5 +1,5 @@
+import { useCallback, useEffect, useState } from "react";
 import { quyenHanService } from "@/services/quyenHan";
-import { useEffect, useState } from "react";
 
 /**
  * PermissionMatrix
@@ -12,13 +12,16 @@ export default function PermissionMatrix({
 }) {
   const [quyenHan, setQuyenHan] = useState([]);
 
-  useEffect(() => {
-    const fetchQuyenHan = async () => {
-      const res = await quyenHanService.getAllQuyenHan();
-      setQuyenHan(res.data.data || []);
-    };
-    fetchQuyenHan();
+  const fetchQuyenHan = useCallback(async () => {
+    const res = await quyenHanService.getAllQuyenHan();
+    setQuyenHan(res.data.data || []);
   }, []);
+
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    queueMicrotask(() => fetchQuyenHan());
+  }, [fetchQuyenHan]);
 
   const toggle = (id) => {
     setSelectedPermissions((prev) => ({
@@ -37,18 +40,24 @@ export default function PermissionMatrix({
   }, {});
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {Object.entries(grouped).map(([groupKey, permissions]) => (
-        <div key={groupKey} className="border p-4 rounded">
-          <p className="font-semibold mb-3">{groupKey.toUpperCase()}</p>
+        <div key={groupKey} className="rounded-lg border border-bo-border p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-bo-foreground">
+            {groupKey.toUpperCase()}
+          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {permissions.map((p) => (
-              <label key={p.id} className="flex gap-2 text-sm">
+              <label
+                key={p.id}
+                className="flex cursor-pointer items-center gap-2 text-sm text-bo-foreground"
+              >
                 <input
                   type="checkbox"
                   checked={!!selectedPermissions?.[p.id]}
                   onChange={() => toggle(p.id)}
+                  className="size-4 rounded border-bo-border accent-bo-primary"
                 />
                 {p.tenQuyen}
               </label>
@@ -59,4 +68,3 @@ export default function PermissionMatrix({
     </div>
   );
 }
-

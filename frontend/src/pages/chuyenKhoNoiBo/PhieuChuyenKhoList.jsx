@@ -1,15 +1,19 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import apiClient from "@/services/apiClient";
+import PageContainer from "@/components/backoffice/PageContainer";
+import FilterBar from "@/components/shared/FilterBar";
+import SearchInput from "@/components/shared/SearchInput";
+import TableShell from "@/components/shared/TableShell";
+import StatusBadge from "@/components/shared/StatusBadge";
+import EmptyState from "@/components/shared/EmptyState";
+import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import {
-    Loader2, Search, RefreshCcw, Package, Plus,
-    ChevronDown, ChevronLeft, ChevronRight, Check, Filter,
-    FileText, CheckCircle2, XCircle, ClipboardList, Truck,
+    RefreshCcw, Package, Plus,
+    ChevronDown, ChevronLeft, ChevronRight, Filter,
+    CheckCircle2, XCircle, ClipboardList, Truck,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -40,18 +44,44 @@ function parseRoles(vaiTro) {
 }
 
 const STATUS_MAP = {
-    0: { label: "Nháp", className: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
-    1: { label: "Chờ duyệt", className: "border-blue-200 bg-blue-50 text-blue-700", dot: "bg-blue-500" },
-    2: { label: "Chờ xuất hàng", className: "border-indigo-200 bg-indigo-50 text-indigo-700", dot: "bg-indigo-500" },
-    3: { label: "Đang vận chuyển", className: "border-purple-200 bg-purple-50 text-purple-700", dot: "bg-purple-500" },
-    4: { label: "Đã hủy", className: "border-red-200 bg-red-50 text-red-600", dot: "bg-red-500" },
-    5: { label: "Hoàn tất", className: "border-green-200 bg-green-50 text-green-700", dot: "bg-green-500" },
+    0: { label: "Nháp", tone: "warning" },
+    1: { label: "Chờ duyệt", tone: "info" },
+    2: {
+        label: "Chờ xuất hàng",
+        tone: "info",
+        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    },
+    3: {
+        label: "Đang vận chuyển",
+        tone: "info",
+        className: "border-purple-200 bg-purple-50 text-purple-700",
+    },
+    4: { label: "Đã hủy", tone: "danger" },
+    5: { label: "Hoàn tất", tone: "success" },
 };
 
 const STATUS_OPTIONS = [
     { value: "", label: "Tất cả trạng thái" },
     ...Object.entries(STATUS_MAP).map(([key, val]) => ({ value: key, label: val.label })),
 ];
+
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
+const TH_CLASS =
+    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
+
+function buildFilterPayload(filters) {
+    const filterList = [];
+    if (filters.keyword?.trim()) {
+        filterList.push({ fieldName: "soPhieuXuat", operation: "LIKE", value: filters.keyword.trim() });
+    }
+    if (filters.tenKhoNhap?.trim()) {
+        filterList.push({ fieldName: "khoChuyenDen.tenKho", operation: "LIKE", value: filters.tenKhoNhap.trim() });
+    }
+    if (filters.trangThai !== "") {
+        filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai) });
+    }
+    return { page: filters.page, size: filters.size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
+}
 
 export default function PhieuChuyenKhoList() {
     const navigate = useNavigate();
@@ -72,44 +102,27 @@ export default function PhieuChuyenKhoList() {
     const isNhanVienKho = userRoles.includes(ROLE.NHAN_VIEN_KHO);
 
     // Fetch roles
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                if (!token) return;
-                const payload = parseJwt(token);
-                if (!payload || !payload.id) return;
+    const fetchUserInfo = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            const payload = parseJwt(token);
+            if (!payload || !payload.id) return;
 
-                const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
-                const userData = userResponse.data?.data;
-                if (userData && userData.vaiTro) {
-                    setUserRoles(parseRoles(userData.vaiTro));
-                }
-            } catch (error) {
-                console.error('Lỗi khi lấy thông tin user:', error);
+            const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
+            const userData = userResponse.data?.data;
+            if (userData && userData.vaiTro) {
+                setUserRoles(parseRoles(userData.vaiTro));
             }
-        };
-        fetchUserInfo();
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin user:', error);
+        }
     }, []);
 
-    function buildFilterPayload() {
-        const filterList = [];
-        if (filters.keyword?.trim()) {
-            filterList.push({ fieldName: "soPhieuXuat", operation: "LIKE", value: filters.keyword.trim() });
-        }
-        if (filters.tenKhoNhap?.trim()) {
-            filterList.push({ fieldName: "khoChuyenDen.tenKho", operation: "LIKE", value: filters.tenKhoNhap.trim() });
-        }
-        if (filters.trangThai !== "") {
-            filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai) });
-        }
-        return { page: filters.page, size: filters.size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
-    }
-
-    async function fetchData() {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await phieuChuyenKhoService.filter(buildFilterPayload());
+            const res = await phieuChuyenKhoService.filter(buildFilterPayload(filters));
             setData(res?.content || []);
             setTotal(res?.totalElements || 0);
         } catch (error) {
@@ -117,9 +130,17 @@ export default function PhieuChuyenKhoList() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [filters]);
 
-    useEffect(() => { fetchData(); }, [filters.keyword, filters.tenKhoNhap, filters.trangThai, filters.page, filters.size]);
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); dữ liệu vẫn tải lại mỗi khi bộ lọc đổi.
+    useEffect(() => {
+        queueMicrotask(() => fetchUserInfo());
+    }, [fetchUserInfo]);
+
+    useEffect(() => {
+        queueMicrotask(() => fetchData());
+    }, [fetchData]);
 
     const totalPages = Math.max(1, Math.ceil(total / filters.size));
 
@@ -134,171 +155,272 @@ export default function PhieuChuyenKhoList() {
     }), [data]);
 
     return (
-        <div className="lux-sync warehouse-unified p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-screen">
-            <div className="space-y-6 w-full">
+        <PageContainer className="space-y-5">
 
-                {/* ══ STATS ═══════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-blue-50 to-white">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-sm font-medium text-gray-600">Tổng phiếu chuyển</p><p className="text-2xl font-bold text-gray-900 mt-1">{total}</p></div>
-                                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center"><Package className="h-6 w-6 text-blue-600" /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-purple-50 to-white">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-sm font-medium text-gray-600">Đang vận chuyển</p><p className="text-2xl font-bold text-gray-900 mt-1">{stats.dangVanChuyen}</p></div>
-                                <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center"><Truck className="h-6 w-6 text-purple-600" /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-green-50 to-white">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-sm font-medium text-gray-600">Hoàn tất</p><p className="text-2xl font-bold text-gray-900 mt-1">{stats.hoanTat}</p></div>
-                                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="h-6 w-6 text-green-600" /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-red-50 to-white">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-sm font-medium text-gray-600">Đã hủy</p><p className="text-2xl font-bold text-gray-900 mt-1">{stats.daHuy}</p></div>
-                                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center"><XCircle className="h-6 w-6 text-red-500" /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
+            {/* ══ STATS ═══════════════════════════════════════════════════════ */}
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatTile
+                    icon={<Package className="size-5" />}
+                    iconClass="bg-bo-primary-soft text-bo-primary"
+                    label="Tổng phiếu chuyển"
+                    value={total}
+                />
+                <StatTile
+                    icon={<Truck className="size-5" />}
+                    iconClass="bg-purple-50 text-purple-600"
+                    label="Đang vận chuyển"
+                    value={stats.dangVanChuyen}
+                />
+                <StatTile
+                    icon={<CheckCircle2 className="size-5" />}
+                    iconClass="bg-bo-success-soft text-bo-success"
+                    label="Hoàn tất"
+                    value={stats.hoanTat}
+                />
+                <StatTile
+                    icon={<XCircle className="size-5" />}
+                    iconClass="bg-bo-danger-soft text-bo-danger"
+                    label="Đã hủy"
+                    value={stats.daHuy}
+                />
+            </section>
+
+            {/* ══ BỘ LỌC TÌM KIẾM ════════════════════════════════════════════ */}
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
+                    <Filter className="size-4 text-bo-primary" />
+                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
+                        Bộ lọc tìm kiếm
+                    </h2>
                 </div>
+                <FilterBar
+                    primary={
+                        <SearchInput
+                            placeholder="Nhập số phiếu..."
+                            label="Số phiếu"
+                            value={filters.keyword}
+                            onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
+                            onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
+                        />
+                    }
+                    filters={
+                        <>
+                            <input
+                                type="text"
+                                placeholder="Tên kho nhận hàng"
+                                aria-label="Kho nhập (Đích)"
+                                value={filters.tenKhoNhap}
+                                onChange={(e) => setFilters(p => ({ ...p, tenKhoNhap: e.target.value, page: 0 }))}
+                                className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
+                            />
 
-                {/* ══ BỘ LỌC TÌM KIẾM ════════════════════════════════════════════ */}
-                <Card className="border-0 shadow-lg bg-white">
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900"><Filter className="h-5 w-5 text-purple-600" />Bộ lọc tìm kiếm</CardTitle></CardHeader>
-                    <CardContent className="pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Số phiếu</Label>
-                                <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" /><Input placeholder="Nhập số phiếu..." className="pl-9 border-gray-200 focus:border-purple-500 focus:ring-purple-500" value={filters.keyword} onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))} /></div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Kho nhập (Đích)</Label>
-                                <Input placeholder="Tên kho nhận hàng" className="border-gray-200 focus:border-purple-500 focus:ring-purple-500" value={filters.tenKhoNhap} onChange={(e) => setFilters(p => ({ ...p, tenKhoNhap: e.target.value, page: 0 }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Trạng thái</Label>
-                                <DropdownMenu modal={false}>
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
+                                    >
+                                        <span className="truncate">{STATUS_OPTIONS.find((s) => s.value === filters.trangThai)?.label || "Tất cả trạng thái"}</span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                    {STATUS_OPTIONS.map((s) => (
+                                        <DropdownMenuItem
+                                            key={s.value}
+                                            onClick={() => setFilters((p) => ({ ...p, trangThai: s.value, page: 0 }))}
+                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            {s.label}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <Button
+                                variant="outline"
+                                onClick={handleReset}
+                                disabled={loading}
+                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                            >
+                                <RefreshCcw className="size-4" />
+                                Đặt lại
+                            </Button>
+                        </>
+                    }
+                    actions={
+                        !isNhanVienKho ? (
+                            <Link to="/transfer-tickets/create">
+                                <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                                    <Plus className="size-4" />
+                                    Tạo Phiếu Chuyển Kho
+                                </Button>
+                            </Link>
+                        ) : null
+                    }
+                />
+            </div>
+
+            {/* ══ TABLE / LOADING / EMPTY ═════════════════════════════════════ */}
+            {loading ? (
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <LoadingState rows={6} label="Đang tải danh sách phiếu chuyển kho" />
+                </div>
+            ) : data.length === 0 ? (
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    <EmptyState
+                        icon={ClipboardList}
+                        title="Không có dữ liệu phiếu chuyển"
+                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm."
+                    />
+                </div>
+            ) : (
+                <TableShell
+                    title="Danh sách phiếu chuyển kho"
+                    description={`Tổng ${total} phiếu chuyển kho`}
+                    footer={
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-bo-muted">Hiển thị</span>
+                                <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
-                                            <span className="truncate">{STATUS_OPTIONS.find((s) => s.value === filters.trangThai)?.label || "Tất cả trạng thái"}</span>
-                                            <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
+                                        <Button
+                                            variant="outline"
+                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                                        >
+                                            {filters.size} dòng
+                                            <ChevronDown className="size-3.5 opacity-60" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
-                                        {STATUS_OPTIONS.map((s) => (<DropdownMenuItem key={s.value} onClick={() => setFilters((p) => ({ ...p, trangThai: s.value, page: 0 }))} className="flex items-center justify-between cursor-pointer hover:bg-purple-50">{s.label}{filters.trangThai === s.value && <Check className="h-4 w-4" />}</DropdownMenuItem>))}
+                                    <DropdownMenuContent align="start" className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                        {PAGE_SIZE_OPTIONS.map(size => (
+                                            <DropdownMenuItem
+                                                key={size}
+                                                onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))}
+                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                            >
+                                                {size} dòng
+                                            </DropdownMenuItem>
+                                        ))}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <div className="flex items-end">
-                                <Button variant="outline" onClick={handleReset} disabled={loading} className="flex items-center gap-2 w-full transition-all duration-300 hover:bg-slate-900 hover:text-white border-gray-300"><RefreshCcw className="h-4 w-4" />Đặt lại</Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
 
-                {/* ══ ACTION BUTTONS ══════════════════════════════════════════════ */}
-                {!isNhanVienKho && (
-                    <div className="flex items-center justify-end gap-3">
-                        <Link to="/transfer-tickets/create">
-                            <Button className="bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm transition-all duration-200"><Plus className="w-4 h-4 mr-2" />Tạo Phiếu Chuyển Kho</Button>
-                        </Link>
-                    </div>
-                )}
+                            <p className="text-xs text-bo-muted">
+                                Hiển thị{" "}
+                                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
+                                {" – "}
+                                <span className="font-semibold text-bo-foreground">{Math.min((filters.page + 1) * filters.size, total)}</span>
+                                {" trong tổng số "}
+                                <span className="font-semibold text-bo-primary">{total}</span> kết quả
+                            </p>
 
-                {/* ══ TABLE / LOADING / EMPTY ═════════════════════════════════════ */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-purple-600" /><span className="ml-3 text-gray-600">Đang tải danh sách phiếu chuyển kho...</span></div>
-                ) : data.length === 0 ? (
-                    <div className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80">
-                        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100"><ClipboardList className="h-10 w-10 text-slate-400" /></div>
-                            <h3 className="text-lg font-semibold text-slate-800">Không có dữ liệu phiếu chuyển</h3>
-                            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-                            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
-                                <table className="w-full text-sm">
-                                    <thead className="sticky top-0 z-10">
-                                        <tr className="border-b border-slate-200 bg-slate-50">
-                                            <th className="h-12 px-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-600 w-14">STT</th>
-                                            <th className="h-12 px-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Số phiếu</th>
-                                            <th className="h-12 px-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Kho xuất</th>
-                                            <th className="h-12 px-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Kho nhập</th>
-                                            <th className="h-12 px-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-600">Ngày tạo</th>
-                                            <th className="h-12 px-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-600">Trạng thái</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {data.map((item, index) => (
-                                            <tr key={item.id} onClick={() => navigate(`/transfer-tickets/${item.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-violet-50/50">
-                                                <td className="px-4 py-3.5 align-middle text-center w-14"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{filters.page * filters.size + index + 1}</span></td>
-                                                <td className="px-4 py-3.5 align-middle font-semibold text-violet-600">{item.soPhieuXuat}</td>
-                                                <td className="px-4 py-3.5 align-middle">{item.kho?.tenKho}</td>
-                                                <td className="px-4 py-3.5 align-middle">{item.khoChuyenDen?.tenKho}</td>
-                                                <td className="px-4 py-3.5 align-middle text-center"><span className="text-sm text-slate-500">{new Date(item.ngayTao).toLocaleDateString("vi-VN")}</span></td>
-                                                <td className="px-4 py-3.5 align-middle text-center">
-                                                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_MAP[item.trangThai]?.className}`}>
-                                                        <span className={`h-1.5 w-1.5 rounded-full ${STATUS_MAP[item.trangThai]?.dot}`} />
-                                                        {STATUS_MAP[item.trangThai]?.label}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* ── Pagination ── */}
-                        <Card className="border-0 shadow-md bg-white">
-                            <CardContent className="p-4">
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">{filters.size} dòng<ChevronDown className="h-4 w-4 opacity-50" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
-                                                {[5, 10, 20, 50, 100].map(size => (<DropdownMenuItem key={size} onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))} className="cursor-pointer">{size} dòng</DropdownMenuItem>))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                    <div className="text-sm text-gray-600">
-                                        Hiển thị <span className="font-semibold text-gray-900">{filters.page * filters.size + 1}</span> - <span className="font-semibold text-gray-900">{Math.min((filters.page + 1) * filters.size, total)}</span> trong tổng số <span className="font-semibold text-purple-600">{total}</span> kết quả
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))} disabled={filters.page === 0} className="gap-1 disabled:opacity-50"><ChevronLeft className="h-4 w-4" /> Trước</Button>
-                                        <div className="hidden sm:flex gap-1">
-                                            {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                                let pageNum;
-                                                if (totalPages <= 5) pageNum = idx;
-                                                else if (filters.page < 3) pageNum = idx;
-                                                else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                                else pageNum = filters.page - 2 + idx;
-                                                return (<Button key={idx} variant={filters.page === pageNum ? "default" : "outline"} size="sm" onClick={() => setFilters((p) => ({ ...p, page: pageNum }))} className={filters.page === pageNum ? "bg-slate-900 text-white border border-slate-900 hover:bg-white hover:text-slate-900 shadow-sm" : "border-gray-200"}>{pageNum + 1}</Button>);
-                                            })}
-                                        </div>
-                                        <Button variant="outline" size="sm" onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))} disabled={filters.page + 1 >= totalPages} className="gap-1 disabled:opacity-50">Sau <ChevronRight className="h-4 w-4" /></Button>
-                                    </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))}
+                                    disabled={filters.page === 0}
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                >
+                                    <ChevronLeft className="size-3.5" /> Trước
+                                </Button>
+                                <div className="hidden items-center gap-1 sm:flex">
+                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) pageNum = idx;
+                                        else if (filters.page < 3) pageNum = idx;
+                                        else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
+                                        else pageNum = filters.page - 2 + idx;
+                                        return (
+                                            <Button
+                                                key={idx}
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setFilters((p) => ({ ...p, page: pageNum }))}
+                                                className={
+                                                    filters.page === pageNum
+                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
+                                                }
+                                            >
+                                                {pageNum + 1}
+                                            </Button>
+                                        );
+                                    })}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))}
+                                    disabled={filters.page + 1 >= totalPages}
+                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                >
+                                    Sau <ChevronRight className="size-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    }
+                >
+                    <table className="w-full min-w-[900px] text-sm">
+                        <thead>
+                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
+                                <th className={`${TH_CLASS} text-left`}>Số phiếu</th>
+                                <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
+                                <th className={`${TH_CLASS} text-left`}>Kho nhập</th>
+                                <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-bo-border">
+                            {data.map((item, index) => {
+                                const status = STATUS_MAP[item.trangThai];
+                                return (
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => navigate(`/transfer-tickets/${item.id}`)}
+                                        className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                                    >
+                                        <td className="w-14 px-4 py-3.5 text-center align-middle">
+                                            <span className="inline-flex size-7 items-center justify-center rounded-full bg-bo-surface-subtle text-xs font-semibold text-slate-600">
+                                                {filters.page * filters.size + index + 1}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3.5 align-middle font-semibold text-bo-primary">{item.soPhieuXuat}</td>
+                                        <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.kho?.tenKho}</td>
+                                        <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.khoChuyenDen?.tenKho}</td>
+                                        <td className="px-4 py-3.5 text-center align-middle">
+                                            <span className="text-xs text-bo-muted">{new Date(item.ngayTao).toLocaleDateString("vi-VN")}</span>
+                                        </td>
+                                        <td className="px-4 py-3.5 text-center align-middle">
+                                            {status ? (
+                                                <StatusBadge label={status.label} tone={status.tone} className={status.className} />
+                                            ) : (
+                                                <span className="text-xs text-bo-muted">—</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </TableShell>
+            )}
+        </PageContainer>
+    );
+}
+
+function StatTile({ icon, iconClass, label, value }) {
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+            <div className="min-w-0">
+                <p className="text-xs font-medium text-bo-muted">{label}</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
             </div>
+            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+                {icon}
+            </span>
         </div>
     );
 }
