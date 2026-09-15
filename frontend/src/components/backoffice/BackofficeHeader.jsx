@@ -1,10 +1,8 @@
 import {
   ChevronDown,
-  KeyRound,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  ShoppingBag,
   UserRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -61,7 +59,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
 
   const sidebarOpen = isMobile ? openMobile : open;
   const displayTitle =
-    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "F Centric";
+    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "FCentric";
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
 
   return (
@@ -87,7 +85,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-              <span className="hidden sm:inline">F Centric</span>
+              <span className="hidden sm:inline">FCentric</span>
               <span className="hidden sm:inline" aria-hidden="true">
                 /
               </span>
@@ -145,23 +143,6 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
               <Link to={`/user/${userId}`}>
                 <UserRound className="size-4 text-slate-500" />
                 Hồ sơ
-              </Link>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
-              <KeyRound className="size-4 text-slate-500" />
-              Đổi mật khẩu
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator className="bg-bo-border" />
-
-            <DropdownMenuItem
-              asChild
-              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950"
-            >
-              <Link to="/store">
-                <ShoppingBag className="size-4 text-slate-500" />
-                Về cửa hàng
               </Link>
             </DropdownMenuItem>
 

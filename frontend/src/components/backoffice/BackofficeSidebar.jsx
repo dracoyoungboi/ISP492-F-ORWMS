@@ -19,6 +19,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { SIDEBAR_MENU } from "./sidebar.config";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function BackofficeSidebar() {
   const location = useLocation();
@@ -60,29 +65,41 @@ export default function BackofficeSidebar() {
       collapsible="icon"
       className="z-50 border-r border-bo-sidebar-border bg-bo-sidebar text-white"
     >
-      <SidebarHeader className="h-14 justify-center border-b border-bo-sidebar-border bg-bo-sidebar px-2">
-        <NavLink
-          to="/dashboard"
-          onClick={handleNavigate}
-          aria-label="F Centric — Trang tổng quan"
-          className="flex min-w-0 items-center gap-3 rounded-md px-1"
-        >
-          <img
-            src="/fs-wms.svg"
-            alt=""
-            className="size-9 shrink-0 rounded-lg"
-          />
-          {isExpanded ? (
-            <span className="min-w-0 leading-tight">
-              <span className="block truncate text-sm font-bold tracking-wide text-white">
-                F Centric
-              </span>
-              <span className="block truncate text-[10px] font-medium text-bo-sidebar-muted">
-                Fashion Warehouse Management
-              </span>
-            </span>
-          ) : null}
-        </NavLink>
+      <SidebarHeader className="h-[72px] justify-center border-b border-bo-sidebar-border bg-bo-sidebar px-4">
+        {isExpanded ? (
+          <NavLink
+            to="/dashboard"
+            onClick={handleNavigate}
+            aria-label="FCentric — Trang tổng quan"
+            className="flex min-w-0 items-center rounded-md px-1"
+          >
+            <img
+              src="/branding/f-centric-logo.svg"
+              alt="FCentric – Fashion Warehouse Management"
+              className="h-10 w-auto max-w-full shrink-0 object-contain object-left"
+              draggable={false}
+            />
+          </NavLink>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <NavLink
+                to="/dashboard"
+                onClick={handleNavigate}
+                aria-label="FCentric — Trang tổng quan"
+                className="flex items-center justify-center rounded-md px-1"
+              >
+                <img
+                  src="/branding/f-centric-icon.svg"
+                  alt="FCentric – Fashion Warehouse Management"
+                  className="size-10 shrink-0 object-contain"
+                  draggable={false}
+                />
+              </NavLink>
+            </TooltipTrigger>
+            <TooltipContent side="right">FCentric</TooltipContent>
+          </Tooltip>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="bg-bo-sidebar px-2 py-3">

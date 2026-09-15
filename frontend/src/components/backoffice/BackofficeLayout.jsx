@@ -1,7 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
-import { Toaster } from "@/components/ui/sonner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import "@/styles/print.css";
 
@@ -84,7 +83,7 @@ export default function BackofficeLayout() {
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "F Centric · INVENTORY",
+            title: "FCentric · INVENTORY",
             subtitle: "Quản lý kho hàng",
         },
         {
@@ -390,8 +389,6 @@ export default function BackofficeLayout() {
 
                 {/* MAIN CONTENT */}
                 <SidebarInset className="flex min-w-0 flex-col bg-bo-canvas">
-                    <Toaster position="top-center" richColors />
-
                     <BackofficeHeader
                         title={pageMeta?.title}
                         subtitle={pageMeta?.subtitle}
