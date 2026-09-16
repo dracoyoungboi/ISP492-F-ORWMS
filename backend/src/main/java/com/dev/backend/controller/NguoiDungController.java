@@ -46,19 +46,6 @@ public class NguoiDungController {
         );
     }
 
-    //đăng ký
-    @PostMapping("/register")
-    public ResponseEntity<ResponseData<String>> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        return nguoiDungService.register(registerRequest);
-    }
-
-    //sau khi đăng ký thì active account
-    @PostMapping("/active-account")
-    public ResponseEntity<ResponseData<String>> activeAccount(@RequestBody VerifyAccount verifyDto) {
-        return nguoiDungService.activeAccount(verifyDto);
-    }
-
-
     //đăng nhập hệ thống
     @PostMapping("/login")
     public ResponseEntity<ResponseData<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {

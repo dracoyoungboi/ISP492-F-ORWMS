@@ -13,11 +13,6 @@ export const nguoiDungService = {
         return res.data; // ResponseData<NguoiDungDto>
     },
 
-    async register(payload) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/register", payload, { skipAuth: true });
-        return res.data;
-    },
-
     async login(payload) {
         const res = await apiClient.post("/api/v1/nguoi-dung/login", payload, { skipAuth: true });
         const token = res?.data?.data?.token;
@@ -26,17 +21,6 @@ export const nguoiDungService = {
         if (nguoiDung?.vaiTro) {
             localStorage.setItem("role", nguoiDung.vaiTro);
         }
-        return res.data;
-    },
-
-    async verifyAccount(payload) {
-        // dùng cho KÍCH HOẠT TÀI KHOẢN (register)
-        const res = await apiClient.post("/api/v1/nguoi-dung/active-account", payload, { skipAuth: true });
-        return res.data;
-    },
-
-    async resendOTP(email) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/resend-otp", { email }, { skipAuth: true });
         return res.data;
     },
 

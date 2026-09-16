@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/sonner";
 import Login from "./pages/Login";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
-import VerifyEmail from "./pages/VerifyEmail";
 import Warehouse from "./pages/warehouse/Warehouse";
 import ChatLieuList from "./pages/attribute/ChatLieuList";
 import ChatLieuDetail from "./pages/attribute/ChatLieuDetail";
@@ -90,7 +89,6 @@ export default function App() {
         <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
         <Route path="/quote-success" element={<QuoteSuccess />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
