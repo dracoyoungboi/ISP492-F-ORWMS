@@ -11,7 +11,6 @@ import UserAvatar from "@/components/UserAvatar";
 import AvatarEditorModal from "@/components/AvatarEditorModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import EmptyState from "@/components/shared/EmptyState";
 import PageContainer from "@/components/backoffice/PageContainer";
 
 import {
@@ -359,18 +358,12 @@ export default function UserDetail() {
                     {/* Right - Tabs */}
                     <div className="lg:col-span-2">
                         <Tabs defaultValue="info" className="space-y-4">
-                            <TabsList className="grid w-full grid-cols-2 rounded-lg border border-bo-border bg-bo-surface-subtle">
+                            <TabsList className="grid w-full grid-cols-1 rounded-lg border border-bo-border bg-bo-surface-subtle">
                                 <TabsTrigger
                                     value="info"
                                     className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
                                 >
                                     Thông tin
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="activity"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
-                                >
-                                    Hoạt động
                                 </TabsTrigger>
                             </TabsList>
 
@@ -477,19 +470,6 @@ export default function UserDetail() {
                                 </div>
                             </TabsContent>
 
-                            {/* Tab: Hoạt động */}
-                            <TabsContent value="activity">
-                                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                                    <div className="border-b border-bo-border px-4 py-3">
-                                        <h2 className="text-sm font-semibold text-bo-foreground">Lịch sử hoạt động</h2>
-                                    </div>
-
-                                    <EmptyState
-                                        title="Chưa có hoạt động"
-                                        description="Lịch sử hoạt động của tài khoản sẽ hiển thị tại đây khi có dữ liệu."
-                                    />
-                                </div>
-                            </TabsContent>
                         </Tabs>
                     </div>
                 </div>
