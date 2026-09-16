@@ -59,6 +59,20 @@ public class NguoiDungController {
         return nguoiDungService.update(request);
     }
 
+    // lấy thông tin người dùng đang đăng nhập (id lấy từ token, không nhận id từ frontend)
+    @GetMapping("/me")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
+        return nguoiDungService.getMe();
+    }
+
+    // cập nhật thông tin người dùng đang đăng nhập (id lấy từ token)
+    @PutMapping("/me")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(@RequestBody UpdateMeRequest request) {
+        return nguoiDungService.updateMe(request);
+    }
+
     // gửi yêu cầu đổi mật khẩu
     @PostMapping("/forgot-password")
     public ResponseEntity<ResponseData<String >> forgotPassword(@RequestBody ForgotPasswordRequest fpRequest) {

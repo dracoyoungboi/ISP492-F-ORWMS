@@ -152,6 +152,54 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         );
     }
 
+    // lấy người dùng đang đăng nhập từ context (token) — không tin tưởng id từ frontend
+    private NguoiDung getCurrentUserFromContext() {
+        NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (info == null || info.getId() == null) {
+            throw new CommonException("Phiên đăng nhập không hợp lệ");
+        }
+        return nguoiDungRepository.findById(info.getId())
+                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+    }
+
+    public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nguoiDungMapper.toDto(nguoiDung))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    @Transactional
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(UpdateMeRequest request) {
+        if (request.getHoTen() == null || request.getHoTen().isBlank()) {
+            throw new CommonException("Họ tên không được để trống");
+        }
+
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        nguoiDung.setHoTen(request.getHoTen().trim());
+        // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
+        String soDienThoai = request.getSoDienThoai();
+        nguoiDung.setSoDienThoai(
+                soDienThoai != null && !soDienThoai.isBlank() ? soDienThoai.trim() : null
+        );
+
+        nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
+
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nguoiDungMapper.toDto(nguoiDung))
+                        .message("Cập nhật hồ sơ thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
     public Optional<NguoiDung> findByEmail(String email) {
         return nguoiDungRepository.findByEmail(email);
     }
@@ -353,12 +401,26 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<String>> changePassword(ChangePasswordRequest changePass) {
-        NguoiDungAuthInfo nguoiDungInfo = com.dev.backend.config.SecurityContextHolder.getUser();
+        // validate trước khi chạm tới passwordEncoder (tránh encode/matches null -> 500)
+        if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
+            throw new CommonException("Mật khẩu hiện tại không được để trống");
+        }
+        if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()
+                || changePass.getNewPassword().trim().length() < 6) {
+            throw new CommonException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
 
-        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(nguoiDungInfo.getEmail()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản email: " + nguoiDungInfo.getEmail())
-        );
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword()));
+        // lấy user từ context đăng nhập (token), không tin tưởng id từ frontend;
+        // dùng id trong token thay vì email (email có thể đã bị thay đổi -> stale)
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+
+        // so khớp mật khẩu hiện tại với hash trong DB (so sánh chính xác, không trim)
+        if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
+            throw new CommonException("Mật khẩu hiện tại không đúng");
+        }
+
+        // chỉ encode mật khẩu mới sau khi đã validate
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
 
         update(nguoiDung.getId(), nguoiDung);
 

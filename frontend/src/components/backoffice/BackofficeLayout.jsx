@@ -34,7 +34,8 @@ export default function BackofficeLayout() {
         },
         {
             key: "USER_PROFILE",
-            match: (path) => /^\/user\/\d+$/.test(path),
+            // giữ legacy regex để tránh flash meta khi /user/:id redirect sang /profile
+            match: (path) => path === "/profile" || /^\/user\/\d+$/.test(path),
             title: "Hồ sơ cá nhân",
             subtitle: "Thông tin tài khoản của bạn",
         },

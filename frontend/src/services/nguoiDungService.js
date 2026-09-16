@@ -7,9 +7,15 @@ export const nguoiDungService = {
         return res.data; // ResponseData<NguoiDungDto>
     },
 
-    async updateUser(payload) {
-        // payload: { id, tenDangNhap, hoTen, email, soDienThoai }
-        const res = await apiClient.put("/api/v1/nguoi-dung/update", payload);
+    async getMe() {
+        // hồ sơ của người đang đăng nhập — BE lấy user từ token, không nhận id
+        const res = await apiClient.get("/api/v1/nguoi-dung/me");
+        return res.data; // ResponseData<NguoiDungDto>
+    },
+
+    async updateMe(payload) {
+        // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token)
+        const res = await apiClient.put("/api/v1/nguoi-dung/me", payload);
         return res.data; // ResponseData<NguoiDungDto>
     },
 
@@ -53,6 +59,7 @@ export const nguoiDungService = {
     },
 
     async changePassword(payload) {
+        // payload: { currentPassword, newPassword } — không kèm id (BE lấy user từ token)
         const res = await apiClient.post("/api/v1/nguoi-dung/change-password", payload);
         return res.data;
     },

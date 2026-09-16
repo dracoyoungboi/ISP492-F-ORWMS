@@ -100,7 +100,10 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Hồ sơ cá nhân (mở từ menu tài khoản ở Header) */}
-          <Route path="/user/:id" element={<UserDetail />} />
+          <Route path="/profile" element={<UserDetail />} />
+          {/* Legacy: /user/:id chuyển hướng sang /profile, chặn xem hồ sơ người dùng khác */}
+          <Route path="/user/:id" element={<Navigate to="/profile" replace />} />
+          <Route path="/user" element={<Navigate to="/profile" replace />} />
 
           {/* User management */}
           <Route path="/users" element={<ViewUserListByAdmin />} />
