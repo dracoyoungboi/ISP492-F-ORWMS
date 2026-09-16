@@ -24,6 +24,7 @@ import {
     Save,
     Shield,
     User,
+    Warehouse,
     X,
     AlertCircle,
 } from "lucide-react";
@@ -51,6 +52,7 @@ export default function UserDetail() {
         trangThai: 0,
         ngayTao: "",
         ngayCapNhat: "",
+        khoPhuTrachActive: [],
     });
 
     // Chỉ các trường cá nhân được phép sửa
@@ -205,6 +207,27 @@ export default function UserDetail() {
                                         {isActive ? "Đang hoạt động" : "Không hoạt động"}
                                     </span>
                                 </div>
+
+                                {/* Kho phụ trách — chỉ hiển thị khi có kho đang hoạt động, còn hiệu lực (BE đã lọc) */}
+                                {Array.isArray(userData.khoPhuTrachActive) && userData.khoPhuTrachActive.length > 0 && (
+                                    <div className="mb-6 w-full space-y-3 border-t border-bo-border pt-4 text-left">
+                                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">
+                                            <Warehouse className="h-4 w-4 text-bo-primary" />
+                                            Kho phụ trách
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {userData.khoPhuTrachActive.map((kho, index) => (
+                                                <li
+                                                    key={kho.maKho || index}
+                                                    className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2"
+                                                >
+                                                    <p className="text-sm font-medium text-bo-foreground">{kho.tenKho}</p>
+                                                    <p className="mt-0.5 text-xs uppercase tracking-wide text-bo-muted">{kho.maKho}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 <div className="w-full space-y-3 border-t border-bo-border pt-4 text-left">
                                     <div className="flex items-center gap-2 text-sm text-bo-muted">

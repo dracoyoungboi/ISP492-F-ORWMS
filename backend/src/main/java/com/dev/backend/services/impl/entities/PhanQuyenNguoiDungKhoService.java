@@ -1,6 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
 
+import com.dev.backend.dto.response.entities.KhoPhuTrachInfoDto;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -33,5 +34,9 @@ public class PhanQuyenNguoiDungKhoService extends BaseServiceImpl<PhanQuyenNguoi
 
     public Optional<PhanQuyenNguoiDungKho> findByNguoiDungIdAndKhoId(Integer nguoiDungId, Integer khoId) {
         return phanQuyenNguoiDungKhoRepository.findByNguoiDungIdAndKhoId(nguoiDungId, khoId);
+    }
+
+    public List<KhoPhuTrachInfoDto> findActiveKhoInfoByNguoiDungId(Integer nguoiDungId) {
+        return phanQuyenNguoiDungKhoRepository.findActiveKhoInfoByNguoiDungId(nguoiDungId);
     }
 }

@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.enums.OtpType;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
@@ -162,12 +163,35 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
     }
 
+    // Vai trò được hiển thị mục "Kho phụ trách" trên hồ sơ cá nhân.
+    // quan_tri_vien và khach_hang luôn ẩn — phân quyền kho thực tế (hoạt động + còn hiệu lực) mới là nguồn đúng.
+    private static final Set<String> EMPLOYEE_ROLES = Set.of(
+            IRoleType.quan_ly_kho,
+            IRoleType.nhan_vien_kho,
+            IRoleType.nhan_vien_ban_hang,
+            IRoleType.nhan_vien_mua_hang
+    );
+
+    // Điền danh sách kho phụ trách (chỉ mã + tên, đã lọc hoạt động/hiệu lực/ngày bắt đầu) vào DTO hồ sơ
+    private void fillKhoPhuTrachActive(NguoiDungDto dto, NguoiDung nguoiDung) {
+        String vaiTro = nguoiDung.getVaiTro();
+        if (vaiTro == null || !EMPLOYEE_ROLES.contains(vaiTro)) {
+            dto.setKhoPhuTrachActive(Collections.emptyList());
+            return;
+        }
+        dto.setKhoPhuTrachActive(
+                phanQuyenNguoiDungKhoService.findActiveKhoInfoByNguoiDungId(nguoiDung.getId())
+        );
+    }
+
     public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
         NguoiDung nguoiDung = getCurrentUserFromContext();
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
         return ResponseEntity.ok(
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(nguoiDungMapper.toDto(nguoiDung))
+                        .data(dto)
                         .message("Success")
                         .error(null)
                         .build()
@@ -190,10 +214,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
 
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
+
         return ResponseEntity.ok(
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(nguoiDungMapper.toDto(nguoiDung))
+                        .data(dto)
                         .message("Cập nhật hồ sơ thành công")
                         .error(null)
                         .build()
