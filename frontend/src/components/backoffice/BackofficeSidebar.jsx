@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, PackageCheck } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -30,30 +30,40 @@ export default function BackofficeSidebar() {
   const role = localStorage.getItem("role");
   const { open, isMobile, setOpenMobile } = useSidebar();
 
-  const filteredMenu = SIDEBAR_MENU.filter(
-    (item) => !item.roles || item.roles.includes(role),
+  const filteredMenu = useMemo(
+    () =>
+      SIDEBAR_MENU.filter(
+        (item) => !item.roles || item.roles.includes(role),
+      ),
+    [role],
   );
 
   // Mobile uses a full drawer even when desktop sidebar state is collapsed.
   const isExpanded = open || isMobile;
-  const autoOpenMenus = SIDEBAR_MENU.reduce((menus, item) => {
-    if (
-      item.children?.some((child) =>
-        location.pathname.startsWith(child.to),
-      )
-    ) {
-      menus[item.label] = true;
-    }
-    return menus;
-  }, {});
+
+  // Group whose children contain the current route, if any.
+  const activeGroup = filteredMenu.find((item) =>
+    item.children?.some((child) => location.pathname.startsWith(child.to)),
+  );
+
+  // Single-open accordion: one state tracks the currently opened group plus
+  // the pathname it was last synced for. The accordion re-syncs during render
+  // (React's "adjust state when a prop changes" pattern) so navigating to a
+  // child route opens its parent group, and a route outside every group
+  // closes them all.
   const [menuState, setMenuState] = useState(() => ({
     pathname: location.pathname,
-    values: autoOpenMenus,
+    openMenu: activeGroup?.label ?? null,
   }));
-  const openMenus =
-    menuState.pathname === location.pathname
-      ? menuState.values
-      : { ...menuState.values, ...autoOpenMenus };
+
+  if (menuState.pathname !== location.pathname) {
+    setMenuState({
+      pathname: location.pathname,
+      openMenu: activeGroup?.label ?? null,
+    });
+  }
+
+  const openMenu = menuState.openMenu;
 
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false);
@@ -102,7 +112,7 @@ export default function BackofficeSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className="bg-bo-sidebar px-2 py-3">
+      <SidebarContent className="bo-sidebar-scroll bg-bo-sidebar px-2 py-3">
         <SidebarGroup className="p-0">
           <SidebarMenu className="gap-1">
             {filteredMenu.map((item) => {
@@ -112,7 +122,7 @@ export default function BackofficeSidebar() {
               );
 
               if (item.children) {
-                const isOpen = isExpanded && openMenus[item.label];
+                const isOpen = isExpanded && openMenu === item.label;
 
                 return (
                   <Collapsible
@@ -121,10 +131,7 @@ export default function BackofficeSidebar() {
                     onOpenChange={(value) =>
                       setMenuState({
                         pathname: location.pathname,
-                        values: {
-                          ...openMenus,
-                          [item.label]: value,
-                        },
+                        openMenu: value ? item.label : null,
                       })
                     }
                     className="group/collapsible"
