@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function AddUserByAdmin() {
     const navigate = useNavigate();
 
@@ -30,14 +32,41 @@ export default function AddUserByAdmin() {
 
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [emailError, setEmailError] = useState("");
+
+    const getEmailError = (value) => {
+        const email = (value ?? "").trim();
+        if (!email) return "Email không được để trống";
+        if (!EMAIL_REGEX.test(email)) return "Vui lòng nhập đúng định dạng email";
+        return "";
+    };
+
+    // id cố định để blur và submit không tạo ra nhiều toast trùng nhau
+    const showEmailError = (message) => {
+        setEmailError(message);
+        toast.error(message, { id: "add-user-email-error" });
+    };
+
+    const handleEmailBlur = () => {
+        const message = getEmailError(form.email);
+        if (message) showEmailError(message);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        const email = form.email.trim();
+        const message = getEmailError(email);
+        if (message) {
+            showEmailError(message);
+            return;
+        }
+        setEmailError("");
+
         try {
             setLoading(true);
 
-            await adminService.createUserByAdmin(form);
+            await adminService.createUserByAdmin({ ...form, email });
             navigate("/users", {
                 state: {
                     success: true,
@@ -83,13 +112,22 @@ export default function AddUserByAdmin() {
                             <div>
                                 <Label className="text-bo-foreground">Email</Label>
                                 <Input
-                                    type="email"
+                                    type="text"
+                                    inputMode="email"
+                                    autoComplete="email"
                                     placeholder="example@gmail.com"
                                     value={form.email}
-                                    onChange={(e) =>
-                                        setForm({ ...form, email: e.target.value })
-                                    }
-                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    onChange={(e) => {
+                                        setForm({ ...form, email: e.target.value });
+                                        if (emailError) setEmailError("");
+                                    }}
+                                    onBlur={handleEmailBlur}
+                                    aria-invalid={Boolean(emailError)}
+                                    className={`mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 ${
+                                        emailError
+                                            ? "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                                            : ""
+                                    }`}
                                 />
                             </div>
 
