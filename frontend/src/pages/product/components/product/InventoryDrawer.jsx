@@ -248,7 +248,10 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
 // ─── Main Drawer ──────────────────────────────────────────────────────────────
 export default function InventoryDrawer({ isOpen, onClose, product }) {
     // ✅ Dùng trực tiếp bienTheSanPhams từ SanPhamQuanAoDto — không cần gọi API riêng
-    const bienTheList = product?.bienTheSanPhams ?? [];
+    // Giữ tham chiếu ổn định khi drawer đóng (product = null): nếu dùng `?? []` trực tiếp,
+    // mảng mới mỗi render khiến effect bên dưới (deps [isOpen, product, bienTheList])
+    // chạy lại mỗi render → setVariantTonKhoMap({}) → vòng lặp setState vô hạn.
+    const bienTheList = useMemo(() => product?.bienTheSanPhams ?? [], [product]);
 
     const [variantTonKhoMap, setVariantTonKhoMap] = useState({});
     const [tongTonBienThe, setTongTonBienThe] = useState(null);
