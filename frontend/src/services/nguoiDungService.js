@@ -20,7 +20,12 @@ export const nguoiDungService = {
     },
 
     async login(payload) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/login", payload, { skipAuth: true });
+        // skipAccountDisabledHandling: lỗi khóa tài khoản khi đăng nhập được hiển thị
+        // trong banner của trang Login thay vì xử lý logout toàn cục ở apiClient
+        const res = await apiClient.post("/api/v1/nguoi-dung/login", payload, {
+            skipAuth: true,
+            skipAccountDisabledHandling: true,
+        });
         const token = res?.data?.data?.token;
         const nguoiDung = res?.data?.data?.nguoiDung;
         if (token) localStorage.setItem("access_token", token);
@@ -52,6 +57,8 @@ export const nguoiDungService = {
 
     logout() {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("selected_kho_id");
     },
 
     getToken() {

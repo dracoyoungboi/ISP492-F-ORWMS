@@ -28,6 +28,15 @@ export default function AuthPage() {
         if (localStorage.getItem('access_token')) navigate('/dashboard');
     }, [navigate]);
 
+    // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
+    useEffect(() => {
+        const lockedMessage = sessionStorage.getItem('account_locked_message');
+        if (lockedMessage) {
+            sessionStorage.removeItem('account_locked_message');
+            setErrors({ general: lockedMessage });
+        }
+    }, []);
+
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 

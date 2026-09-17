@@ -12,6 +12,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
@@ -87,6 +88,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = findingNguoiDung.get();
         if (!passwordEncoder.matches(loginRequest.getPassword(), nguoiDung.getMatKhauHash())) {
             throw new CommonException("Mật khẩu không chính xác");
+        }
+
+        // Tài khoản bị khóa (trangThai != 1) không được đăng nhập — đọc trực tiếp từ DB
+        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
+            throw new AccountDisabledException();
         }
 
         // lấy danh sách phân quyền người dùng để truyền ra token
