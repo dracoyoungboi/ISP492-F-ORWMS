@@ -1,11 +1,35 @@
 import { Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
+import { nguoiDungService } from "@/services/nguoiDungService";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import "@/styles/print.css";
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
+    const [mustChangePassword, setMustChangePassword] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+
+        const checkPasswordStatus = async () => {
+            try {
+                const response = await nguoiDungService.getMe();
+                if (active) {
+                    setMustChangePassword(response?.data?.mustChangePassword === true);
+                }
+            } catch {
+                if (active) setMustChangePassword(false);
+            }
+        };
+
+        checkPasswordStatus();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const PAGE_META_CONFIG = [
         {
@@ -374,6 +398,7 @@ export default function BackofficeLayout() {
     );
 
     return (
+        <>
         <SidebarProvider defaultOpen>
             <div
                 data-backoffice-shell
@@ -406,5 +431,12 @@ export default function BackofficeLayout() {
                 </SidebarInset>
             </div>
         </SidebarProvider>
+        <ChangePasswordModal
+            open={mustChangePassword}
+            forceDirect
+            onOpenChange={() => {}}
+            onSuccess={() => setMustChangePassword(false)}
+        />
+        </>
     );
 }

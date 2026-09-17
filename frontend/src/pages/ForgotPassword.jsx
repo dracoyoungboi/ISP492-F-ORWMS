@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         clearErrors();
         if (otpValue.length !== 6) return setFieldError('otp', 'Vui lòng nhập đủ 6 số OTP');
-        setStep(3);
+        handleResetPassword(e);
     };
 
     const handleResetPassword = async (e) => {
@@ -95,12 +95,9 @@ export default function ForgotPasswordPage() {
         const trimmed = username.trim();
         if (!trimmed) return setFieldError('general', 'Thiếu username/email');
         if (otpValue.length !== 6) return setFieldError('general', 'Thiếu OTP');
-        if (!newPassword) return setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
-        if (newPassword.length < 6) return setFieldError('newPassword', 'Mật khẩu tối thiểu 6 ký tự');
-        if (newPassword !== confirmPassword) return setFieldError('confirmPassword', 'Mật khẩu xác nhận không khớp');
         setIsLoading(true);
         try {
-            const res = await nguoiDungService.resetPassword({ username: trimmed, otp: otpValue, password: newPassword });
+            const res = await nguoiDungService.resetPassword({ username: trimmed, otp: otpValue });
             if (res?.status === 200) setStep(4);
             else setFieldError('general', res?.message || 'Đặt lại mật khẩu thất bại');
         } catch (err) {
@@ -330,8 +327,8 @@ export default function ForgotPasswordPage() {
                 <div className="text-center space-y-6 fade-in-up delay-4">
                     <CheckCircle2 className="w-16 h-16 mx-auto text-green-600" />
                     <div>
-                        <p className="text-lg font-semibold text-gray-900">Mật khẩu đã được đặt lại thành công!</p>
-                        <p className="mt-2 text-gray-600">Bạn có thể đăng nhập với mật khẩu mới ngay bây giờ.</p>
+                        <p className="text-lg font-semibold text-gray-900">Mật khẩu tạm thời đã được gửi!</p>
+                        <p className="mt-2 text-gray-600">Hãy kiểm tra email, đăng nhập bằng mật khẩu tạm thời và đổi lại mật khẩu mới.</p>
                     </div>
                     <button
                         type="button"

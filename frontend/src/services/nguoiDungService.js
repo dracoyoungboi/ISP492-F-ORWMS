@@ -40,11 +40,11 @@ export const nguoiDungService = {
         return res.data;
     },
 
-    async resetPassword({ username, otp, password }) {
-        // BE expects: { username, otp, password }
+    async resetPassword({ username, otp }) {
+        // BE expects: { username, otp }; the server generates a temporary password
         const res = await apiClient.post(
             "/api/v1/nguoi-dung/reset-password",
-            { username, otp, password },
+            { username, otp },
             { skipAuth: true }
         );
         return res.data;

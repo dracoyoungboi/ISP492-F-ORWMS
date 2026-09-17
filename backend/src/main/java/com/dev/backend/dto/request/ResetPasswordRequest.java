@@ -12,5 +12,4 @@ import lombok.experimental.FieldDefaults;
 public class ResetPasswordRequest {
     String username;
     String otp;
-    String password;
 }

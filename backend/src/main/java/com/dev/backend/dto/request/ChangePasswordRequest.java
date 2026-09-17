@@ -10,6 +10,8 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @Builder
 public class ChangePasswordRequest {
+    String step;
     String currentPassword;
+    String otp;
     String newPassword;
 }
