@@ -254,14 +254,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         Map<String, Object> params = new HashMap<>();
 
         params.put("userName", nguoiDung.getHoTen());
-        params.put("emailTitle", "Khôi phục mật khẩu");
-        params.put("credentialLabel", "Mã OTP của bạn");
-        params.put("credential", otp);
-        params.put("instruction", "Bạn đã yêu cầu khôi phục mật khẩu. Hãy nhập mã OTP này vào màn hình khôi phục mật khẩu.");
+        params.put("otp", otp);
         params.put("expiryTime", "5 phút");
 
         //gửi email
-        emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Lấy lại mật khẩu", "password_flow.html", params);
+        emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html", params);
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -273,7 +270,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         );
     }
 
-    @Transactional
     public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
        // tìm xem thông tin người dùng có trong hệ thống hay chưa
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
@@ -299,20 +295,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
         }
 
-        //sau khi thoả mãn các dk trên thì cấp mật khẩu tạm thời ngẫu nhiên
-        String temporaryPassword = generateTemporaryPassword();
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(temporaryPassword));
-        nguoiDung.setMustChangePassword(true);
-        nguoiDungRepository.save(nguoiDung);
-
-        Map<String, Object> temporaryPasswordParams = new HashMap<>();
-        temporaryPasswordParams.put("emailTitle", "Mật khẩu tạm thời");
-        temporaryPasswordParams.put("userName", nguoiDung.getHoTen());
-        temporaryPasswordParams.put("credentialLabel", "Mật khẩu tạm thời của bạn");
-        temporaryPasswordParams.put("credential", temporaryPassword);
-        temporaryPasswordParams.put("instruction", "Mật khẩu cũ đã được thay thế. Hãy đăng nhập bằng mật khẩu tạm thời này và đổi sang mật khẩu riêng của bạn.");
-        temporaryPasswordParams.put("expiryTime", "lần đăng nhập đầu tiên");
-        emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Mật khẩu tạm thời - Fashion System", "password_flow.html", temporaryPasswordParams);
+        //sau khi thoả mãn các dk trên thì cho phép đặt lại MK
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
 
         //Xoá OTP của người dùng khỏi danh sách OTP trong bộ nhớ đệm
         GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
@@ -320,8 +304,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .data("Mật khẩu tạm thời đã được gửi qua email")
-                        .message("Mật khẩu tạm thời đã được gửi qua email")
+                        .data("Success")
+                        .message("Success")
                         .build()
 
         );
@@ -444,111 +428,35 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<String>> changePassword(ChangePasswordRequest changePass) {
-        String step = changePass.getStep() == null || changePass.getStep().isBlank()
-                ? "DIRECT"
-                : changePass.getStep().trim().toUpperCase();
-        NguoiDung nguoiDung = getCurrentUserFromContext();
-
-        if ("REQUEST_OTP".equals(step)) {
-            validateCurrentPassword(changePass.getCurrentPassword(), nguoiDung);
-            String otp = calcService.getRandomActiveCode(6L);
-            GlobalCache.OTP_SCHEDULE_OBJS.add(OtpScheduleObj.builder()
-                    .email(nguoiDung.getEmail()).otp(otp).createdAt(Instant.now())
-                    .type(OtpType.CHANGE_PASSWORD).build());
-                Map<String, Object> changePasswordOtpParams = new HashMap<>();
-                changePasswordOtpParams.put("emailTitle", "Xác nhận đổi mật khẩu");
-                changePasswordOtpParams.put("userName", nguoiDung.getHoTen());
-                changePasswordOtpParams.put("credentialLabel", "Mã OTP đổi mật khẩu");
-                changePasswordOtpParams.put("credential", otp);
-                changePasswordOtpParams.put("instruction", "Bạn đã yêu cầu đổi mật khẩu. Hãy nhập mã OTP này vào cửa sổ đổi mật khẩu.");
-                changePasswordOtpParams.put("expiryTime", "5 phút");
-                emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Mã OTP đổi mật khẩu - Fashion System", "password_flow.html", changePasswordOtpParams);
-            return ResponseEntity.ok(ResponseData.<String>builder()
-                    .status(HttpStatus.OK.value()).data("OTP đã được gửi qua email")
-                    .message("OTP đã được gửi qua email").build());
-        }
-
-        if ("CONFIRM".equals(step)) {
-            OtpScheduleObj otpObj = GlobalCache.OTP_SCHEDULE_OBJS.stream()
-                    .filter(item -> nguoiDung.getEmail().equals(item.getEmail())
-                            && item.getType() == OtpType.CHANGE_PASSWORD)
-                    .findFirst()
-                    .orElseThrow(() -> new CommonException("Mã OTP không tồn tại hoặc đã hết hạn"));
-            if (otpObj.getCreatedAt().plusSeconds(300).isBefore(Instant.now())
-                    || !otpObj.getOtp().equals(changePass.getOtp())) {
-                throw new CommonException("Mã OTP không tồn tại hoặc đã hết hạn");
-            }
-
-            if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()) {
-                return ResponseEntity.ok(ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .data("OTP hợp lệ")
-                        .message("OTP hợp lệ")
-                        .build());
-            }
-
-            validateNewPassword(changePass.getNewPassword());
-            nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
-            nguoiDung.setMustChangePassword(false);
-            nguoiDungRepository.save(nguoiDung);
-            GlobalCache.OTP_SCHEDULE_OBJS.remove(otpObj);
-            return passwordChangedResponse();
-        }
-
-        if (!"DIRECT".equals(step)) {
-            throw new CommonException("Bước đổi mật khẩu không hợp lệ");
-        }
-
-        validateCurrentPassword(changePass.getCurrentPassword(), nguoiDung);
-        validateNewPassword(changePass.getNewPassword());
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
-        nguoiDung.setMustChangePassword(false);
-        nguoiDungRepository.save(nguoiDung);
-        return passwordChangedResponse();
-    }
-
-    private void validateCurrentPassword(String currentPassword, NguoiDung nguoiDung) {
         // validate trước khi chạm tới passwordEncoder (tránh encode/matches null -> 500)
-        if (currentPassword == null || currentPassword.isBlank()) {
+        if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
             throw new CommonException("Mật khẩu hiện tại không được để trống");
         }
-        if (!passwordEncoder.matches(currentPassword, nguoiDung.getMatKhauHash())) {
-            throw new CommonException("Mật khẩu hiện tại không đúng");
-        }
-    }
-
-    private void validateNewPassword(String newPassword) {
-        if (newPassword == null || newPassword.isBlank()
-                || newPassword.trim().length() < 6) {
+        if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()
+                || changePass.getNewPassword().trim().length() < 6) {
             throw new CommonException("Mật khẩu mới phải có ít nhất 6 ký tự");
         }
-    }
 
-    private ResponseEntity<ResponseData<String>> passwordChangedResponse() {
+        // lấy user từ context đăng nhập (token), không tin tưởng id từ frontend;
+        // dùng id trong token thay vì email (email có thể đã bị thay đổi -> stale)
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+
+        // so khớp mật khẩu hiện tại với hash trong DB (so sánh chính xác, không trim)
+        if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
+            throw new CommonException("Mật khẩu hiện tại không đúng");
+        }
+
+        // chỉ encode mật khẩu mới sau khi đã validate
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
+
+        update(nguoiDung.getId(), nguoiDung);
+
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .message("Thay đổi mật khẩu thành công!")
                         .build()
         );
-    }
-
-    private String generateTemporaryPassword() {
-        final String characters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-        StringBuilder password = new StringBuilder(8);
-        java.security.SecureRandom random = new java.security.SecureRandom();
-        for (int i = 0; i < 8; i++) {
-            password.append(characters.charAt(random.nextInt(characters.length())));
-        }
-        return password.toString();
-    }
-
-    private void sendPlainEmail(String to, String subject, String content) {
-        try {
-            emailService.sendEmail(to, subject, content);
-        } catch (Exception e) {
-            throw new CommonException("Không thể gửi email đến tài khoản", e);
-        }
     }
 }
 
