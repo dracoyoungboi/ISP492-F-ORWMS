@@ -185,7 +185,7 @@ export default function PurchaseRequestDetail() {
         navigate(`/purchase-requests/${id}/send-quotation`);
     };
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => navigate(`/purchase-requests/${id}/print`);
 
     if (loading) {
         return (

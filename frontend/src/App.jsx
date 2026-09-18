@@ -76,6 +76,12 @@ import SendQuotationRequestPage from "./pages/order/SendQuotationRequestPage";
 import PurchaseRequestDetail from "./pages/order/PurchaseRequestDetail";
 import QuotationRequestDetail from "./pages/order/QuotationRequestDetail";
 import QuotationDetail from "./pages/order/QuotationDetail";
+import PurchaseRequestPrint from "./pages/order/PurchaseRequestPrint";
+import QuotationRequestPrint from "./pages/order/QuotationRequestPrint";
+import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
+import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
+import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
+import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
 
 export default function App() {
   return (
@@ -162,7 +168,6 @@ export default function App() {
           <Route path="/goods-receipts/create" element={<PhieuNhapKhoCreate />} />
           <Route path="/goods-receipts" element={<PhieuNhapKhoList />} />
           <Route path="/goods-receipts/:id" element={<PhieuNhapKhoDetail />} />
-          <Route path="/goods-receipts/:id/print" element={<PhieuNhapKhoPrint />} />
           <Route path="/goods-receipts/:phieuNhapKhoId/lot-input/:bienTheSanPhamId" element={<KhaiBaoLo />} />
 
           {/* Issue */}
@@ -170,18 +175,15 @@ export default function App() {
           <Route path="/goods-issues/create" element={<PhieuXuatKhoCreate />} />
           <Route path="/goods-issues/:id" element={<PhieuXuatKhoDetail />} />
           <Route path="/goods-issues/:phieuXuatKhoId/pick-lot/:chiTietPhieuXuatKhoId" element={<PickLot />} />
-          <Route path="/goods-issues/:id/print" element={<PhieuXuatKhoPrint />} />
           <Route path="/goods-issues/:id/view" element={<PhieuXuatKhoView />} />
 
           {/* Sales-orders */}
           <Route path="/sales-orders" element={<DonBanHangList />} />
           <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
-          <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />
           <Route path="/sales-quotations/create" element={<BaoGiaCreate />} />
           <Route path="/sales-quotations/:id" element={<BaoGiaDetail />} />
-          <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
 
           {/* Chuyen kho noi bo */}
           <Route path="/transfer-tickets" element={<PhieuChuyenKhoList />} />
@@ -203,7 +205,23 @@ export default function App() {
           {/*Lịch sử giao dịch kho */}
           <Route path="/lich-su-giao-dich-kho" element={<LichSuGiaoDichKhoList />} />
 
+          {/* Cấu hình mẫu in — mỗi loại chứng từ có schema + mẫu riêng */}
+          <Route path="/settings/print-templates" element={<PrintTemplatesPage />} />
+          <Route path="/settings/print-templates/:documentType" element={<PrintTemplateDetailPage />} />
+          <Route path="/settings/print-templates/:documentType/:templateId" element={<PrintTemplateDetailPage />} />
+          <Route path="/settings/print-templates/:documentType/edit" element={<PrintTemplateEditorPage />} />
+          <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
+
           </Route>
+
+          {/* In phiếu — ngoài BackofficeLayout (không sidebar/header, không bị shell clipping) */}
+          <Route path="/purchase-requests/:id/print" element={<PurchaseRequestPrint />} />
+          <Route path="/quotation-requests/:id/print" element={<QuotationRequestPrint />} />
+          <Route path="/purchase-orders/:id/print" element={<PurchaseOrderPrint />} />
+          <Route path="/goods-receipts/:id/print" element={<PhieuNhapKhoPrint />} />
+          <Route path="/goods-issues/:id/print" element={<PhieuXuatKhoPrint />} />
+          <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
+          <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
         </Route>
 
         {/* ========== 404 ========== */}

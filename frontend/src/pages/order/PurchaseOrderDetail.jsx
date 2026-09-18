@@ -136,7 +136,7 @@ export default function PurchaseOrderDetail() {
         fetchUserInfo();
     }, []);
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => navigate(`/purchase-orders/${id}/print`);
 
     if (loading) {
         return (

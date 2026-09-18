@@ -191,7 +191,15 @@ export default function BackofficeSidebar() {
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
                     asChild
-                    tooltip={!isExpanded ? item.label : undefined}
+                    tooltip={
+                      !isExpanded
+                        ? item.badge
+                          ? {
+                              children: `${item.label} · ${item.badge.label}: ${item.badge.description}`,
+                            }
+                          : item.label
+                        : undefined
+                    }
                     className="h-10"
                   >
                     <NavLink
@@ -206,6 +214,22 @@ export default function BackofficeSidebar() {
                     >
                       <Icon className="size-[18px]" />
                       <span className="truncate">{item.label}</span>
+                      {item.badge && isExpanded ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              tabIndex={0}
+                              aria-label={`${item.badge.label} — ${item.badge.description}`}
+                              className="ml-auto shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300"
+                            >
+                              {item.badge.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            {item.badge.description}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

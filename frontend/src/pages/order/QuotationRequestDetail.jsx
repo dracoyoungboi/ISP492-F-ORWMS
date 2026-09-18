@@ -184,7 +184,7 @@ export default function QuotationRequestDetail() {
         }
     };
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => navigate(`/quotation-requests/${id}/print`);
 
     if (loading) {
         return (

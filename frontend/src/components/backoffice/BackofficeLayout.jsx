@@ -364,6 +364,26 @@ export default function BackofficeLayout() {
             match: (path) => /^\/sales-quotations\/\d+$/.test(path),
             title: "Chi tiết báo giá bán hàng",
         },
+        {
+            key: "PRINT_TEMPLATES",
+            match: (path) => path === "/settings/print-templates",
+            title: "Cấu hình mẫu in",
+            subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
+        },
+        {
+            key: "PRINT_TEMPLATE_EDIT",
+            match: (path) => /^\/settings\/print-templates\/[^/]+\/([^/]+\/)?edit$/.test(path),
+            title: "Chỉnh sửa mẫu in",
+            subtitle: "Tùy chỉnh hiển thị của mẫu in",
+        },
+        {
+            key: "PRINT_TEMPLATE_DETAIL",
+            match: (path) =>
+                /^\/settings\/print-templates\/[^/]+$/.test(path) ||
+                /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
+            title: "Mẫu in",
+            subtitle: "Xem trước mẫu in",
+        },
     ];
 
     const pageMeta = PAGE_META_CONFIG.find((item) =>
