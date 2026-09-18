@@ -2,10 +2,13 @@ import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
+import useCheckPasswordStatus from "@/hooks/useCheckPasswordStatus";
 import "@/styles/print.css";
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
+    const { mustChangePassword, handlePasswordChangeSuccess } = useCheckPasswordStatus();
 
     const PAGE_META_CONFIG = [
         {
@@ -19,12 +22,6 @@ export default function BackofficeLayout() {
             match: (path) => path.endsWith("/edit-role"),
             title: "Chỉnh Sửa Quyền Người Dùng",
             subtitle: "Cập nhật quyền hạn cho người dùng dựa trên chức vụ",
-        },
-        {
-            key: "RESET_PASSWORD",
-            match: (path) => path.endsWith("/reset-password"),
-            title: "Reset User Password",
-            subtitle: "Admin đặt lại mật khẩu cho người dùng",
         },
         {
             key: "ADD_USER",
@@ -374,6 +371,7 @@ export default function BackofficeLayout() {
     );
 
     return (
+        <>
         <SidebarProvider defaultOpen>
             <div
                 data-backoffice-shell
@@ -406,5 +404,12 @@ export default function BackofficeLayout() {
                 </SidebarInset>
             </div>
         </SidebarProvider>
+        <ChangePasswordModal
+            open={mustChangePassword}
+            forceChange={true}
+            onOpenChange={() => {}}
+            onSuccess={handlePasswordChangeSuccess}
+        />
+        </>
     );
 }

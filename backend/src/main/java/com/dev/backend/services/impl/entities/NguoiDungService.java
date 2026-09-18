@@ -454,6 +454,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         // chỉ encode mật khẩu mới sau khi đã validate
         nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
+        nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
 
@@ -462,6 +463,46 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .status(HttpStatus.OK.value())
                         .message("Thay đổi mật khẩu thành công!")
                         .build()
+        );
+    }
+
+    public String generateTemporaryPassword() {
+        final String characters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+        StringBuilder password = new StringBuilder(8);
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        for (int i = 0; i < 8; i++) {
+            password.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        return password.toString();
+    }
+
+    @Transactional
+    public void resetPasswordRandomByAdmin(Integer userId) {
+        NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+
+        if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
+            throw new CommonException("Người dùng chưa có email để nhận mật khẩu tạm thời");
+        }
+
+        String tempPassword = generateTemporaryPassword();
+
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
+        nguoiDung.setMustChangePassword(true);
+        nguoiDung.setNgayCapNhat(Instant.now());
+        nguoiDungRepository.save(nguoiDung);
+
+        Map<String, Object> emailParams = new HashMap<>();
+        emailParams.put("userName", nguoiDung.getHoTen() != null && !nguoiDung.getHoTen().isBlank()
+                ? nguoiDung.getHoTen()
+                : nguoiDung.getTenDangNhap());
+        emailParams.put("temporaryPassword", tempPassword);
+
+        emailService.sendHtmlEmailFromTemplate(
+                nguoiDung.getEmail(),
+                "Cấp lại mật khẩu tài khoản - Fashion Management",
+                "admin_reset_password.html",
+                emailParams
         );
     }
 }

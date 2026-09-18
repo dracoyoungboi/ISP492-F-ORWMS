@@ -31,6 +31,9 @@ export const adminService = {
     resetUserPasswordByAdmin(userId, payload) {
         return apiClient.post(`/api/v1/admin/users/${userId}/reset-password`, payload);
     },
+    resetUserPasswordRandomByAdmin(userId) {
+        return apiClient.post(`/api/v1/admin/users/${userId}/reset-password-random`);
+    },
     toggleUserStatusByAdmin(userId) {
         return apiClient.post(`/api/v1/admin/users/${userId}/toggle-status`);
     }

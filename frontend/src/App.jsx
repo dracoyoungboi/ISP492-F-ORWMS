@@ -16,7 +16,6 @@ import ProductList from "./pages/product";
 import AddUserByAdmin from "@/pages/admin/AddUserByAdmin.jsx";
 import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
 import ViewUserDetailByAdmin from "@/pages/admin/ViewUserDetailByAdmin.jsx";
-import ResetUserPasswordByAdmin from "@/pages/admin/ResetUserPasswordByAdmin.jsx";
 import EditUserRoleByAdmin from "@/pages/admin/EditUserRoleByAdmin.jsx";
 import DashboardByAdmin from "@/pages/admin/DashboardByAdmin.jsx";
 import ColorSizeManagement from "@/pages/attribute/ColorSizeManagement.jsx";
@@ -109,10 +108,6 @@ export default function App() {
           <Route path="/users" element={<ViewUserListByAdmin />} />
           <Route path="/users/add" element={<AddUserByAdmin />} />
           <Route path="/users/:id" element={<ViewUserDetailByAdmin />} />
-          <Route
-            path="/users/:id/reset-password"
-            element={<ResetUserPasswordByAdmin />}
-          />
           <Route
             path="/users/:id/edit-role"
             element={<EditUserRoleByAdmin />}

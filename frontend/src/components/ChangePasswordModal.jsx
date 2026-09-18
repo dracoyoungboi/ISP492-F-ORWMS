@@ -35,7 +35,7 @@ function PasswordToggle({ show, onClick, disabled }) {
 
 // Modal đổi mật khẩu của người đang đăng nhập.
 // State và submit tách biệt hoàn toàn khỏi form "Thông tin cá nhân".
-export default function ChangePasswordModal({ open, onOpenChange, onSuccess }) {
+export default function ChangePasswordModal({ open, onOpenChange, onSuccess, forceChange = false }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -66,7 +66,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess }) {
 
     // Validate FE nhẹ trước khi gọi API
     if (!currentPassword.trim()) {
-      setErrorMsg("Vui lòng nhập mật khẩu hiện tại");
+      setErrorMsg(forceChange ? "Vui lòng nhập mật khẩu tạm thời" : "Vui lòng nhập mật khẩu hiện tại");
       return;
     }
     if (!newPassword || newPassword.trim().length < 6) {
@@ -105,12 +105,18 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white text-bo-foreground sm:max-w-md">
+    <Dialog open={open} onOpenChange={(next) => { if (!forceChange) onOpenChange(next); }}>
+      <DialogContent
+        className="bg-white text-bo-foreground sm:max-w-md"
+        onInteractOutside={(e) => { if (forceChange) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (forceChange) e.preventDefault(); }}
+      >
         <DialogHeader>
-          <DialogTitle>Đổi mật khẩu</DialogTitle>
+          <DialogTitle>{forceChange ? "Yêu cầu đổi mật khẩu lần đầu" : "Đổi mật khẩu"}</DialogTitle>
           <DialogDescription className="text-bo-muted">
-            Cập nhật mật khẩu đăng nhập cho tài khoản của bạn.
+            {forceChange
+              ? "Tài khoản của bạn vừa được cấp lại mật khẩu tạm thời. Vui lòng nhập mật khẩu tạm thời và tạo mật khẩu mới để tiếp tục."
+              : "Cập nhật mật khẩu đăng nhập cho tài khoản của bạn."}
           </DialogDescription>
         </DialogHeader>
 
@@ -118,7 +124,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess }) {
           <div className="space-y-2">
             <Label htmlFor="currentPassword" className="flex items-center gap-2">
               <Lock className="h-4 w-4 text-bo-muted" />
-              Mật khẩu hiện tại
+              {forceChange ? "Mật khẩu tạm thời (từ email)" : "Mật khẩu hiện tại"}
             </Label>
             <div className="relative">
               <Input
@@ -194,15 +200,17 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess }) {
           )}
 
           <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={submitting}
-              onClick={() => onOpenChange(false)}
-              className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-            >
-              Hủy
-            </Button>
+            {!forceChange && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={() => onOpenChange(false)}
+                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+              >
+                Hủy
+              </Button>
+            )}
             <Button
               type="submit"
               disabled={submitting}

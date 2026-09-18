@@ -18,6 +18,16 @@ import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -102,6 +112,23 @@ export default function ViewUserListByAdmin() {
     const location = useLocation();
     const toastShownRef = useRef(false);
     const navigate = useNavigate();
+
+    const [selectedUserForReset, setSelectedUserForReset] = useState(null);
+    const [resettingUser, setResettingUser] = useState(false);
+
+    const handleConfirmResetRandom = async () => {
+        if (!selectedUserForReset) return;
+        try {
+            setResettingUser(true);
+            await adminService.resetUserPasswordRandomByAdmin(selectedUserForReset.id);
+            toast.success(`Đã cấp mật khẩu tạm thời ngẫu nhiên và gửi về email cho ${selectedUserForReset.hoTen || selectedUserForReset.tenDangNhap}`);
+            setSelectedUserForReset(null);
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Không thể cấp lại mật khẩu cho người dùng");
+        } finally {
+            setResettingUser(false);
+        }
+    };
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -518,7 +545,7 @@ export default function ViewUserListByAdmin() {
                                             className="h-8 border-bo-danger/30 bg-white px-2.5 text-xs text-bo-danger hover:bg-bo-danger hover:text-white"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                navigate(`/users/${u.id}/reset-password`);
+                                                setSelectedUserForReset(u);
                                             }}
                                         >
                                             Reset
@@ -530,6 +557,56 @@ export default function ViewUserListByAdmin() {
                     </table>
                 </div>
             </TableShell>
+
+            {/* ALERT DIALOG CẤP LẠI MẬT KHẨU */}
+            <AlertDialog
+                open={Boolean(selectedUserForReset)}
+                onOpenChange={(open) => {
+                    if (!open && !resettingUser) setSelectedUserForReset(null);
+                }}
+            >
+                <AlertDialogContent className="bg-white">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Cấp lại mật khẩu người dùng</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-2 text-sm text-slate-600">
+                            <div>
+                                Bạn có muốn cấp lại mật khẩu cho tài khoản{" "}
+                                <span className="font-semibold text-slate-900">
+                                    {selectedUserForReset?.tenDangNhap}
+                                </span>{" "}
+                                {selectedUserForReset?.hoTen && `(${selectedUserForReset.hoTen})`}?
+                            </div>
+                            <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500 border border-slate-200">
+                                Email nhận mật khẩu:{" "}
+                                <span className="font-medium text-slate-800">
+                                    {selectedUserForReset?.email || "Chưa thiết lập email"}
+                                </span>
+                                {!selectedUserForReset?.email && (
+                                    <p className="text-amber-600 mt-1 font-medium">
+                                        ⚠️ Tài khoản này chưa có email, không thể gửi mật khẩu ngẫu nhiên tự động. Vui lòng cập nhật email cho người dùng trước.
+                                    </p>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                Hệ thống sẽ tự động tạo mật khẩu tạm thời ngẫu nhiên và gửi thư định dạng HTML về email người dùng. Sau khi đăng nhập, người dùng sẽ bắt buộc phải đổi mật khẩu mới.
+                            </p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2 sm:justify-end">
+                        <AlertDialogCancel disabled={resettingUser}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={resettingUser || !selectedUserForReset?.email}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleConfirmResetRandom();
+                            }}
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            {resettingUser ? "Đang gửi mail..." : "Gửi mật khẩu ngẫu nhiên"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </PageContainer>
     );
 }

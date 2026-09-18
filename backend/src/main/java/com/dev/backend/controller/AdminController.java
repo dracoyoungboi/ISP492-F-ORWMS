@@ -135,6 +135,25 @@ public class AdminController {
         );
     }
 
+    @PostMapping("/users/{id}/reset-password-random")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien}
+    )
+    public ResponseEntity<ResponseData<Void>> resetPasswordRandomByAdmin(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Integer id
+    ) {
+        nguoiDungService.resetPasswordRandomByAdmin(id);
+
+        return ResponseEntity.ok(
+                ResponseData.<Void>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Admin cấp mật khẩu ngẫu nhiên cho người dùng thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
     @PostMapping("/users/{id}/toggle-status")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<NguoiDungDto>> toggleUserStatusByAdmin(
