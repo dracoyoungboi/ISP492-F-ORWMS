@@ -6,6 +6,7 @@ import {
   Warehouse,
   ShoppingCart,
   BarChart3,
+  Printer,
 } from "lucide-react";
 
 export const SIDEBAR_MENU = [
@@ -170,5 +171,18 @@ export const SIDEBAR_MENU = [
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
       },
     ],
+  },
+
+  // ================= CẤU HÌNH MẪU IN =================
+  {
+    label: "Cấu hình mẫu in",
+    icon: Printer,
+    to: "/settings/print-templates",
+    roles: ["quan_tri_vien", "quan_ly_kho"],
+    // Badge "Beta" hiển thị cạnh tên mục (chỉ ở trạng thái sidebar mở rộng)
+    badge: {
+      label: "Beta",
+      description: "Tính năng đang được hoàn thiện",
+    },
   },
 ];

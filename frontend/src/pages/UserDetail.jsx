@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { nguoiDungService } from "@/services/nguoiDungService";
 
 import { Button } from "@/components/ui/button";
@@ -9,43 +7,41 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import UserAvatar from "@/components/UserAvatar";
 import AvatarEditorModal from "@/components/AvatarEditorModal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import EmptyState from "@/components/shared/EmptyState";
 import PageContainer from "@/components/backoffice/PageContainer";
+import SurfaceCard from "@/components/shared/SurfaceCard";
 
 import {
-    ArrowLeft,
     Calendar,
     Camera,
     CheckCircle2,
     Clock,
-    Clock3,
     Edit,
-    IdCard,
+    Lock,
     Mail,
     Phone,
     Save,
     Shield,
     User,
-    UserCog,
+    Warehouse,
     X,
     AlertCircle,
 } from "lucide-react";
 
+// Hồ sơ cá nhân của người đang đăng nhập (route /profile).
+// BE lấy user từ token — không có id trên URL, không hiển thị id nội bộ.
 export default function UserDetail() {
-    const { id } = useParams(); // string
-    const navigate = useNavigate();
-
     // UI state
     const [loadingUser, setLoadingUser] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [successMsg, setSuccessMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     const [editorOpen, setEditorOpen] = useState(false);
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
-    // User data
+    // User data — id chỉ dùng nội bộ cho AvatarEditorModal, không hiển thị
     const [userData, setUserData] = useState({
         id: null,
         tenDangNhap: "",
@@ -56,9 +52,11 @@ export default function UserDetail() {
         trangThai: 0,
         ngayTao: "",
         ngayCapNhat: "",
+        khoPhuTrachActive: [],
     });
 
-    const [editedData, setEditedData] = useState({ ...userData });
+    // Chỉ các trường cá nhân được phép sửa
+    const [editedData, setEditedData] = useState({ hoTen: "", soDienThoai: "" });
 
     const vaiTroOptions = useMemo(
         () => [
@@ -75,19 +73,6 @@ export default function UserDetail() {
     const getVaiTroLabel = (value) => vaiTroOptions.find((opt) => opt.value === value)?.label || value || "—";
     const isActive = useMemo(() => Number(userData.trangThai) === 1, [userData.trangThai]);
 
-    // Avatar editor is only for the logged-in user's own profile.
-    const loggedInUserId = useMemo(() => {
-        try {
-            const token = localStorage.getItem("access_token");
-            if (!token) return null;
-            const payload = jwtDecode(token);
-            return payload?.userId ?? payload?.id ?? payload?.sub ?? null;
-        } catch {
-            return null;
-        }
-    }, []);
-    const isSelf = loggedInUserId != null && String(loggedInUserId) === String(id);
-
     const formatDateTime = (iso) => {
         if (!iso) return "—";
         const d = new Date(iso);
@@ -95,20 +80,24 @@ export default function UserDetail() {
         return d.toLocaleString();
     };
 
+    const showSuccess = (msg) => {
+        setSuccessMsg(msg);
+        setTimeout(() => setSuccessMsg(""), 2500);
+    };
+
     // ===== Fetch user =====
     useEffect(() => {
         const fetchUser = async () => {
-            if (!id) return;
             setErrorMsg("");
             setLoadingUser(true);
 
             try {
-                const res = await nguoiDungService.getById(id);
+                const res = await nguoiDungService.getMe();
                 const dto = res?.data; // ResponseData.data
                 if (!dto) throw new Error("Không nhận được data người dùng từ server");
 
                 setUserData(dto);
-                setEditedData(dto);
+                setEditedData({ hoTen: dto.hoTen || "", soDienThoai: dto.soDienThoai || "" });
             } catch (err) {
                 const msg = err?.response?.data?.message || err?.message || "Lỗi tải dữ liệu người dùng";
                 setErrorMsg(msg);
@@ -118,18 +107,18 @@ export default function UserDetail() {
         };
 
         fetchUser();
-    }, [id]);
+    }, []);
 
     // ===== Edit handlers =====
     const handleEdit = () => {
         setIsEditing(true);
-        setEditedData({ ...userData });
+        setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
         setErrorMsg("");
     };
 
     const handleCancel = () => {
         setIsEditing(false);
-        setEditedData({ ...userData });
+        setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
         setErrorMsg("");
     };
 
@@ -137,52 +126,28 @@ export default function UserDetail() {
         setEditedData((prev) => ({ ...prev, [field]: value }));
     };
 
-    // ✅ build body theo UpdateNguoiDungRequest (id bắt buộc)
-    const buildUpdatePayload = () => ({
-        id: Number(userData.id), // hoặc Number(id)
-        tenDangNhap: editedData.tenDangNhap?.trim(),
-        hoTen: editedData.hoTen?.trim(),
-        email: editedData.email?.trim(),
-        soDienThoai: editedData.soDienThoai?.trim(),
-    });
-
+    // Chỉ cập nhật thông tin cá nhân — mật khẩu đổi riêng qua modal Bảo mật
     const handleSave = async () => {
-        if (!userData?.id) return;
-
         setSaving(true);
         setErrorMsg("");
 
         try {
-            const payload = buildUpdatePayload();
-
-            // validate FE nhẹ
-            if (!payload.tenDangNhap) throw new Error("Tên đăng nhập không được để trống");
-            if (!payload.hoTen) throw new Error("Họ tên không được để trống");
-            if (editedData.password && editedData.password.length < 6) {
-                throw new Error("Mật khẩu mới phải có ít nhất 6 ký tự");
+            if (!editedData.hoTen?.trim()) {
+                throw new Error("Họ tên không được để trống");
             }
 
-            // 1. Update info
-            const res = await nguoiDungService.updateUser(payload);
+            const res = await nguoiDungService.updateMe({
+                hoTen: editedData.hoTen.trim(),
+                soDienThoai: editedData.soDienThoai?.trim() || null,
+            });
             const updatedDto = res?.data; // ResponseData.data
             if (!updatedDto) throw new Error("Cập nhật thành công nhưng response thiếu data");
 
-            // 2. Change password if entered
-            if (editedData.password && editedData.password.trim().length > 0) {
-                // Assuming BE needs { id, password } or similar
-                await nguoiDungService.changePassword({
-                    id: Number(userData.id),
-                    password: editedData.password.trim()
-                });
-            }
-
             setUserData(updatedDto);
-            // reset editedData, clear password
-            setEditedData({ ...updatedDto, password: "" });
+            setEditedData({ hoTen: updatedDto.hoTen || "", soDienThoai: updatedDto.soDienThoai || "" });
             setIsEditing(false);
 
-            setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 2500);
+            showSuccess("Cập nhật hồ sơ thành công!");
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || "Cập nhật thất bại";
             setErrorMsg(msg);
@@ -191,87 +156,13 @@ export default function UserDetail() {
         }
     };
 
-    const quickStats = [
-        { icon: <UserCog className="h-4 w-4 text-bo-primary" />, label: "Vai trò", value: getVaiTroLabel(userData.vaiTro) },
-        { icon: <Shield className="h-4 w-4 text-bo-primary" />, label: "Trạng thái", value: isActive ? "Đang hoạt động" : "Không hoạt động" },
-        { icon: <IdCard className="h-4 w-4 text-bo-primary" />, label: "Mã người dùng", value: userData.id ?? "—" },
-        { icon: <Clock3 className="h-4 w-4 text-bo-primary" />, label: "Cập nhật gần nhất", value: formatDateTime(userData.ngayCapNhat) },
-    ];
-
     return (
         <PageContainer className="mx-auto max-w-5xl space-y-5">
-                {/* Header */}
-                <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm sm:p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex items-start gap-4">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => navigate(-1)}
-                                className="shrink-0 border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
-                            >
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div className="min-w-0">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-bo-primary">Tài khoản / Hồ sơ</p>
-                                <h1 className="text-xl font-bold text-bo-foreground sm:text-2xl">Chi tiết người dùng</h1>
-                                <p className="mt-1 text-sm text-bo-muted">Quản lý thông tin tài khoản và lịch sử thay đổi</p>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {!isEditing ? (
-                                <Button
-                                    onClick={handleEdit}
-                                    disabled={loadingUser}
-                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Chỉnh sửa
-                                </Button>
-                            ) : (
-                                <>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleCancel}
-                                        disabled={saving}
-                                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        <X className="mr-2 h-4 w-4" />
-                                        Hủy
-                                    </Button>
-                                    <Button
-                                        onClick={handleSave}
-                                        disabled={saving}
-                                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                    >
-                                        <Save className="mr-2 h-4 w-4" />
-                                        {saving ? "Đang lưu..." : "Lưu thay đổi"}
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {quickStats.map((item) => (
-                        <OverviewTile
-                            key={item.label}
-                            icon={item.icon}
-                            label={item.label}
-                            value={item.value}
-                        />
-                    ))}
-                </div>
-
                 {/* Alerts */}
-                {showSuccess && (
+                {successMsg && (
                     <Alert className="border-bo-success/30 bg-bo-success-soft">
                         <CheckCircle2 className="h-4 w-4 text-bo-success" />
-                        <AlertDescription className="text-bo-success">
-                            Cập nhật thông tin người dùng thành công!
-                        </AlertDescription>
+                        <AlertDescription className="text-bo-success">{successMsg}</AlertDescription>
                     </Alert>
                 )}
 
@@ -284,24 +175,20 @@ export default function UserDetail() {
 
                 <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
                     {/* Left - Summary */}
-                    <div className="space-y-5 lg:col-span-1">
+                    <div className="lg:col-span-1">
                         <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             <div className="flex flex-col items-center p-6 text-center">
-                                {isSelf ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditorOpen(true)}
-                                        aria-label="Thay đổi ảnh đại diện"
-                                        className="group relative mb-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
-                                    >
-                                        <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
-                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                            <Camera className="size-6 text-white" />
-                                        </span>
-                                    </button>
-                                ) : (
-                                    <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" className="mb-4" />
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setEditorOpen(true)}
+                                    aria-label="Thay đổi ảnh đại diện"
+                                    className="group relative mb-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
+                                >
+                                    <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
+                                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                        <Camera className="size-6 text-white" />
+                                    </span>
+                                </button>
 
                                 <h3 className="break-all text-xl font-bold text-bo-foreground">
                                     {loadingUser ? "Loading..." : userData.hoTen || "—"}
@@ -321,6 +208,27 @@ export default function UserDetail() {
                                     </span>
                                 </div>
 
+                                {/* Kho phụ trách — chỉ hiển thị khi có kho đang hoạt động, còn hiệu lực (BE đã lọc) */}
+                                {Array.isArray(userData.khoPhuTrachActive) && userData.khoPhuTrachActive.length > 0 && (
+                                    <div className="mb-6 w-full space-y-3 border-t border-bo-border pt-4 text-left">
+                                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">
+                                            <Warehouse className="h-4 w-4 text-bo-primary" />
+                                            Kho phụ trách
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {userData.khoPhuTrachActive.map((kho, index) => (
+                                                <li
+                                                    key={kho.maKho || index}
+                                                    className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2"
+                                                >
+                                                    <p className="text-sm font-medium text-bo-foreground">{kho.tenKho}</p>
+                                                    <p className="mt-0.5 text-xs uppercase tracking-wide text-bo-muted">{kho.maKho}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
                                 <div className="w-full space-y-3 border-t border-bo-border pt-4 text-left">
                                     <div className="flex items-center gap-2 text-sm text-bo-muted">
                                         <Calendar className="h-4 w-4" />
@@ -333,164 +241,139 @@ export default function UserDetail() {
                                 </div>
                             </div>
                         </div>
-
-                        <div className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                            <div className="border-b border-bo-border px-4 py-3">
-                                <h2 className="text-sm font-semibold text-bo-foreground">Thông tin hệ thống</h2>
-                                <p className="mt-0.5 text-xs text-bo-muted">Thông tin quan trọng</p>
-                            </div>
-                            <div className="space-y-2 p-4 text-sm text-bo-foreground">
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-bo-muted">ID</span>
-                                    <span className="font-medium">{userData.id ?? "—"}</span>
-                                </div>
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-bo-muted">Vai trò</span>
-                                    <span className="text-right font-medium">{getVaiTroLabel(userData.vaiTro)}</span>
-                                </div>
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-bo-muted">Trạng thái</span>
-                                    <span className="font-medium">{isActive ? "Hoạt động" : "Không hoạt động"}</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
-                    {/* Right - Tabs */}
-                    <div className="lg:col-span-2">
-                        <Tabs defaultValue="info" className="space-y-4">
-                            <TabsList className="grid w-full grid-cols-2 rounded-lg border border-bo-border bg-bo-surface-subtle">
-                                <TabsTrigger
-                                    value="info"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
-                                >
-                                    Thông tin
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="activity"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-bo-foreground data-[state=active]:shadow-sm"
-                                >
-                                    Hoạt động
-                                </TabsTrigger>
-                            </TabsList>
-
-                            {/* Tab: Thông tin */}
-                            <TabsContent value="info">
-                                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                                    <div className="border-b border-bo-border px-4 py-3">
-                                        <h2 className="text-sm font-semibold text-bo-foreground">Thông tin người dùng</h2>
+                    {/* Right - Thông tin cá nhân + Bảo mật */}
+                    <div className="space-y-5 lg:col-span-2">
+                        <SurfaceCard
+                            title="Thông tin cá nhân"
+                            description="Thông tin cơ bản của tài khoản"
+                            action={
+                                !isEditing ? (
+                                    <Button
+                                        onClick={handleEdit}
+                                        disabled={loadingUser}
+                                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                    >
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Chỉnh sửa thông tin
+                                    </Button>
+                                ) : (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleCancel}
+                                            disabled={saving}
+                                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                        >
+                                            <X className="mr-2 h-4 w-4" />
+                                            Hủy
+                                        </Button>
+                                        <Button
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                        >
+                                            <Save className="mr-2 h-4 w-4" />
+                                            {saving ? "Đang lưu..." : "Lưu thông tin"}
+                                        </Button>
                                     </div>
-
-                                    <div className="space-y-6 p-4 sm:p-5">
-                                        {/* tenDangNhap */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="tenDangNhap" className="flex items-center gap-2">
-                                                <User className="h-4 w-4 text-bo-muted" />
-                                                Tên đăng nhập
-                                            </Label>
-                                            <Input
-                                                id="tenDangNhap"
-                                                value={userData.tenDangNhap}
-                                                readOnly
-                                                disabled
-                                                className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                            />
-                                        </div>
-
-                                        {/* hoTen */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="hoTen">Họ và tên</Label>
-                                            <Input
-                                                id="hoTen"
-                                                value={isEditing ? editedData.hoTen : userData.hoTen}
-                                                onChange={(e) => handleInputChange("hoTen", e.target.value)}
-                                                disabled={!isEditing || loadingUser}
-                                                className={!isEditing
-                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
-                                            />
-                                        </div>
-
-                                        {/* email */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="email" className="flex items-center gap-2">
-                                                <Mail className="h-4 w-4 text-bo-muted" />
-                                                Email
-                                            </Label>
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                value={userData.email}
-                                                readOnly
-                                                disabled
-                                                className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="soDienThoai" className="flex items-center gap-2">
-                                                <Phone className="h-4 w-4 text-bo-muted" />
-                                                Số điện thoại
-                                            </Label>
-                                            <Input
-                                                id="soDienThoai"
-                                                value={isEditing ? editedData.soDienThoai : userData.soDienThoai}
-                                                onChange={(e) => handleInputChange("soDienThoai", e.target.value)}
-                                                disabled={!isEditing || loadingUser}
-                                                className={!isEditing
-                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
-                                            />
-                                        </div>
-
-                                        {/* password - only writable in edit mode */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="password" className="flex items-center gap-2">
-                                                <Shield className="h-4 w-4 text-bo-muted" />
-                                                Mật khẩu
-                                            </Label>
-                                            <Input
-                                                id="password"
-                                                type="password"
-                                                value={isEditing ? (editedData.password || "") : "********"}
-                                                placeholder={isEditing ? "Nhập mật khẩu mới" : ""}
-                                                onChange={(e) => handleInputChange("password", e.target.value)}
-                                                disabled={!isEditing || loadingUser}
-                                                className={!isEditing
-                                                    ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                                    : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
-                                            />
-                                        </div>
-
-                                        {/* read-only fields */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label>Vai trò</Label>
-                                                <Input value={getVaiTroLabel(userData.vaiTro)} disabled className="border-bo-border bg-bo-surface-subtle text-bo-foreground" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Trạng thái</Label>
-                                                <Input value={isActive ? "Hoạt động" : "Không hoạt động"} disabled className="border-bo-border bg-bo-surface-subtle text-bo-foreground" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Tab: Hoạt động */}
-                            <TabsContent value="activity">
-                                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                                    <div className="border-b border-bo-border px-4 py-3">
-                                        <h2 className="text-sm font-semibold text-bo-foreground">Lịch sử hoạt động</h2>
-                                    </div>
-
-                                    <EmptyState
-                                        title="Chưa có hoạt động"
-                                        description="Lịch sử hoạt động của tài khoản sẽ hiển thị tại đây khi có dữ liệu."
+                                )
+                            }
+                        >
+                            <div className="space-y-6">
+                                {/* tenDangNhap - read-only */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="tenDangNhap" className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-bo-muted" />
+                                        Tên đăng nhập
+                                    </Label>
+                                    <Input
+                                        id="tenDangNhap"
+                                        value={userData.tenDangNhap}
+                                        readOnly
+                                        disabled
+                                        className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
                                     />
                                 </div>
-                            </TabsContent>
-                        </Tabs>
+
+                                {/* email - read-only */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="email" className="flex items-center gap-2">
+                                        <Mail className="h-4 w-4 text-bo-muted" />
+                                        Email
+                                    </Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={userData.email}
+                                        readOnly
+                                        disabled
+                                        className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                    />
+                                </div>
+
+                                {/* hoTen */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="hoTen">Họ và tên</Label>
+                                    <Input
+                                        id="hoTen"
+                                        value={isEditing ? editedData.hoTen : userData.hoTen}
+                                        onChange={(e) => handleInputChange("hoTen", e.target.value)}
+                                        disabled={!isEditing || loadingUser}
+                                        className={!isEditing
+                                            ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                            : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
+                                    />
+                                </div>
+
+                                {/* soDienThoai */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="soDienThoai" className="flex items-center gap-2">
+                                        <Phone className="h-4 w-4 text-bo-muted" />
+                                        Số điện thoại
+                                    </Label>
+                                    <Input
+                                        id="soDienThoai"
+                                        value={isEditing ? editedData.soDienThoai : userData.soDienThoai || ""}
+                                        onChange={(e) => handleInputChange("soDienThoai", e.target.value)}
+                                        disabled={!isEditing || loadingUser}
+                                        className={!isEditing
+                                            ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
+                                            : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
+                                    />
+                                </div>
+                            </div>
+                        </SurfaceCard>
+
+                        <SurfaceCard
+                            title="Bảo mật tài khoản"
+                            description="Quản lý mật khẩu đăng nhập"
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setChangePasswordOpen(true)}
+                                    disabled={loadingUser}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    <Lock className="mr-2 h-4 w-4" />
+                                    Đổi mật khẩu
+                                </Button>
+                            }
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft">
+                                    <Shield className="h-5 w-5 text-bo-primary" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-bo-foreground">Mật khẩu</p>
+                                    <p className="text-sm tracking-widest text-bo-foreground">••••••••••••</p>
+                                </div>
+                            </div>
+                            <p className="mt-4 text-xs text-bo-muted">
+                                Mật khẩu được mã hóa và không hiển thị. Sử dụng nút “Đổi mật khẩu” để cập nhật.
+                            </p>
+                        </SurfaceCard>
                     </div>
                 </div>
 
@@ -499,18 +382,12 @@ export default function UserDetail() {
                     onOpenChange={setEditorOpen}
                     userId={userData.id}
                 />
-        </PageContainer>
-    );
-}
 
-function OverviewTile({ icon, label, value }) {
-    return (
-        <div className="rounded-lg border border-bo-border bg-bo-surface px-4 py-3 shadow-sm">
-            <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-bo-primary-soft">
-                {icon}
-            </div>
-            <p className="text-[11px] uppercase tracking-wide text-bo-muted">{label}</p>
-            <p className="mt-1 break-words text-sm font-semibold text-bo-foreground">{value}</p>
-        </div>
+                <ChangePasswordModal
+                    open={changePasswordOpen}
+                    onOpenChange={setChangePasswordOpen}
+                    onSuccess={() => showSuccess("Đổi mật khẩu thành công!")}
+                />
+        </PageContainer>
     );
 }

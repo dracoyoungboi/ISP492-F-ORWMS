@@ -140,7 +140,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
               disabled={!userId}
               className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950"
             >
-              <Link to={`/user/${userId}`}>
+              <Link to="/profile">
                 <UserRound className="size-4 text-slate-500" />
                 Hồ sơ
               </Link>

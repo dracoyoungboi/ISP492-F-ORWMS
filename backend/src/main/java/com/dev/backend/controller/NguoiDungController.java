@@ -46,19 +46,6 @@ public class NguoiDungController {
         );
     }
 
-    //đăng ký
-    @PostMapping("/register")
-    public ResponseEntity<ResponseData<String>> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        return nguoiDungService.register(registerRequest);
-    }
-
-    //sau khi đăng ký thì active account
-    @PostMapping("/active-account")
-    public ResponseEntity<ResponseData<String>> activeAccount(@RequestBody VerifyAccount verifyDto) {
-        return nguoiDungService.activeAccount(verifyDto);
-    }
-
-
     //đăng nhập hệ thống
     @PostMapping("/login")
     public ResponseEntity<ResponseData<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {
@@ -70,6 +57,20 @@ public class NguoiDungController {
     @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<NguoiDungDto>> update(@Valid @RequestBody UpdateNguoiDungRequest request) {
         return nguoiDungService.update(request);
+    }
+
+    // lấy thông tin người dùng đang đăng nhập (id lấy từ token, không nhận id từ frontend)
+    @GetMapping("/me")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
+        return nguoiDungService.getMe();
+    }
+
+    // cập nhật thông tin người dùng đang đăng nhập (id lấy từ token)
+    @PutMapping("/me")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(@RequestBody UpdateMeRequest request) {
+        return nguoiDungService.updateMe(request);
     }
 
     // gửi yêu cầu đổi mật khẩu

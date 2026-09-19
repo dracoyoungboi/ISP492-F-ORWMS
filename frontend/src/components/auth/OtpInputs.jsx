@@ -3,7 +3,7 @@ import { useRef } from 'react';
 const OTP_LENGTH = 6;
 
 /**
- * Nhóm 6 ô nhập OTP dùng chung cho ForgotPassword + VerifyEmail.
+ * Nhóm 6 ô nhập OTP dùng chung cho ForgotPassword.
  * value/onChange: mảng 6 chuỗi (mỗi ô 1 ký tự số), do trang cha quản lý.
  * Hỗ trợ: auto-focus ô kế tiếp, Backspace lùi ô, dán (paste) mã 6 số, inputMode numeric.
  */

@@ -1,4 +1,8 @@
 import axios from 'axios';
+import { toast } from 'sonner';
+
+// Chặn xử lý trùng lặp khi nhiều request đồng thời cùng trả về ACCOUNT_DISABLED
+let accountDisabledHandled = false;
 
 const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
@@ -38,7 +42,30 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Handle global errors here, e.g., redirect to login on 401
+        // Tài khoản bị khóa: xóa session và đưa về /login.
+        // KHÔNG ảnh hưởng các lỗi 403 thông thường (thiếu quyền) — chỉ xử lý ACCOUNT_DISABLED.
+        const data = error.response?.data;
+        const isAccountDisabled =
+            data?.error === "ACCOUNT_DISABLED" ||
+            (typeof data?.message === "string" && data.message.includes("bị khóa"));
+        if (
+            isAccountDisabled &&
+            error.config?.skipAccountDisabledHandling !== true &&
+            !accountDisabledHandled
+        ) {
+            accountDisabledHandled = true;
+            const message =
+                data?.message || "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.";
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("role");
+            localStorage.removeItem("selected_kho_id");
+            Object.keys(localStorage)
+                .filter((key) => key.startsWith("fcentrics_avatar_"))
+                .forEach((key) => localStorage.removeItem(key));
+            sessionStorage.setItem("account_locked_message", message);
+            toast.error(message, { id: "account-disabled" });
+            window.location.href = "/login"; // token đã xóa trước khi redirect → Login không tự bounce về /dashboard
+        }
         return Promise.reject(error);
     }
 );

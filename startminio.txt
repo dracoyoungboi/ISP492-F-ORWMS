@@ -1,0 +1,104 @@
+MINIO LOCAL
+
+1. Cài MinIO
+
+Cài Go trước:
+
+    winget install GoLang.Go -e --silent
+
+Sau khi cài xong, đóng Terminal và mở lại một cửa sổ mới. Cài MinIO bằng lệnh:
+
+    go install -v github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+
+Tạo thư mục lưu dữ liệu:
+
+    D:\MinIO\Data
+
+Sau đó sao chép file MinIO vào thư mục riêng:
+
+    Copy-Item "$env:USERPROFILE\go\bin\minio.exe" "D:\MinIO\minio.exe"
+
+Để chạy MinIO, mở file `startmino.bat`.
+
+2. Tạo bucket lần đầu
+
+Mở trình duyệt tại:
+
+    http://localhost:9001
+
+Đăng nhập bằng:
+
+    Username: admin
+    Password: slm123slm123
+
+Trong giao diện MinIO:
+
+- Chọn `Buckets`.
+- Chọn `Create Bucket`.
+- Đặt tên bucket là `fashion`.
+- Đặt quyền đọc của bucket là `public`. (Nếu k có thì bỏ qua bởi mặc định là nó chạy ở common rồi)
+
+Giữ cửa sổ Terminal đang chạy MinIO. Mở một Terminal khác và chạy:
+
+    go run github.com/minio/mc@latest alias set myminio http://127.0.0.1:9000 admin slm123slm123
+
+Sau đó đặt quyền download cho bucket:
+
+    go run github.com/minio/mc@latest anonymous set download myminio/fashion
+
+Cấu hình hoàn tất khi Terminal hiển thị:
+
+    Access permission for 'myminio/fashion' is set to 'download'.
+
+3. Khi chuyển giữa local và server
+
+Các file dưới đây phải dùng cùng một môi trường. Khi chạy local, dùng cấu hình local. Khi deploy server, đổi lại cấu hình server tương ứng.
+
+`application.properties`
+
+Khi chạy local, bật các dòng sau:
+
+    minio.endpoint=http://localhost:9000
+    minio.endpointui=http://localhost:9001
+    minio.accessKey=admin
+    minio.secretKey=slm123slm123
+    minio.bucketName=fashion
+
+`MinioConfig.java`
+
+Khi chạy local, giữ cách tạo client bằng HTTP bình thường:
+
+    MinioClient minioClient = MinioClient.builder()
+            .endpoint(endpoint)
+            .credentials(accessKey, secretKey)
+            .build();
+
+Khi chạy server, dùng phần cấu hình có `getUnsafeOkHttpClient()` nếu server yêu cầu bỏ qua kiểm tra chứng chỉ SSL:
+
+    MinioClient minioClient = MinioClient.builder()
+            .endpoint(endpoint)
+            .credentials(accessKey, secretKey)
+            .httpClient(getUnsafeOkHttpClient())
+            .build();
+
+`TepTinMapper.java`
+
+Lấy đường dẫn ban đầu:
+
+    String duongDan = tepTin.getDuongDan();
+
+Khi chạy local, chuyển domain cũ về localhost nhưng giữ nguyên phần `/fashion/...`:
+
+    if (duongDan != null && duongDan.contains("/fashion/")) {
+        duongDan = "http://localhost:9000" + duongDan.substring(duongDan.indexOf("/fashion/"));
+    }
+
+Khi chạy server/production, dùng domain thật:
+
+    if (duongDan != null && duongDan.startsWith("http://171.244.142.43:9000")) {
+        duongDan = "https://minio.slmglobal.vn" + duongDan.substring(26);
+    }
+
+Cuối cùng trả đường dẫn đã chọn vào DTO:
+
+    dto.setDuongDan(duongDan);

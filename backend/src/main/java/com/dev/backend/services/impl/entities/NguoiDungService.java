@@ -3,7 +3,7 @@ package com.dev.backend.services.impl.entities;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.enums.OtpType;
-import com.dev.backend.constant.enums.RoleType;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
@@ -12,6 +12,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
@@ -75,95 +76,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
 
     @Transactional
-    public ResponseEntity<ResponseData<String>> register(RegisterRequest registerRequest) {
-        //Lấy thông tin người dùng
-        Optional<NguoiDung> findingNguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                registerRequest.getTenDangNhap(),
-                registerRequest.getEmail(),
-                registerRequest.getSoDienThoai());
-
-        if (findingNguoiDung.isPresent()) {
-            throw new CommonException("Thông tin đăng nhập đã tồn tại");
-        }
-
-        NguoiDung nguoiDung = new NguoiDung();
-        nguoiDung.setTenDangNhap(registerRequest.getTenDangNhap());
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(registerRequest.getMatKhau()));
-        nguoiDung.setEmail(registerRequest.getEmail());
-        nguoiDung.setHoTen(registerRequest.getHoTen());
-        nguoiDung.setSoDienThoai(registerRequest.getSoDienThoai());
-        nguoiDung.setVaiTro(RoleType.khach_hang.toString());
-        nguoiDung.setTrangThai(0);
-        nguoiDung = create(nguoiDung);
-
-        String otp = calcService.getRandomActiveCode(6L);
-        //Khởi tạo OTP
-        GlobalCache.OTP_SCHEDULE_OBJS.add(
-                OtpScheduleObj.builder()
-                        .email(registerRequest.getEmail())
-                        .otp(otp)
-                        .createdAt(nguoiDung.getNgayTao())
-                        .type(OtpType.ACCOUNT_ACTIVATION)
-                        .build()
-        );
-
-        //Truyền dữ liệu vào mail
-        Map<String, Object> params = new HashMap<>();
-
-        params.put("userName", registerRequest.getHoTen());
-        params.put("otp", otp);
-        params.put("expiryTime", "5 phút");
-
-        emailService.sendHtmlEmailFromTemplate(registerRequest.getEmail(), "Kích hoạt tài khoản", "activation.html", params);
-
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .data("Đăng ký tài khoản " + nguoiDung.getVaiTro() + " thành công")
-                        .message("Đăng ký tài khoản " + nguoiDung.getVaiTro() + " thành công")
-                        .error(null)
-                        .build()
-        );
-    }
-
-    @Transactional
-    public ResponseEntity<ResponseData<String>> activeAccount(VerifyAccount verifyDto) {
-        OtpScheduleObj findingRegisterOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream().filter(otpScheduleObj ->
-                otpScheduleObj.getEmail().equals(verifyDto.getEmail()) && otpScheduleObj.getType().equals(OtpType.ACCOUNT_ACTIVATION)).findFirst().orElseThrow(
-                () -> new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn")
-        );
-
-
-        if (!findingRegisterOtp.getOtp().equals(verifyDto.getOtp())) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
-        }
-
-        Instant now = Instant.now();
-        if (now.isAfter(findingRegisterOtp.getCreatedAt().plusSeconds(300))) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
-        }
-
-        Optional<NguoiDung> findingNguoiDung = nguoiDungRepository.findByEmail(findingRegisterOtp.getEmail());
-
-        if (findingNguoiDung.isEmpty()) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
-        }
-        NguoiDung nguoiDung = findingNguoiDung.get();
-        nguoiDung.setTrangThai(1);
-        update(nguoiDung.getId(), nguoiDung);
-        GlobalCache.OTP_SCHEDULE_OBJS.remove(findingRegisterOtp);
-
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .data("Xác nhận tài khoản thành công vui lòng đăng nhập")
-                        .message("Xác nhận tài khoản thành công vui lòng đăng nhập")
-                        .error(null)
-                        .build()
-        );
-    }
-
-    @Transactional
     public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest) {
         //check thông tin user đã có trong hệ thống hay chưa
         Optional<NguoiDung> findingNguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
@@ -176,6 +88,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = findingNguoiDung.get();
         if (!passwordEncoder.matches(loginRequest.getPassword(), nguoiDung.getMatKhauHash())) {
             throw new CommonException("Mật khẩu không chính xác");
+        }
+
+        // Tài khoản bị khóa (trangThai != 1) không được đăng nhập — đọc trực tiếp từ DB
+        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
+            throw new AccountDisabledException();
         }
 
         // lấy danh sách phân quyền người dùng để truyền ra token
@@ -237,6 +154,80 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .status(HttpStatus.OK.value())
                         .data(nguoiDungMapper.toDto(nguoiDung))
                         .message("Cập nhật thông tin người dùng thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    // lấy người dùng đang đăng nhập từ context (token) — không tin tưởng id từ frontend
+    private NguoiDung getCurrentUserFromContext() {
+        NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (info == null || info.getId() == null) {
+            throw new CommonException("Phiên đăng nhập không hợp lệ");
+        }
+        return nguoiDungRepository.findById(info.getId())
+                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+    }
+
+    // Vai trò được hiển thị mục "Kho phụ trách" trên hồ sơ cá nhân.
+    // quan_tri_vien và khach_hang luôn ẩn — phân quyền kho thực tế (hoạt động + còn hiệu lực) mới là nguồn đúng.
+    private static final Set<String> EMPLOYEE_ROLES = Set.of(
+            IRoleType.quan_ly_kho,
+            IRoleType.nhan_vien_kho,
+            IRoleType.nhan_vien_ban_hang,
+            IRoleType.nhan_vien_mua_hang
+    );
+
+    // Điền danh sách kho phụ trách (chỉ mã + tên, đã lọc hoạt động/hiệu lực/ngày bắt đầu) vào DTO hồ sơ
+    private void fillKhoPhuTrachActive(NguoiDungDto dto, NguoiDung nguoiDung) {
+        String vaiTro = nguoiDung.getVaiTro();
+        if (vaiTro == null || !EMPLOYEE_ROLES.contains(vaiTro)) {
+            dto.setKhoPhuTrachActive(Collections.emptyList());
+            return;
+        }
+        dto.setKhoPhuTrachActive(
+                phanQuyenNguoiDungKhoService.findActiveKhoInfoByNguoiDungId(nguoiDung.getId())
+        );
+    }
+
+    public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dto)
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    @Transactional
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(UpdateMeRequest request) {
+        if (request.getHoTen() == null || request.getHoTen().isBlank()) {
+            throw new CommonException("Họ tên không được để trống");
+        }
+
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        nguoiDung.setHoTen(request.getHoTen().trim());
+        // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
+        String soDienThoai = request.getSoDienThoai();
+        nguoiDung.setSoDienThoai(
+                soDienThoai != null && !soDienThoai.isBlank() ? soDienThoai.trim() : null
+        );
+
+        nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
+
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
+
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dto)
+                        .message("Cập nhật hồ sơ thành công")
                         .error(null)
                         .build()
         );
@@ -443,12 +434,27 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<String>> changePassword(ChangePasswordRequest changePass) {
-        NguoiDungAuthInfo nguoiDungInfo = com.dev.backend.config.SecurityContextHolder.getUser();
+        // validate trước khi chạm tới passwordEncoder (tránh encode/matches null -> 500)
+        if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
+            throw new CommonException("Mật khẩu hiện tại không được để trống");
+        }
+        if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()
+                || changePass.getNewPassword().trim().length() < 6) {
+            throw new CommonException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
 
-        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(nguoiDungInfo.getEmail()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản email: " + nguoiDungInfo.getEmail())
-        );
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword()));
+        // lấy user từ context đăng nhập (token), không tin tưởng id từ frontend;
+        // dùng id trong token thay vì email (email có thể đã bị thay đổi -> stale)
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+
+        // so khớp mật khẩu hiện tại với hash trong DB (so sánh chính xác, không trim)
+        if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
+            throw new CommonException("Mật khẩu hiện tại không đúng");
+        }
+
+        // chỉ encode mật khẩu mới sau khi đã validate
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
+        nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
 
@@ -457,6 +463,46 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .status(HttpStatus.OK.value())
                         .message("Thay đổi mật khẩu thành công!")
                         .build()
+        );
+    }
+
+    public String generateTemporaryPassword() {
+        final String characters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+        StringBuilder password = new StringBuilder(8);
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        for (int i = 0; i < 8; i++) {
+            password.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        return password.toString();
+    }
+
+    @Transactional
+    public void resetPasswordRandomByAdmin(Integer userId) {
+        NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+
+        if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
+            throw new CommonException("Người dùng chưa có email để nhận mật khẩu tạm thời");
+        }
+
+        String tempPassword = generateTemporaryPassword();
+
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
+        nguoiDung.setMustChangePassword(true);
+        nguoiDung.setNgayCapNhat(Instant.now());
+        nguoiDungRepository.save(nguoiDung);
+
+        Map<String, Object> emailParams = new HashMap<>();
+        emailParams.put("userName", nguoiDung.getHoTen() != null && !nguoiDung.getHoTen().isBlank()
+                ? nguoiDung.getHoTen()
+                : nguoiDung.getTenDangNhap());
+        emailParams.put("temporaryPassword", tempPassword);
+
+        emailService.sendHtmlEmailFromTemplate(
+                nguoiDung.getEmail(),
+                "Cấp lại mật khẩu tài khoản - Fashion Management",
+                "admin_reset_password.html",
+                emailParams
         );
     }
 }

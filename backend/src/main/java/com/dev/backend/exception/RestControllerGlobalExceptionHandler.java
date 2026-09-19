@@ -1,6 +1,7 @@
 package com.dev.backend.exception;
 
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.InvalidFieldException;
 import jakarta.persistence.EntityNotFoundException;
@@ -37,6 +38,18 @@ public class RestControllerGlobalExceptionHandler {
                         .data(e.getData())
                         .path(getPath(request))
                         .error(e.getHttpStatus().getReasonPhrase())
+                        .build());
+    }
+
+    @ExceptionHandler(AccountDisabledException.class)
+    public ResponseEntity<ResponseData<?>> handleAccountDisabled(AccountDisabledException e, WebRequest request) {
+        return ResponseEntity.status(e.getHttpStatus())
+                .body(ResponseData.builder()
+                        .status(e.getHttpStatus().value())
+                        .message(e.getMessage())
+                        .data(e.getData())
+                        .path(getPath(request))
+                        .error("ACCOUNT_DISABLED")
                         .build());
     }
 

@@ -7,36 +7,31 @@ export const nguoiDungService = {
         return res.data; // ResponseData<NguoiDungDto>
     },
 
-    async updateUser(payload) {
-        // payload: { id, tenDangNhap, hoTen, email, soDienThoai }
-        const res = await apiClient.put("/api/v1/nguoi-dung/update", payload);
+    async getMe() {
+        // hồ sơ của người đang đăng nhập — BE lấy user từ token, không nhận id
+        const res = await apiClient.get("/api/v1/nguoi-dung/me");
         return res.data; // ResponseData<NguoiDungDto>
     },
 
-    async register(payload) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/register", payload, { skipAuth: true });
-        return res.data;
+    async updateMe(payload) {
+        // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token)
+        const res = await apiClient.put("/api/v1/nguoi-dung/me", payload);
+        return res.data; // ResponseData<NguoiDungDto>
     },
 
     async login(payload) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/login", payload, { skipAuth: true });
+        // skipAccountDisabledHandling: lỗi khóa tài khoản khi đăng nhập được hiển thị
+        // trong banner của trang Login thay vì xử lý logout toàn cục ở apiClient
+        const res = await apiClient.post("/api/v1/nguoi-dung/login", payload, {
+            skipAuth: true,
+            skipAccountDisabledHandling: true,
+        });
         const token = res?.data?.data?.token;
         const nguoiDung = res?.data?.data?.nguoiDung;
         if (token) localStorage.setItem("access_token", token);
         if (nguoiDung?.vaiTro) {
             localStorage.setItem("role", nguoiDung.vaiTro);
         }
-        return res.data;
-    },
-
-    async verifyAccount(payload) {
-        // dùng cho KÍCH HOẠT TÀI KHOẢN (register)
-        const res = await apiClient.post("/api/v1/nguoi-dung/active-account", payload, { skipAuth: true });
-        return res.data;
-    },
-
-    async resendOTP(email) {
-        const res = await apiClient.post("/api/v1/nguoi-dung/resend-otp", { email }, { skipAuth: true });
         return res.data;
     },
 
@@ -62,6 +57,8 @@ export const nguoiDungService = {
 
     logout() {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("selected_kho_id");
     },
 
     getToken() {
@@ -69,6 +66,7 @@ export const nguoiDungService = {
     },
 
     async changePassword(payload) {
+        // payload: { currentPassword, newPassword } — không kèm id (BE lấy user từ token)
         const res = await apiClient.post("/api/v1/nguoi-dung/change-password", payload);
         return res.data;
     },

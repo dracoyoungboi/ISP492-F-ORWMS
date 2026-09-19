@@ -71,5 +71,10 @@ public class NguoiDung {
     @Generated(event = EventType.UPDATE)
     Instant ngayCapNhat;
 
+    @Column(name = "must_change_password", nullable = false)
+    Boolean mustChangePassword = false;
+
+
+
 
 }

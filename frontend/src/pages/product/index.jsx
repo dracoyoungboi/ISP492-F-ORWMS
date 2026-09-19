@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { productService } from "@/services/productService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -372,32 +371,28 @@ export default function ProductList() {
                             </DropdownMenu>
 
                             {/* Giá từ */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-bo-muted">Giá từ</Label>
-                                <Input
-                                    type="number"
-                                    value={filters.giaTu}
-                                    onChange={handleFilterChange.giaTu}
-                                    placeholder="Giá từ"
-                                    min="0"
-                                    className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                    disabled={isLoading}
-                                />
-                            </div>
+                            <Input
+                                type="number"
+                                value={filters.giaTu}
+                                onChange={handleFilterChange.giaTu}
+                                placeholder="Giá từ"
+                                aria-label="Giá từ"
+                                min="0"
+                                className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                disabled={isLoading}
+                            />
 
                             {/* Giá đến */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-bo-muted">Giá đến</Label>
-                                <Input
-                                    type="number"
-                                    value={filters.giaDen}
-                                    onChange={handleFilterChange.giaDen}
-                                    placeholder="Đến"
-                                    min="0"
-                                    className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                    disabled={isLoading}
-                                />
-                            </div>
+                            <Input
+                                type="number"
+                                value={filters.giaDen}
+                                onChange={handleFilterChange.giaDen}
+                                placeholder="Giá đến"
+                                aria-label="Giá đến"
+                                min="0"
+                                className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                disabled={isLoading}
+                            />
 
                             {/* Đặt lại */}
                             <Button

@@ -39,6 +39,20 @@
 	--sidebar-width-icon: 4.5rem;
 }
 
+/*
+ * Backoffice sidebar: hide the scrollbar inside the sidebar while keeping
+ * wheel / touchpad / keyboard scrolling. Scoped to .bo-sidebar-scroll so no
+ * other scroll container in the app is affected.
+ */
+.bo-sidebar-scroll {
+	scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* Edge/IE legacy */
+}
+
+.bo-sidebar-scroll::-webkit-scrollbar {
+	display: none; /* Chrome, Edge, Safari */
+}
+
 :root {
 	color-scheme: light;
 	--gold: #b8860b;
