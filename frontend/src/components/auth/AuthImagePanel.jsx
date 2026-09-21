@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, Cpu, Package } from 'lucide-react';
 import BrandLogo from '@/components/brand/BrandLogo';
 
 const SLIDES = [
@@ -146,32 +145,6 @@ export default function AuthImagePanel() {
                     <BrandLogo variant="auth" className="drop-shadow-sm lg:h-14" />
                 </div>
 
-                <div className="max-w-lg mb-12">
-                    <h2 className="text-3xl font-semibold leading-snug mb-6 text-white">
-                        Nền tảng quản lý kho thời trang thông minh.
-                    </h2>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                                <Activity className="w-4 h-4 text-white" />
-                            </div>
-                            <p className="text-white/90 font-medium">Dashboard real-time</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                                <Package className="w-4 h-4 text-white" />
-                            </div>
-                            <p className="text-white/90 font-medium">Quản lý đơn hàng toàn diện</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                                <Cpu className="w-4 h-4 text-white" />
-                            </div>
-                            <p className="text-white/90 font-medium">AI dự báo tồn kho</p>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {/* Chấm điều hướng */}
