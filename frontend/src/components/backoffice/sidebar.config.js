@@ -179,10 +179,5 @@ export const SIDEBAR_MENU = [
     icon: Printer,
     to: "/settings/print-templates",
     roles: ["quan_tri_vien", "quan_ly_kho"],
-    // Badge "Beta" hiển thị cạnh tên mục (chỉ ở trạng thái sidebar mở rộng)
-    badge: {
-      label: "Beta",
-      description: "Tính năng đang được hoàn thiện",
-    },
   },
 ];
