@@ -75,7 +75,11 @@ export default function BackofficeSidebar() {
       collapsible="icon"
       className="z-50 border-r border-bo-sidebar-border bg-bo-sidebar text-white"
     >
-      <SidebarHeader className="h-[72px] justify-center border-b border-bo-sidebar-border bg-bo-sidebar px-4">
+      <SidebarHeader
+        className={`h-[72px] justify-center border-b border-bo-sidebar-border bg-bo-sidebar ${
+          isExpanded ? "px-4" : "px-0"
+        }`}
+      >
         {isExpanded ? (
           <NavLink
             to="/dashboard"
@@ -102,7 +106,7 @@ export default function BackofficeSidebar() {
                 <img
                   src="/branding/f-centric-icon.svg"
                   alt="FCentric – Fashion Warehouse Management"
-                  className="size-10 shrink-0 object-contain"
+                  className="size-8 max-w-full shrink-0 object-contain"
                   draggable={false}
                 />
               </NavLink>
