@@ -9,11 +9,23 @@ import {
   Printer,
 } from "lucide-react";
 
+// Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
+// Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
+// label = null nghĩa là nhóm không có tiêu đề (vd: Tổng quan đứng độc lập).
+export const SIDEBAR_SECTIONS = [
+  { key: "overview", label: null },
+  { key: "management", label: "QUẢN TRỊ" },
+  { key: "operations", label: "VẬN HÀNH" },
+  { key: "reports", label: "GIÁM SÁT" },
+  { key: "settings", label: "HỆ THỐNG" },
+];
+
 export const SIDEBAR_MENU = [
   // ================= DASHBOARD =================
   {
     label: "Tổng quan",
     icon: LayoutDashboard,
+    section: "overview",
     to: "/dashboard",
     roles: [
       "quan_tri_vien",
@@ -28,6 +40,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Quản lý người dùng",
     icon: User,
+    section: "management",
     to: "/users",
     roles: ["quan_tri_vien"],
   },
@@ -36,6 +49,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Danh mục & Sản phẩm",
     icon: Package,
+    section: "management",
     roles: [
       "quan_tri_vien",
       "quan_ly_kho",
@@ -59,6 +73,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Mua hàng & Nhập kho",
     icon: ArrowDownToLine,
+    section: "operations",
     roles: [
       "quan_tri_vien",
       "quan_ly_kho",
@@ -98,6 +113,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Kho & Xuất kho",
     icon: Warehouse,
+    section: "operations",
     roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
     children: [
       {
@@ -119,6 +135,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Bán hàng",
     icon: ShoppingCart,
+    section: "operations",
     roles: [
       "quan_tri_vien",
       "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"
@@ -146,6 +163,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Báo cáo & Cảnh báo",
     icon: BarChart3,
+    section: "reports",
     roles: [
       "quan_tri_vien",
       "quan_ly_kho",
@@ -177,6 +195,7 @@ export const SIDEBAR_MENU = [
   {
     label: "Cấu hình mẫu in",
     icon: Printer,
+    section: "settings",
     to: "/settings/print-templates",
     roles: ["quan_tri_vien", "quan_ly_kho"],
   },
